@@ -70,28 +70,13 @@ export default defineConfig({
   build: {
     outDir: "dist",
     assetsDir: "assets",
-    rollupOptions: {
-      output: {
-        manualChunks: (id) => {
-          // Split node_modules into separate chunks
-          if (id.includes("node_modules")) {
-            // Split React and React-DOM into separate chunk
-            if (id.includes("react") || id.includes("react-dom")) {
-              return "react-vendor";
-            }
-            // Split React Router into separate chunk
-            if (id.includes("react-router")) {
-              return "router-vendor";
-            }
-            // Split Lucide icons into separate chunk
-            if (id.includes("lucide-react")) {
-              return "icons-vendor";
-            }
-            // All other node_modules go into vendor chunk
-            return "vendor";
-          }
-        }
-      },
+    // Let Vite handle chunking automatically for better dependency resolution
+    // This ensures React and its dependencies load in the correct order
+    chunkSizeWarningLimit: 1000,
+    // Ensure proper module resolution
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
     },
   },
   publicDir: "public",

@@ -1,0 +1,49 @@
+// Dark Mode Styles for Marketplace - Append this content to _marketplace.scss
+[data-theme="dark"] {
+  .marketplace-page {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+
+  .marketplace-tabs-card {
+    background-color: var(--card-bg);
+    box-shadow: 0 2px 8px var(--shadow-light);
+    border: 1px solid var(--border-color);
+  }
+
+  .marketplace-content-section {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+
+  .marketplace-sidebar {
+    background-color: var(--card-bg);
+    box-shadow: 0 2px 8px var(--shadow-light);
+    border: 1px solid var(--border-color);
+
+    &__item {
+      color: var(--text-primary);
+
+      &:hover {
+        background-color: var(--color-primary);
+        color: white;
+      }
+
+      &--active {
+        background-color: var(--color-primary);
+      }
+    }
+  }
+
+  .marketplace-content {
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+  }
+
+  .marketplace-product-card {
+    background-color: var(--card-bg);
+    box-shadow: 0 2px 8px var(--shadow-light);
+    border: 1px solid var(--border-color);
+  }
+}
+

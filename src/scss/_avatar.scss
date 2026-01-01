@@ -1,0 +1,53 @@
+// Avatar Component Styles
+.avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  
+  &__image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    
+    .lazy-image-wrapper {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      overflow: hidden;
+    }
+    
+    .lazy-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+    
+    .lazy-image-placeholder {
+      border-radius: 50%;
+    }
+    
+    .lazy-image-error {
+      border-radius: 50%;
+      display: none; // Hide error state, show initials instead
+    }
+  }
+  
+  &__initials {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    user-select: none;
+  }
+}
+
+
+
+
+
+
+

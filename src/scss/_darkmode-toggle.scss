@@ -1,0 +1,65 @@
+@use "./variables" as *;
+
+.dark-mode-toggle {
+  position: fixed;
+  z-index: 99999;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 2px solid var(--color-primary);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  &:hover {
+    box-shadow: 0 6px 20px rgba(13, 74, 31, 0.4);
+    border-color: var(--color-primary);
+    background-color: var(--bg-secondary);
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.3s ease;
+  }
+
+  &:hover svg {
+    transform: rotate(15deg);
+  }
+
+  @media (max-width: 768px) {
+    width: 45px;
+    height: 45px;
+
+    svg {
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    width: 40px;
+    height: 40px;
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+}

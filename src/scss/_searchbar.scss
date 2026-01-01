@@ -1,0 +1,190 @@
+// SearchBar Component Styles
+@use "./variables" as *;
+@use "./mixins" as *;
+
+.searchbar {
+  position: relative;
+  width: 100%;
+  z-index: 9999;
+
+  &__wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px 16px;
+    transition: all 0.3s ease;
+
+    &:focus-within {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(13, 74, 31, 0.1);
+    }
+  }
+
+  &__icon {
+    color: var(--text-muted);
+    margin-right: 12px;
+    flex-shrink: 0;
+    transition: color 0.3s ease;
+  }
+
+  &__input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: $font-family;
+    transition: color 0.3s ease;
+
+    &::placeholder {
+      color: var(--text-muted);
+    }
+  }
+
+  // Hero variant
+  &--hero {
+    .searchbar__wrapper {
+      &--hero {
+        background-color: rgba(255, 255, 255, 0.1);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 30px;
+        padding: 16px 50px 16px 20px;
+
+        &:focus-within {
+          border-color: rgba(255, 255, 255, 0.5);
+          background-color: rgba(255, 255, 255, 0.15);
+        }
+      }
+    }
+
+    .searchbar__input {
+      &--hero {
+        color: white;
+        font-size: 16px;
+
+        &::placeholder {
+          color: rgba(255, 255, 255, 0.7);
+        }
+      }
+    }
+
+    .searchbar__icon {
+      &--hero {
+        position: absolute;
+        right: 18px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: rgba(255, 255, 255, 0.7);
+        margin-right: 0;
+      }
+    }
+
+    .searchbar__results {
+      &--hero {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 4px 12px var(--shadow-medium);
+      }
+    }
+  }
+
+  // Results dropdown
+  &__results {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px var(--shadow-medium);
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 9999;
+    margin-top: 4px;
+    transition: all 0.3s ease;
+
+    &--hero {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      box-shadow: 0 4px 12px var(--shadow-medium);
+      z-index: 9999;
+    }
+  }
+
+  &__result {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    border-bottom: 1px solid var(--border-color);
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:hover {
+      background-color: var(--bg-secondary);
+    }
+
+    &--empty {
+      cursor: default;
+      padding: 20px;
+      text-align: center;
+
+      &:hover {
+        background-color: transparent;
+      }
+    }
+  }
+
+  &__result-icon {
+    color: var(--text-muted);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+  }
+
+  &__result-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+
+  &__result-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__result-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+    transition: color 0.3s ease;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__result-subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    transition: color 0.3s ease;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+

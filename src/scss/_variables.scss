@@ -1,0 +1,51 @@
+
+// ----------------------------------------------------------------------------
+// Typography
+// ----------------------------------------------------------------------------
+$font-family: 'Roboto', sans-serif;
+$font-size: 16px;
+
+// ----------------------------------------------------------------------------
+// Colors
+// ----------------------------------------------------------------------------
+$color-text: #333;
+$color-background: #fff;
+$color-primary: #34b86a;
+$color-secondary: #f7f7f7;
+
+// Welcome Page Specific Colors
+$panel-border-color: rgba(21, 252, 37, 0.6);
+$panel-bg-color: rgba(13, 74, 31, 0.2);
+$text-white: #ffffff;
+$footer-color: #0d4a1f;
+$footer-color-dark: #004018;
+$border-gray: #99a1af;
+$shadow-light: rgba(0, 0, 0, 0.1);
+$shadow-dark: rgba(0, 0, 0, 0.3);
+
+// ----------------------------------------------------------------------------
+// Layout & Spacing
+// ----------------------------------------------------------------------------
+$spacing-xs: 0.5rem;
+$spacing-sm: 1rem;
+$spacing-md: 1.5rem;
+$spacing-lg: 2rem;
+$spacing-xl: 2.5rem;
+$spacing-xxl: 4rem;
+
+// ----------------------------------------------------------------------------
+// Welcome Page Specific
+// ----------------------------------------------------------------------------
+$panel-border-radius: 15px;
+$panel-max-width: 750px;
+$glass-blur: 20px;
+$glass-saturate: 180%;
+
+// ----------------------------------------------------------------------------
+// Breakpoints
+// ----------------------------------------------------------------------------
+$breakpoint-xs: 575.98px;
+$breakpoint-sm: 767.98px;
+$breakpoint-md: 991.98px;
+$breakpoint-lg: 1199.98px;
+$breakpoint-xl: 1200px;

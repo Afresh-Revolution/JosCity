@@ -1,0 +1,254 @@
+@use "./variables" as *;
+
+.maintenance-page {
+  min-height: 100vh;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  font-family: $font-family;
+}
+
+.maintenance-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  overflow: hidden;
+
+  .sky-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .maintenance-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
+}
+
+.maintenance-container {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 100px);
+  padding: 40px 20px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+
+  &.fade-in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.maintenance-card {
+  background: rgba(200, 255, 200, 0.25);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-radius: 24px;
+  padding: 48px 64px;
+  max-width: 800px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.maintenance-top-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.maintenance-bottom-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+}
+
+.maintenance-logo-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 32px;
+  width: 100%;
+}
+
+.maintenance-logo {
+  width: auto;
+  height: auto;
+  max-width: 112px;
+  object-fit: contain;
+
+  // Remove any background from lazy loading wrapper
+  &.lazy-image-wrapper {
+    background-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+
+    // Override LazyImage default background (inline style)
+    &[style*="background-color"] {
+      background-color: transparent !important;
+    }
+
+    // Remove placeholder background
+    .lazy-image-placeholder {
+      background: transparent !important;
+    }
+  }
+
+  // Remove background from the image itself
+  img,
+  .lazy-image {
+    background-color: transparent !important;
+    background: transparent !important;
+  }
+}
+
+// Ensure the logo container doesn't have any background
+.maintenance-logo-container {
+  .lazy-image-wrapper {
+    background-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+
+    // Override LazyImage default background (inline style)
+    &[style*="background-color"] {
+      background-color: transparent !important;
+    }
+
+    // Remove placeholder background
+    .lazy-image-placeholder {
+      background: transparent !important;
+    }
+
+    // Remove background from the image itself
+    img,
+    .lazy-image {
+      background-color: transparent !important;
+      background: transparent !important;
+    }
+  }
+}
+
+.maintenance-heading {
+  font-size: 48px;
+  font-weight: 700;
+  color: whitesmoke;
+  margin: 0 0 24px 0;
+  letter-spacing: -0.02em;
+}
+
+.maintenance-icon-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0;
+  width: 100%;
+}
+
+.maintenance-icon {
+  width: 160px;
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pulse-maintenance 2s ease-in-out infinite;
+  will-change: transform;
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+@keyframes pulse-maintenance {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+
+.maintenance-message {
+  margin-bottom: 32px;
+  width: 100%;
+  max-width: 500px;
+  margin-top: 0;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.maintenance-text {
+  font-size: 20px;
+  color: white;
+  margin: 0 0 16px 0;
+  line-height: 1.6;
+  font-weight: 400;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.maintenance-text-secondary {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+  line-height: 1.6;
+  font-weight: 300;
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .maintenance-card {
+    padding: 36px 24px;
+    max-width: 90%;
+    flex-direction: column;
+    gap: 40px;
+  }
+
+  .maintenance-heading {
+    font-size: 36px;
+    margin-bottom: 24px;
+  }
+
+  .maintenance-icon {
+    width: 120px;
+    height: 120px;
+  }
+
+  .maintenance-logo {
+    max-width: 92px;
+  }
+
+  .maintenance-text {
+    font-size: 16px;
+  }
+
+  .maintenance-text-secondary {
+    font-size: 14px;
+  }
+}
+

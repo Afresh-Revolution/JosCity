@@ -1,0 +1,286 @@
+@use "./variables" as *;
+
+// Events Page Layout (when used as standalone page)
+.events-page {
+  min-height: 100vh;
+  background-color: var(--bg-secondary);
+  font-family: $font-family;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  position: relative;
+
+  &__container {
+    display: flex;
+    min-height: calc(100vh - 64px); // Account for header height
+    margin-top: 64px; // Account for fixed header
+    position: relative;
+    width: 100%;
+    box-sizing: border-box;
+
+    @media (max-width: 992px) {
+      margin-top: 56px;
+      min-height: calc(100vh - 56px);
+    }
+  }
+
+  &__main {
+    flex: 1;
+    padding: 2rem;
+    margin-left: 0;
+    transition: margin-left 0.3s ease;
+    width: 100%;
+    box-sizing: border-box;
+
+    @media (min-width: 1024px) {
+      margin-left: 280px; // Account for sidebar width
+    }
+
+    @media (max-width: 1023px) {
+      margin-left: 0;
+      padding: 1rem;
+    }
+
+    @media (max-width: 768px) {
+      padding: 0.75rem;
+    }
+  }
+}
+
+// Overlay for mobile sidebar (matching NewsFeed)
+.events-overlay {
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1050;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+
+  @media (max-width: 992px) {
+    top: 56px;
+  }
+
+  &--visible {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+.events {
+  padding: 80px 0;
+  background-color: var(--bg-secondary);
+  font-family: $font-family;
+
+  // When inside events-page, reduce padding
+  .events-page & {
+    padding: 40px 0;
+    background-color: transparent;
+
+    @media (max-width: 768px) {
+      padding: 20px 0;
+    }
+  }
+
+  &__container {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 0;
+  }
+
+  &__heading {
+    text-align: center;
+    padding: 0 20px;
+    margin-bottom: 30px;
+  }
+
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background-color: rgba(13, 74, 31, 0.1);
+    border-radius: 20px;
+    color: $color-primary;
+    font-size: 14px;
+    font-weight: 500;
+    opacity: 0;
+    transform: translateY(-20px);
+    transition: opacity 0.8s ease-out 0.1s, transform 0.8s ease-out 0.1s;
+
+    &.fade-in {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    svg {
+      color: $color-primary;
+    }
+  }
+
+  &__image-wrapper {
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s ease-out 0.3s, transform 0.8s ease-out 0.3s;
+    overflow: hidden;
+    position: relative;
+
+    &.fade-in {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  &__image {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: cover;
+    max-width: 100%;
+  }
+
+  &__nav-button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: var(--bg-overlay);
+    border: none;
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 10;
+    box-shadow: 0 2px 8px var(--shadow-light);
+
+    &:hover {
+      background-color: var(--bg-primary);
+      box-shadow: 0 4px 12px var(--shadow-medium);
+      transform: translateY(-50%) scale(1.1);
+    }
+
+    &:active {
+      transform: translateY(-50%) scale(0.95);
+    }
+
+    svg {
+      color: $color-primary;
+      width: 20px;
+      height: 20px;
+    }
+
+    &--prev {
+      left: 20px;
+    }
+
+    &--next {
+      right: 20px;
+    }
+  }
+
+  // Responsive Styles
+  @media screen and (max-width: 1024px) {
+    padding: 60px 0;
+
+    &__heading {
+      margin-bottom: 25px;
+    }
+
+    &__nav-button {
+      width: 44px;
+      height: 44px;
+
+      svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      &--prev {
+        left: 15px;
+      }
+
+      &--next {
+        right: 15px;
+      }
+    }
+  }
+
+  @media screen and (max-width: 768px) {
+    padding: 40px 0;
+
+    &__heading {
+      margin-bottom: 20px;
+      padding: 0 15px;
+    }
+
+    &__badge {
+      font-size: 13px;
+      padding: 6px 14px;
+    }
+
+    &__nav-button {
+      width: 40px;
+      height: 40px;
+
+      svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      &--prev {
+        left: 10px;
+      }
+
+      &--next {
+        right: 10px;
+      }
+    }
+  }
+
+  @media screen and (max-width: 480px) {
+    padding: 30px 0;
+
+    &__heading {
+      margin-bottom: 15px;
+      padding: 0 10px;
+    }
+
+    &__badge {
+      font-size: 12px;
+      padding: 6px 12px;
+
+      svg {
+        width: 14px;
+        height: 14px;
+      }
+    }
+
+    &__nav-button {
+      width: 36px;
+      height: 36px;
+
+      svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      &--prev {
+        left: 8px;
+      }
+
+      &--next {
+        right: 8px;
+      }
+    }
+  }
+}

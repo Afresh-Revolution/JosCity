@@ -15,17 +15,14 @@ import API_BASE_URL from "../api/config";
 import { fetchWithTimeout } from "../utils/fetchWithTimeout";
 import "../main.css";
 
-const ADMIN_EMAIL = "admin@joscity.com";
-const ADMIN_PASSWORD = "admin123";
-
 function AdminLogin() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    email: ADMIN_EMAIL,
-    password: ADMIN_PASSWORD,
+    email: "",
+    password: "",
   });
 
   // Redirect if already logged in
@@ -215,7 +212,8 @@ function AdminLogin() {
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  placeholder="admin@joscity.com"
+                  placeholder="Enter your email"
+                  autoComplete="off"
                   disabled={isLoading}
                   required
                 />
@@ -232,7 +230,8 @@ function AdminLogin() {
                   name="password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  placeholder="Password"
+                  placeholder="Enter your password"
+                  autoComplete="off"
                   disabled={isLoading}
                   required
                 />

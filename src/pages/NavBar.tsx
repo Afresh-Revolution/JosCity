@@ -158,6 +158,14 @@ function App() {
 
   return (
     <>
+      {/* Dark overlay for mobile menu */}
+      {isMenuOpen && (
+        <div
+          className="navbar__overlay"
+          onClick={() => setIsMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
       <nav className="navbar">
         <div className="navbar__left-section">
           <div

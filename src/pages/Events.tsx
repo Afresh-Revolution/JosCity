@@ -5,7 +5,7 @@ import "../main.css";
 import "../scss/_events.scss";
 import multipleLaugh from "../image/multiple-laugh.png";
 import smile from "../image/smile.png";
-import CAGE from "../image/CAGE.png";
+
 import NewsFeedHeader from "./NewsFeed/NewsFeedHeader";
 import NewsFeedSidebar from "./NewsFeed/NewsFeedSidebar";
 
@@ -31,11 +31,6 @@ const Events: React.FC = () => {
       id: 2,
       url: smile,
       alt: "Happy Community",
-    },
-    {
-      id: 3,
-      url: CAGE,
-      alt: "CAGE",
     },
   ];
 

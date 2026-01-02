@@ -22,7 +22,7 @@ const Guidelines: React.FC = () => {
     {
       id: "1",
       quote:
-        "Welcome to the Jos Smart City PWA! We're here to help you navigate and enjoy your city with ease. In this phase of the app, kindly click on the green 'Get Started' button to redirect you to an account type panel, select your type of account, carefully fill in your details, an email would be sent to you if submitted successfully, with a login button, your email address and an OTP, kindly change your password after logging in. Your Information is protected and will not be shared with anyone.",
+        "Welcome to the Jos Smart City PWA! We're here to help you navigate and enjoy your city with ease. In this phase of the app, kindly click on the green 'Get Started' button to redirect you to an account type panel, select your type of account, carefully fill in your details, an email would be sent to you if submitted successfully, with a login button and an OTP. Your Information is protected and will not be shared with anyone.",
       author_name: "AfrESH Support",
       rating: 5,
       display_order: 0,

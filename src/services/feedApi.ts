@@ -95,10 +95,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
   } catch (fetchError: unknown) {
     // Handle network errors
     const error = fetchError as { name?: string; message?: string };
-    if (
-      error.name === "AbortError" ||
-      error.name === "TimeoutError"
-    ) {
+    if (error.name === "AbortError" || error.name === "TimeoutError") {
       throw new Error(
         "Request timed out. Please check your connection and try again."
       );
@@ -111,9 +108,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
         "Unable to connect to server. Please ensure the backend is running on port 3000."
       );
     }
-    throw new Error(
-      `Network error: ${error.message || "Connection failed"}`
-    );
+    throw new Error(`Network error: ${error.message || "Connection failed"}`);
   }
 
   // Check if response is ok before trying to parse
@@ -169,7 +164,8 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     // Provide user-friendly error messages based on status codes
     let defaultMessage = `API Error: ${response.statusText}`;
     if (response.status === 500) {
-      defaultMessage = "Server error. Please try again later or contact support if the problem persists.";
+      defaultMessage =
+        "Server error. Please try again later or contact support if the problem persists.";
     } else if (response.status === 401) {
       defaultMessage = "Authentication required. Please sign in again.";
     } else if (response.status === 403) {
@@ -181,7 +177,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     } else if (response.status >= 400) {
       defaultMessage = "Request failed. Please check your input and try again.";
     }
-    
+
     const errorMessage =
       getErrorMessage(data.error) ||
       getErrorMessage(data.message) ||
@@ -213,7 +209,10 @@ export const feedApi = {
     text_color?: string;
     duration?: number; // hours until expiration (default: 24)
   }): Promise<{ success: boolean; data: Story; message: string }> => {
-    console.log("Creating story via POST /api/stories", { type: data.type, hasSrc: !!data.src });
+    console.log("Creating story via POST /api/stories", {
+      type: data.type,
+      hasSrc: !!data.src,
+    });
     return apiRequest("/stories", {
       method: "POST",
       body: JSON.stringify(data),
@@ -425,13 +424,15 @@ export const feedApi = {
     data: any; // API response data structure varies by endpoint
     message: string;
   }> => {
-    const hasFiles = (data.images && data.images.length > 0) || (data.videos && data.videos.length > 0);
-    
-    console.log("Creating post via POST /api/feed/posts", { 
-      hasCaption: !!data.caption, 
-      imagesCount: data.images?.length || 0, 
+    const hasFiles =
+      (data.images && data.images.length > 0) ||
+      (data.videos && data.videos.length > 0);
+
+    console.log("Creating post via POST /api/feed/posts", {
+      hasCaption: !!data.caption,
+      imagesCount: data.images?.length || 0,
       videosCount: data.videos?.length || 0,
-      usingFormData: hasFiles
+      usingFormData: hasFiles,
     });
 
     // Get authentication token from localStorage
@@ -441,7 +442,7 @@ export const feedApi = {
     const headers: Record<string, string> = {
       ...(hasFiles ? {} : { "Content-Type": "application/json" }), // Only set Content-Type for JSON
     };
-    
+
     // Add authorization header if token exists
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
@@ -451,15 +452,16 @@ export const feedApi = {
     let body: FormData | string;
     if (hasFiles) {
       const formData = new FormData();
-      
+
+      // Backend expects 'text' instead of 'caption'
       if (data.caption) {
-        formData.append("caption", data.caption);
+        formData.append("text", data.caption);
       }
 
-      // Append image files
+      // Backend expects 'photos' instead of 'images'
       if (data.images && data.images.length > 0) {
         data.images.forEach((file) => {
-          formData.append("images", file);
+          formData.append("photos", file);
         });
       }
 
@@ -469,12 +471,12 @@ export const feedApi = {
           formData.append("videos", file);
         });
       }
-      
+
       body = formData;
     } else {
-      // Use JSON for text-only posts
+      // Use JSON for text-only posts - backend expects 'text'
       body = JSON.stringify({
-        caption: data.caption || undefined,
+        text: data.caption || undefined,
       });
     }
 
@@ -489,10 +491,7 @@ export const feedApi = {
     } catch (fetchError: unknown) {
       // Handle network errors
       const error = fetchError as { name?: string; message?: string };
-      if (
-        error.name === "AbortError" ||
-        error.name === "TimeoutError"
-      ) {
+      if (error.name === "AbortError" || error.name === "TimeoutError") {
         throw new Error(
           "Request timed out. Please check your connection and try again."
         );
@@ -505,9 +504,7 @@ export const feedApi = {
           "Unable to connect to server. Please ensure the backend is running on port 3000."
         );
       }
-      throw new Error(
-        `Network error: ${error.message || "Connection failed"}`
-      );
+      throw new Error(`Network error: ${error.message || "Connection failed"}`);
     }
 
     // Check if response is ok before trying to parse
@@ -524,11 +521,17 @@ export const feedApi = {
 
     let responseData: ApiResponse;
 
-    if (contentType && contentType.includes("application/json") && text.trim()) {
+    if (
+      contentType &&
+      contentType.includes("application/json") &&
+      text.trim()
+    ) {
       try {
         responseData = JSON.parse(text) as ApiResponse;
       } catch (parseError) {
-        responseData = { error: response.statusText || "Invalid response format" };
+        responseData = {
+          error: response.statusText || "Invalid response format",
+        };
       }
     } else if (text.trim()) {
       responseData = { error: text.substring(0, 200) || response.statusText };
@@ -563,7 +566,8 @@ export const feedApi = {
       // Provide user-friendly error messages based on status codes
       let defaultMessage = `API Error: ${response.statusText}`;
       if (response.status === 500) {
-        defaultMessage = "Server error. Please try again later or contact support if the problem persists.";
+        defaultMessage =
+          "Server error. Please try again later or contact support if the problem persists.";
       } else if (response.status === 401) {
         defaultMessage = "Authentication required. Please sign in again.";
       } else if (response.status === 403) {
@@ -573,9 +577,10 @@ export const feedApi = {
       } else if (response.status >= 500) {
         defaultMessage = "Server error. Please try again later.";
       } else if (response.status >= 400) {
-        defaultMessage = "Request failed. Please check your input and try again.";
+        defaultMessage =
+          "Request failed. Please check your input and try again.";
       }
-      
+
       const errorMessage =
         getErrorMessage(responseData.error) ||
         getErrorMessage(responseData.message) ||

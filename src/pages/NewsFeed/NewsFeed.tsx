@@ -1548,7 +1548,7 @@ const NewsFeed: React.FC = () => {
 
           {/* Footer */}
       <footer className="newsfeed-footer">
-            <p>© 2025 JOSCity</p>
+            <p>© 2026 JOSCity</p>
         <div className="newsfeed-footer__links">
           <a
             href="/about"

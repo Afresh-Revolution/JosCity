@@ -20,10 +20,10 @@ export async function compressImage(
   options: CompressionOptions = {}
 ): Promise<File> {
   const {
-    maxWidth = 1920,
-    maxHeight = 1920,
-    quality = 0.8,
-    maxSizeMB = 2, // Target 2MB max
+    maxWidth = 1200,
+    maxHeight = 1200,
+    quality = 0.7,
+    maxSizeMB = 1, // Target 1MB max for faster uploads
   } = options;
 
   return new Promise((resolve, reject) => {

@@ -486,7 +486,7 @@ export const feedApi = {
         method: "POST",
         headers,
         body,
-        signal: AbortSignal.timeout(hasFiles ? 60000 : 30000), // Longer timeout for file uploads
+        signal: AbortSignal.timeout(hasFiles ? 45000 : 20000), // Reduced timeout - backend should respond faster
       });
     } catch (fetchError: unknown) {
       // Handle network errors

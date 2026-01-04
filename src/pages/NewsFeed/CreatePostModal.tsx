@@ -34,8 +34,8 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-    const MAX_IMAGES = 10; // Maximum number of images
+    const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB (reduced for faster uploads)
+    const MAX_IMAGES = 3; // Maximum 3 images (reduced for faster uploads)
     const validFiles: File[] = [];
     const errors: string[] = [];
 
@@ -78,12 +78,12 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
       for (let index = 0; index < validFiles.length; index++) {
         const file = validFiles[index];
         try {
-          // Compress the image before storing
+          // Compress the image before storing - more aggressive compression
           const compressedFile = await compressImage(file, {
-            maxWidth: 1920,
-            maxHeight: 1920,
-            quality: 0.8,
-            maxSizeMB: 2, // Target 2MB max per image
+            maxWidth: 1200, // Reduced from 1920 for faster upload
+            maxHeight: 1200,
+            quality: 0.7, // Reduced from 0.8 for smaller files
+            maxSizeMB: 1, // Reduced to 1MB max per image for faster uploads
           });
           
           // Store the compressed File object
@@ -154,8 +154,8 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-    const MAX_VIDEOS = 5; // Maximum number of videos
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB (reduced from 50MB for faster uploads)
+    const MAX_VIDEOS = 1; // Maximum 1 video (reduced for faster uploads)
     const validFiles: File[] = [];
     const errors: string[] = [];
 

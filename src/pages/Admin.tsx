@@ -218,22 +218,12 @@ const Admin: React.FC = () => {
     ? dashboardData.chart 
     : defaultChartData;
 
-  // Calculate max value dynamically from chart data
-  const maxValue = Math.max(
-    25, // Minimum max value for better visualization
-    ...chartData.flatMap((data: { users?: number; posts?: number; pages?: number; groups?: number; events?: number }) => [
-      data.users || 0,
-      data.posts || 0,
-      data.pages || 0,
-      data.groups || 0,
-      data.events || 0
-    ])
-  );
+  // Set max value to 100 for y-axis
+  const maxValue = 100;
 
   const chartHeight = 280;
 
   const getBarHeight = (value: number) => {
-    if (maxValue === 0) return 0;
     return (value / maxValue) * chartHeight;
   };
 
@@ -1132,7 +1122,7 @@ const Admin: React.FC = () => {
                   </button>
                   <div className="admin-chart__container">
                     <div className="admin-chart__y-axis">
-                      {[0, Math.ceil(maxValue * 0.2), Math.ceil(maxValue * 0.4), Math.ceil(maxValue * 0.6), Math.ceil(maxValue * 0.8), maxValue].map((value) => (
+                      {[0, 20, 40, 60, 80, 100].map((value) => (
                         <div key={value} className="admin-chart__y-label">
                           {value}
                         </div>
@@ -1141,8 +1131,8 @@ const Admin: React.FC = () => {
                     <div className="admin-chart__total-label">Total</div>
                     <div className="admin-chart__bars-container">
                       {/* Grid lines */}
-                      {[Math.ceil(maxValue * 0.2), Math.ceil(maxValue * 0.4), Math.ceil(maxValue * 0.6), Math.ceil(maxValue * 0.8), maxValue].map((value) => {
-                        const position = ((maxValue - value) / maxValue) * 100;
+                      {[20, 40, 60, 80, 100].map((value) => {
+                        const position = ((100 - value) / 100) * 100;
                         return (
                           <div
                             key={value}

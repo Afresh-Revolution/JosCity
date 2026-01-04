@@ -225,7 +225,7 @@ const Pricing: React.FC = () => {
         </div>
 
         <div
-          ref={gridRef}
+          ref={gridRef} // ref to the grid container
           data-animate-id="pricing-grid"
           className={`pricing__grid ${
             visibleElements.has("pricing-grid") ? "fade-in" : ""

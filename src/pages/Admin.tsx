@@ -224,7 +224,6 @@ const Admin: React.FC = () => {
   const chartHeight = 280;
 
   const getBarHeight = (value: number) => {
-    if (maxValue === 0) return 0;
     return (value / maxValue) * chartHeight;
   };
 

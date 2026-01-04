@@ -375,7 +375,7 @@
   border-top: 1px solid rgba(255, 255, 255, 0.2);
 
   p {
-    color: rgb(37, 37, 37);
+    color: whitesmoke;
     font-size: 0.9rem;
     font-family: $font-family;
     margin: 0;
@@ -384,7 +384,7 @@
   .register-signin-link-button {
     background: none;
     border: none;
-    color: #005620;
+    color: #bbb;
     font-weight: 600;
     cursor: pointer;
     font-family: $font-family;
@@ -393,7 +393,7 @@
     transition: color 0.3s ease;
 
     &:hover {
-      color: black;
+      color: whitesmoke;
     }
   }
 }

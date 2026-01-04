@@ -1,5 +1,5 @@
 import API_BASE_URL from "../api/config";
-import { decrementRegisteredCitizensCount } from "./citizenCountUtils";
+// Citizen count is now fetched from API
 
 export async function fetchWithTimeout(
   url: string,
@@ -379,10 +379,11 @@ export const deleteUser = async (
     }
     console.log("deleted user", data);
     
-    // Decrement registered citizens count if deleted user was approved
+    // Refresh count from API if deleted user was approved
     // Only approved users are counted in registered citizens
     if (data.success && (data.was_approved || data.account_status === "approved" || data.user_approved === "1" || data.user_approved === 1)) {
-      decrementRegisteredCitizensCount();
+      const { fetchRegisteredCitizensCount } = await import("./citizenCountUtils");
+      await fetchRegisteredCitizensCount();
       // Dispatch event to update count in other components
       window.dispatchEvent(new Event("citizenCountUpdated"));
     }

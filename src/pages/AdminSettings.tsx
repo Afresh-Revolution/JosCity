@@ -16,7 +16,7 @@ import {
 import { fetchPendingRegistrations } from "../utils/fetchWithTimeout";
 import { approveAccount, rejectAccount } from "../services/adminApi";
 import {
-  incrementRegisteredCitizensCount,
+  // Citizen count is now fetched from API
 } from "../utils/citizenCountUtils";
 import "../main.css";
 import "../scss/_admin.scss";
@@ -231,8 +231,9 @@ const AdminSettings: React.FC = () => {
 
       if (result.success) {
         console.log("successful approval", result.message);
-        // Increment registered citizens count
-        incrementRegisteredCitizensCount();
+        // Refresh count from API after approval
+        const { fetchRegisteredCitizensCount } = await import("../utils/citizenCountUtils");
+        await fetchRegisteredCitizensCount();
         // Dispatch custom event to update count in other components
         window.dispatchEvent(new Event("citizenCountUpdated"));
       } else {

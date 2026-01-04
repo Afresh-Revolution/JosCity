@@ -5,7 +5,6 @@ import { preloadImage } from "../utils/imagePreloader";
 import {
   getRegisteredCitizensCount,
   formatCitizenCount,
-  fetchRegisteredCitizensCount,
   getRegisteredCitizensCountWithRefresh,
 } from "../utils/citizenCountUtils";
 import "../main.css";

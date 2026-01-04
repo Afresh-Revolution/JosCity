@@ -5,6 +5,8 @@ import { preloadImage } from "../utils/imagePreloader";
 import {
   getRegisteredCitizensCount,
   formatCitizenCount,
+  fetchRegisteredCitizensCount,
+  getRegisteredCitizensCountWithRefresh,
 } from "../utils/citizenCountUtils";
 import "../main.css";
 // Import images as modules for Vite build compatibility (fallback)
@@ -355,20 +357,25 @@ function AboutSection() {
   const statsRef = useRef<HTMLDivElement>(null);
   const aboutRef = useRef<HTMLDivElement>(null);
 
-  // Load count from localStorage and listen for updates
+  // Load count from API and listen for updates
   useEffect(() => {
-    const loadCount = () => {
-      const count = getRegisteredCitizensCount();
+    const loadCount = async () => {
+      // Fetch from API (with cache fallback)
+      const count = await getRegisteredCitizensCountWithRefresh();
       setRegisteredCitizensCount(formatCitizenCount(count));
     };
 
-    // Load initial count
+    // Load initial count from API
     loadCount();
+
+    // Refresh count every 5 minutes
+    const refreshInterval = setInterval(loadCount, 5 * 60 * 1000);
 
     // Listen for storage changes (when count is updated in other tabs/windows)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "registeredCitizensCount") {
-        loadCount();
+        const count = getRegisteredCitizensCount();
+        setRegisteredCitizensCount(formatCitizenCount(count));
       }
     };
 
@@ -376,12 +383,13 @@ function AboutSection() {
 
     // Also listen for custom event for same-tab updates
     const handleCountUpdate = () => {
-      loadCount();
+      loadCount(); // Refresh from API when updated
     };
 
     window.addEventListener("citizenCountUpdated", handleCountUpdate);
 
     return () => {
+      clearInterval(refreshInterval);
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener("citizenCountUpdated", handleCountUpdate);
     };

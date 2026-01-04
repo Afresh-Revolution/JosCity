@@ -12,7 +12,7 @@ import {
   Building2,
 } from "lucide-react";
 import { loginPersonal, loginBusiness } from "../api/auth";
-import { incrementRegisteredCitizensCount } from "../utils/citizenCountUtils";
+// Citizen count is now fetched from API
 import "../main.css";
 
 function SignIn() {
@@ -78,19 +78,8 @@ function SignIn() {
         localStorage.setItem("user", JSON.stringify(userData));
       }
 
-      // Increment registered citizens count for business accounts on successful login
-      if (accountType === "business" && result.success) {
-        // Check if we've already counted this user for this session
-        const countedKey = `businessCounted_${result.user?.user_id || result.user?.id}`;
-        const alreadyCounted = localStorage.getItem(countedKey);
-        
-        if (!alreadyCounted) {
-          incrementRegisteredCitizensCount();
-          localStorage.setItem(countedKey, "true");
-          // Dispatch event to update count in other components
-          window.dispatchEvent(new Event("citizenCountUpdated"));
-        }
-      }
+      // Note: Citizen count is now fetched from API, no need to increment on login
+      // Count is only updated when users are approved/rejected/deleted by admin
 
       // Navigate to news feed on successful login
       navigate("/newsfeed");

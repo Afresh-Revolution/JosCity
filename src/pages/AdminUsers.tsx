@@ -25,7 +25,7 @@ import {
   type User,
   type UsersResponse,
 } from "../services/adminApi";
-import { decrementRegisteredCitizensCount } from "../utils/citizenCountUtils";
+// Citizen count is now fetched from API
 import "../main.css";
 import "../scss/_admin.scss";
 
@@ -179,11 +179,12 @@ const AdminUsers: React.FC = () => {
         throw new Error(result.message || result.error || `Failed to ${action} user`);
       }
       
-      // Handle decrementing registered citizens count for delete action
+      // Refresh count from API after delete action
       if (action === "delete" && result?.success) {
-        // Only decrement if user was approved (only approved users are counted)
+        // Only refresh if user was approved (only approved users are counted)
         if (result.was_approved || result.account_status === "approved" || result.user_approved === "1" || result.user_approved === 1) {
-          decrementRegisteredCitizensCount();
+          const { fetchRegisteredCitizensCount } = await import("../utils/citizenCountUtils");
+          await fetchRegisteredCitizensCount();
           // Dispatch event to update count in other components
           window.dispatchEvent(new Event("citizenCountUpdated"));
         }

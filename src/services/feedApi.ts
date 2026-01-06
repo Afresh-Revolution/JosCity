@@ -449,16 +449,26 @@ export const feedApi = {
     }
 
     // Use FormData when files are present, JSON otherwise
+    // Supported post combinations:
+    // 1. Text only (JSON)
+    // 2. Text + Image(s) (FormData with text and photos)
+    // 3. Text + Video(s) (FormData with text and videos)
+    // 4. Text + Image(s) + Video(s) (FormData with text, photos, and videos)
+    // 5. Image(s) only (FormData with photos, no text)
+    // 6. Video(s) only (FormData with videos, no text)
+    // 7. Image(s) + Video(s) (FormData with photos and videos, no text)
     let body: FormData | string;
     if (hasFiles) {
       const formData = new FormData();
 
       // Backend expects 'text' instead of 'caption'
+      // Text can be included with images or videos (text + image/video posts)
       if (data.caption) {
         formData.append("text", data.caption);
       }
 
       // Backend expects 'photos' instead of 'images'
+      // Supports text + images posts
       if (data.images && data.images.length > 0) {
         data.images.forEach((file) => {
           formData.append("photos", file);
@@ -466,6 +476,7 @@ export const feedApi = {
       }
 
       // Append video files
+      // Supports text + videos posts
       if (data.videos && data.videos.length > 0) {
         data.videos.forEach((file) => {
           formData.append("videos", file);
@@ -475,8 +486,9 @@ export const feedApi = {
       body = formData;
     } else {
       // Use JSON for text-only posts - backend expects 'text'
+      // Send empty string if caption is empty (backend requires at least text field)
       body = JSON.stringify({
-        text: data.caption || undefined,
+        text: data.caption || "",
       });
     }
 

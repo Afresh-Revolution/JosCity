@@ -29,6 +29,7 @@ import {
   getUserInitials,
 } from "../utils/userUtils";
 import { userApi } from "../services/userApi";
+import { getUserProfile } from "../api/auth";
 import LazyImage from "../components/LazyImage";
 
 const UserProfile: React.FC = () => {
@@ -64,11 +65,41 @@ const UserProfile: React.FC = () => {
     const fetchUserProfile = async () => {
       try {
         setIsLoading(true);
-        // Try to fetch from API first
-        const response = await userApi.getUserProfile();
+        // Fetch from API using the new /api/profile endpoint
+        const response = await getUserProfile();
         if (response.success && response.data) {
           const profileData = response.data;
-          setUserData(profileData as unknown as Record<string, unknown>);
+          
+          // Ensure all data is properly mapped for display in the first section
+          const mappedUserData: Record<string, unknown> = {
+            ...profileData,
+            user_firstname: profileData.user_firstname || "",
+            user_lastname: profileData.user_lastname || "",
+            user_gender: profileData.user_gender || "",
+            user_email: profileData.user_email || "",
+            user_phone: profileData.user_phone || "",
+            nin_number: profileData.nin_number || "",
+            address: profileData.address || "",
+            // Business fields
+            business_name: profileData.business_name || "",
+            business_type: profileData.business_type || "",
+            business_email: profileData.business_email || "",
+            business_phone: profileData.business_phone || "",
+            business_location: profileData.business_location || "",
+            CAC_number: profileData.CAC_number || "",
+            // Display name for header
+            display_name: profileData.display_name || 
+              (profileData.business_name || 
+               `${profileData.user_firstname || ""} ${profileData.user_lastname || ""}`.trim() || 
+               "User"),
+            full_name: profileData.full_name || 
+              `${profileData.user_firstname || ""} ${profileData.user_lastname || ""}`.trim(),
+          };
+          
+          // Set user data for display in the first user-profile__section
+          setUserData(mappedUserData);
+          
+          // Set edited data for form fields
           setEditedData({
             user_firstname: profileData.user_firstname || "",
             user_lastname: profileData.user_lastname || "",
@@ -85,11 +116,24 @@ const UserProfile: React.FC = () => {
             business_location: profileData.business_location || "",
             CAC_number: profileData.CAC_number || "",
           });
+          
           if (profileData.user_picture) {
             setProfilePicture(profileData.user_picture);
           }
+          
+          // Update localStorage with fresh data from database
+          const currentUser = getUserData();
+          if (currentUser) {
+            const mergedUser = { ...currentUser, ...mappedUserData };
+            localStorage.setItem("user", JSON.stringify(mergedUser));
+          } else {
+            localStorage.setItem("user", JSON.stringify(mappedUserData));
+          }
+          
+          console.log("Profile data fetched and loaded into first section:", mappedUserData);
         } else {
           // Fallback to localStorage if API fails
+          console.warn("API fetch failed, using localStorage fallback:", response.message);
           const user = getUserData();
           if (user) {
             setUserData(user);
@@ -799,7 +843,7 @@ const UserProfile: React.FC = () => {
                         <span>Account Created</span>
                       </div>
                       <div className="user-profile__info-value">
-                        {formatDate(userData?.created_at as string | undefined)}
+                        {formatDate(userData?.user_registered as string | undefined)}
                       </div>
                     </div>
                   </div>

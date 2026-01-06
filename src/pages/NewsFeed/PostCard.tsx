@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import LazyImage from "../../components/LazyImage";
 import Avatar from "../../components/Avatar";
+import ConfirmationModal from "../../components/ConfirmationModal";
 import { feedApi, type Comment as ApiComment } from "../../services/feedApi";
 import { isAuthenticated, getUserData, getUserName } from "../../utils/userUtils";
 import { useNavigate } from "react-router-dom";
@@ -57,6 +58,8 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(post.likes);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isSaved, setIsSaved] = useState(() => {
     // Initialize saved state from localStorage
     try {
@@ -302,8 +305,19 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
   const handleDelete = () => {
     setShowMenu(false);
-    if (window.confirm("Are you sure you want to delete this post?")) {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      // Call delete API here when available
       console.log("Delete post:", post.id);
+      setShowDeleteConfirm(false);
+    } catch (error) {
+      console.error("Error deleting post:", error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -626,6 +640,11 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
                           boxSizing: "border-box"
                         }}
                         onClick={(e) => e.stopPropagation()}
+                        onError={(e) => {
+                          console.error("Error loading video:", vid);
+                          const target = e.target as HTMLVideoElement;
+                          target.style.display = "none";
+                        }}
                       >
                         Your browser does not support the video tag.
                       </video>
@@ -662,6 +681,11 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
                         boxSizing: "border-box"
                       }}
                       onClick={(e) => e.stopPropagation()}
+                      onError={(e) => {
+                        console.error("Error loading video:", vid);
+                        const target = e.target as HTMLVideoElement;
+                        target.style.display = "none";
+                      }}
                     >
                       Your browser does not support the video tag.
                     </video>
@@ -810,6 +834,19 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Post"
+        message="Are you sure you want to delete this post? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="delete"
+        isLoading={isDeleting}
+      />
     </article>
   );
 };

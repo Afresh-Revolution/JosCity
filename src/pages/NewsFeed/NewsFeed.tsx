@@ -37,6 +37,7 @@ import {
 import NewsFeedSidebar from "./NewsFeedSidebar";
 import StoriesSection from "./StoriesSection";
 import CreatePostInput from "./CreatePostInput";
+import CreatePostModal from "./CreatePostModal";
 import PostCard from "./PostCard";
 import TrendingSection from "./TrendingSection";
 import SuggestedFriends from "./SuggestedFriends";
@@ -68,6 +69,7 @@ import "../../scss/_profilemodal.scss";
 import "../../scss/_messagepopup.scss";
 import "../../scss/_newsfeed.scss";
 import { feedApi } from "../../services/feedApi";
+import { friendApi, type FriendRequest } from "../../services/friendApi";
 
 interface SearchResult {
   type: "person" | "hashtag" | "post";
@@ -119,11 +121,17 @@ const NewsFeed: React.FC = () => {
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [showGoodMorningCard, setShowGoodMorningCard] = useState(true);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
+  const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
+  const [isCreateStoryModalOpen, setIsCreateStoryModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [filteredHashtag, setFilteredHashtag] = useState<string | null>(null);
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
+  const [isFriendRequestsDropdownOpen, setIsFriendRequestsDropdownOpen] = useState(false);
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
+  const [isLoadingFriendRequests, setIsLoadingFriendRequests] = useState(false);
+  const friendRequestsDropdownRef = useRef<HTMLDivElement>(null);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [selectedChatId, setSelectedChatId] = useState<number | null>(null);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
@@ -173,12 +181,13 @@ const NewsFeed: React.FC = () => {
         "Embrace the morning light and make today amazing",
         "Write it on your heart that every day is the best day in the year",
         "Rise and shine! Today is full of endless possibilities",
-        "A beautiful morning begins with a grateful heart"
+        "A beautiful morning begins with a grateful heart",
       ];
-      return { 
-        greeting: "Good morning", 
+      return {
+        greeting: "Good morning",
         icon: "☀️",
-        message: morningMessages[Math.floor(Math.random() * morningMessages.length)]
+        message:
+          morningMessages[Math.floor(Math.random() * morningMessages.length)],
       };
     } else if (hour >= 12 && hour < 17) {
       const afternoonMessages = [
@@ -186,12 +195,15 @@ const NewsFeed: React.FC = () => {
         "Make the most of this afternoon - you've got this!",
         "Every afternoon brings new opportunities to shine",
         "Stay focused and let your afternoon productivity soar",
-        "This afternoon is yours to create something wonderful"
+        "This afternoon is yours to create something wonderful",
       ];
-      return { 
-        greeting: "Good afternoon", 
+      return {
+        greeting: "Good afternoon",
         icon: "🌤️",
-        message: afternoonMessages[Math.floor(Math.random() * afternoonMessages.length)]
+        message:
+          afternoonMessages[
+            Math.floor(Math.random() * afternoonMessages.length)
+          ],
       };
     } else if (hour >= 17 && hour < 21) {
       const eveningMessages = [
@@ -199,12 +211,13 @@ const NewsFeed: React.FC = () => {
         "Evening is a time to unwind and appreciate today's journey",
         "Let the evening bring you peace and new perspectives",
         "End your day with gratitude and prepare for tomorrow",
-        "This evening, take a moment to appreciate how far you've come"
+        "This evening, take a moment to appreciate how far you've come",
       ];
-      return { 
-        greeting: "Good evening", 
+      return {
+        greeting: "Good evening",
         icon: "🌅",
-        message: eveningMessages[Math.floor(Math.random() * eveningMessages.length)]
+        message:
+          eveningMessages[Math.floor(Math.random() * eveningMessages.length)],
       };
     } else {
       const nightMessages = [
@@ -212,12 +225,13 @@ const NewsFeed: React.FC = () => {
         "End your day with peace and dream of great tomorrows",
         "Sleep well, knowing you gave today your best",
         "Let the night recharge you for another amazing day",
-        "Good night - tomorrow is a fresh start full of promise"
+        "Good night - tomorrow is a fresh start full of promise",
       ];
-      return { 
-        greeting: "Good night", 
+      return {
+        greeting: "Good night",
         icon: "🌙",
-        message: nightMessages[Math.floor(Math.random() * nightMessages.length)]
+        message:
+          nightMessages[Math.floor(Math.random() * nightMessages.length)],
       };
     }
   };
@@ -291,178 +305,218 @@ const NewsFeed: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [isLoadingFeeds]);
 
-  // Fetch feeds from API
-  useEffect(() => {
-    const fetchFeeds = async () => {
-      try {
-        setIsLoadingFeeds(true);
-        console.log("Fetching feeds from API endpoint: /feed/feeds");
+  // Fetch feeds from API - extracted as a function so it can be called after creating posts
+  const fetchFeeds = useCallback(async () => {
+    try {
+      setIsLoadingFeeds(true);
+      console.log("Fetching feeds from API endpoint: /feed/feeds");
 
-        const response = await feedApi.getFeeds();
-        console.log("Feeds API response:", response);
+      const response = await feedApi.getFeeds();
+      console.log("Feeds API response:", response);
 
-        if (
-          response &&
-          response.success &&
-          response.data &&
-          Array.isArray(response.data)
-        ) {
-          console.log(`Received ${response.data.length} feeds from API`);
+      if (
+        response &&
+        response.success &&
+        response.data &&
+        Array.isArray(response.data)
+      ) {
+        console.log(`Received ${response.data.length} feeds from API`);
 
-          if (response.data.length === 0) {
-            console.log("API returned empty array - no posts available");
-            setPosts([]);
-          } else {
-            // Transform API data to match the expected post format
-            try {
-              // Type guard for feed items - backend returns author, media, reactions, etc.
-              interface FeedItem {
-                post_id?: number;
-                id?: number;
-                author?: { 
-                  id?: number;
-                  name?: string;
-                  display_name?: string;
-                  picture?: string;
-                  profile_image_url?: string;
-                  verified?: boolean;
-                };
-                user?: { display_name?: string; profile_image_url?: string };
-                user_name?: string;
-                user_avatar?: string;
-                action?: string;
-                time_ago?: string;
-                created_at?: string;
-                time?: string;
-                media?: {
-                  photos?: Array<{ source?: string; photo_id?: number }>;
-                  videos?: Array<{ source?: string; video_id?: number }>;
-                };
-                image_url?: string;
-                image?: string;
-                images?: string[];
-                video_url?: string;
-                video?: string;
-                videos?: string[];
-                reactions?: Array<{ count?: number }>;
-                reactions_count?: number;
-                likes_count?: number;
-                likes?: number;
-                comments_preview?: Array<unknown>;
-                comments_count?: number;
-                comments?: number;
-                views_count?: number;
-                views?: number;
-                reviews?: number;
-                caption?: string;
-                text?: string;
-                hashtags?: string;
-                [key: string]: unknown;
-              }
-
-              const transformedPosts: Post[] = (response.data as FeedItem[])
-                .filter((feed) => {
-                  const hasId =
-                    feed.post_id !== undefined || feed.id !== undefined;
-                  if (!hasId) {
-                    console.warn("Feed without ID filtered out:", feed);
-                  }
-                  return hasId;
-                })
-                .map(
-                  (feed): Post => {
-                    // Handle author/user field mapping (backend uses 'author', frontend expects 'user')
-                    const author = feed.author || feed.user;
-                    const userName = author?.display_name || feed.user_name || "Unknown User";
-                    const userAvatar = author?.profile_image_url || feed.user_avatar || "";
-                    
-                    // Handle media mapping (backend uses media.photos/media.videos arrays)
-                    let image = feed.image_url || feed.image || "";
-                    let images = feed.images;
-                    let video = feed.video_url || feed.video || "";
-                    let videos = feed.videos;
-                    
-                    if (feed.media) {
-                      if (feed.media.photos && feed.media.photos.length > 0) {
-                        image = feed.media.photos[0].source || image;
-                        images = feed.media.photos.map(p => p.source).filter((src): src is string => Boolean(src));
-                      }
-                      if (feed.media.videos && feed.media.videos.length > 0) {
-                        video = feed.media.videos[0].source || video;
-                        videos = feed.media.videos.map(v => v.source).filter((src): src is string => Boolean(src));
-                      }
-                    }
-                    
-                    // Handle reactions (backend returns array, frontend expects count)
-                    let likes = 0;
-                    if (feed.reactions && Array.isArray(feed.reactions)) {
-                      likes = feed.reactions.reduce((sum, r) => sum + (r.count || 0), 0);
-                    } else {
-                      likes = feed.reactions_count || feed.likes_count || feed.likes || 0;
-                    }
-                    
-                    // Handle comments (backend returns comments_preview array, frontend expects count)
-                    const comments = feed.comments_count || 
-                                    feed.comments || 
-                                    (feed.comments_preview ? feed.comments_preview.length : 0) ||
-                                    0;
-                    
-                    return {
-                    id: feed.post_id ?? feed.id ?? 0,
-                      userName,
-                      userAvatar,
-                    action: feed.action || "",
-                      timeAgo: feed.time_ago || feed.time || feed.created_at || "",
-                      image,
-                      images: images || undefined,
-                      video,
-                      videos: videos || undefined,
-                      likes,
-                      comments,
-                    views: feed.views_count || feed.views || 0,
-                    reviews: feed.reviews || 0,
-                    caption: feed.caption || feed.text || "",
-                    hashtags: feed.hashtags || "",
-                      accountType: typeof feed.account_type === 'string' ? feed.account_type : (typeof feed.accountType === 'string' ? feed.accountType : undefined),
-                    };
-                  }
-                );
-
-              console.log(
-                `Successfully transformed ${transformedPosts.length} posts`
-              );
-              setPosts(transformedPosts);
-            } catch (transformError) {
-              console.error("Error transforming posts:", transformError);
-              setPosts([]);
-            }
-          }
-        } else {
-          console.warn(
-            "API response missing success or data field, or data is not an array. Response:",
-            response
-          );
+        if (response.data.length === 0) {
+          console.log("API returned empty array - no posts available");
           setPosts([]);
-        }
-      } catch (error) {
-        console.error("Error fetching feeds:", error);
-        // Extract user-friendly error message (already formatted by apiRequest)
-        const errorMessage =
-          error instanceof Error
-            ? error.message
-            : "Failed to load news feed. Please try again later.";
-        setFeedError(errorMessage);
-        // Always set posts to empty array on error to ensure component renders
-        setPosts([]);
-      } finally {
-        // Always set loading to false to ensure UI renders
-        setIsLoadingFeeds(false);
-        console.log("Finished loading feeds, isLoadingFeeds set to false");
-      }
-    };
+        } else {
+          // Transform API data to match the expected post format
+          try {
+            // Type guard for feed items - backend returns author, media, reactions, etc.
+            interface FeedItem {
+              post_id?: number;
+              id?: number;
+              author?: {
+                id?: number;
+                name?: string;
+                display_name?: string;
+                picture?: string;
+                profile_image_url?: string;
+                verified?: boolean;
+              };
+              user?: { display_name?: string; profile_image_url?: string };
+              user_name?: string;
+              user_avatar?: string;
+              action?: string;
+              time_ago?: string;
+              created_at?: string;
+              time?: string;
+              media?: {
+                photos?: Array<{ source?: string; photo_id?: number }>;
+                videos?: Array<{ source?: string; video_id?: number }>;
+              };
+              image_url?: string;
+              image?: string;
+              images?: string[];
+              video_url?: string;
+              video?: string;
+              videos?: string[];
+              reactions?: Array<{ count?: number }>;
+              reactions_count?: number;
+              likes_count?: number;
+              likes?: number;
+              comments_preview?: Array<unknown>;
+              comments_count?: number;
+              comments?: number;
+              views_count?: number;
+              views?: number;
+              reviews?: number;
+              caption?: string;
+              text?: string;
+              hashtags?: string;
+              [key: string]: unknown;
+            }
 
+            const transformedPosts: Post[] = (response.data as FeedItem[])
+              .filter((feed) => {
+                const hasId =
+                  feed.post_id !== undefined || feed.id !== undefined;
+                if (!hasId) {
+                  console.warn("Feed without ID filtered out:", feed);
+                }
+                return hasId;
+              })
+              .map((feed): Post => {
+                // Handle author/user field mapping (backend uses 'author', frontend expects 'user')
+                const author = feed.author || feed.user;
+                const userName =
+                  author?.display_name || feed.user_name || "Unknown User";
+                const userAvatar =
+                  author?.profile_image_url || feed.user_avatar || "";
+
+                // Handle media mapping (backend uses media.photos/media.videos arrays)
+                // Supports posts with:
+                // - Text only
+                // - Text + Image(s)
+                // - Text + Video(s)
+                // - Text + Image(s) + Video(s)
+                // - Image(s) only
+                // - Video(s) only
+                // - Image(s) + Video(s)
+                let image = feed.image_url || feed.image || "";
+                let images = feed.images;
+                let video = feed.video_url || feed.video || "";
+                let videos = feed.videos;
+
+                if (feed.media) {
+                  // Extract photos from media object (supports text + images posts)
+                  if (feed.media.photos && feed.media.photos.length > 0) {
+                    image = feed.media.photos[0].source || image;
+                    images = feed.media.photos
+                      .map((p) => p.source)
+                      .filter((src): src is string => Boolean(src));
+                  }
+                  // Extract videos from media object (supports text + videos posts)
+                  if (feed.media.videos && feed.media.videos.length > 0) {
+                    video = feed.media.videos[0].source || video;
+                    videos = feed.media.videos
+                      .map((v) => v.source)
+                      .filter((src): src is string => Boolean(src));
+                  }
+                }
+
+                // Handle reactions (backend returns array, frontend expects count)
+                let likes = 0;
+                if (feed.reactions && Array.isArray(feed.reactions)) {
+                  likes = feed.reactions.reduce(
+                    (sum, r) => sum + (r.count || 0),
+                    0
+                  );
+                } else {
+                  likes =
+                    feed.reactions_count || feed.likes_count || feed.likes || 0;
+                }
+
+                // Handle comments (backend returns comments_preview array, frontend expects count)
+                const comments =
+                  feed.comments_count ||
+                  feed.comments ||
+                  (feed.comments_preview ? feed.comments_preview.length : 0) ||
+                  0;
+
+                return {
+                  id: feed.post_id ?? feed.id ?? 0,
+                  userName,
+                  userAvatar,
+                  action: feed.action || "",
+                  timeAgo: feed.time_ago || feed.time || feed.created_at || "",
+                  image,
+                  images: images || undefined,
+                  video,
+                  videos: videos || undefined,
+                  likes,
+                  comments,
+                  views: feed.views_count || feed.views || 0,
+                  reviews: feed.reviews || 0,
+                  caption: feed.caption || feed.text || "",
+                  hashtags: feed.hashtags || "",
+                  accountType:
+                    typeof feed.account_type === "string"
+                      ? feed.account_type
+                      : typeof feed.accountType === "string"
+                      ? feed.accountType
+                      : undefined,
+                };
+              });
+
+            console.log(
+              `Successfully transformed ${transformedPosts.length} posts`
+            );
+            setPosts(transformedPosts);
+          } catch (transformError) {
+            console.error("Error transforming posts:", transformError);
+            setPosts([]);
+          }
+        }
+      } else {
+        console.warn(
+          "API response missing success or data field, or data is not an array. Response:",
+          response
+        );
+        setPosts([]);
+      }
+    } catch (error) {
+      console.error("Error fetching feeds:", error);
+      // Extract user-friendly error message (already formatted by apiRequest)
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to load news feed. Please try again later.";
+      setFeedError(errorMessage);
+      // Always set posts to empty array on error to ensure component renders
+      setPosts([]);
+    } finally {
+      // Always set loading to false to ensure UI renders
+      setIsLoadingFeeds(false);
+      console.log("Finished loading feeds, isLoadingFeeds set to false");
+    }
+  }, []); // Empty dependency array - fetchFeeds doesn't depend on any props/state
+
+  // Fetch feeds on component mount
+  useEffect(() => {
     fetchFeeds();
-  }, []);
+  }, [fetchFeeds]);
+
+  // Helper function to normalize media URLs (handle relative paths)
+  const normalizeMediaUrl = (url: string | undefined): string => {
+    if (!url) return "";
+    // If URL is already absolute (starts with http:// or https://), return as is
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      return url;
+    }
+    // If URL starts with /, it's a relative path - return as is (will be handled by proxy/static server)
+    if (url.startsWith("/")) {
+      return url;
+    }
+    // Otherwise, prepend / to make it a relative path
+    return `/${url}`;
+  };
 
   // Function to handle new post creation
   const handleNewPost = async (
@@ -478,6 +532,12 @@ const NewsFeed: React.FC = () => {
     }
 
     try {
+      console.log("Creating post with:", {
+        hasCaption: !!caption.trim(),
+        imagesCount: images?.length || 0,
+        videosCount: videos?.length || 0,
+      });
+
       // Call API to create post with File objects (FormData will be used internally)
       const response = await feedApi.createPost({
         caption: caption.trim() || undefined,
@@ -485,28 +545,108 @@ const NewsFeed: React.FC = () => {
         videos: videos || undefined,
       });
 
+      console.log("Post creation response:", response);
+
       if (response.success && response.data) {
         // Transform API response to match Post format
         const feed = response.data;
+        console.log("Transforming post data:", feed);
+
+        // Handle photos - backend returns array of objects with 'source' property
+        let image = "";
+        let imagesArray: string[] | undefined = undefined;
+        if (
+          feed.photos &&
+          Array.isArray(feed.photos) &&
+          feed.photos.length > 0
+        ) {
+          // Extract source URLs from photo objects
+          const photoSources = feed.photos
+            .map((photo: { source?: string }) =>
+              normalizeMediaUrl(photo?.source)
+            )
+            .filter((src: string): src is string => Boolean(src && src.trim()));
+
+          if (photoSources.length > 0) {
+            image = photoSources[0];
+            if (photoSources.length > 1) {
+              imagesArray = photoSources;
+            }
+          }
+        } else if (feed.image_url || feed.image) {
+          image = normalizeMediaUrl(feed.image_url || feed.image);
+        } else if (
+          feed.images &&
+          Array.isArray(feed.images) &&
+          feed.images.length > 0
+        ) {
+          const normalizedImages = feed.images
+            .map((img: string) => normalizeMediaUrl(img))
+            .filter((src: string): src is string => Boolean(src && src.trim()));
+          if (normalizedImages.length > 0) {
+            image = normalizedImages[0];
+            if (normalizedImages.length > 1) {
+              imagesArray = normalizedImages;
+            }
+          }
+        }
+
+        // Handle videos - backend returns array of objects with 'source' property
+        let video = "";
+        let videosArray: string[] | undefined = undefined;
+        if (
+          feed.videos &&
+          Array.isArray(feed.videos) &&
+          feed.videos.length > 0
+        ) {
+          // Check if videos is array of objects or strings
+          if (
+            typeof feed.videos[0] === "object" &&
+            feed.videos[0] !== null &&
+            "source" in feed.videos[0]
+          ) {
+            // Extract source URLs from video objects
+            const videoSources = feed.videos
+              .map((vid: { source?: string }) => normalizeMediaUrl(vid?.source))
+              .filter((src: string): src is string =>
+                Boolean(src && src.trim())
+              );
+
+            if (videoSources.length > 0) {
+              video = videoSources[0];
+              if (videoSources.length > 1) {
+                videosArray = videoSources;
+              }
+            }
+          } else {
+            // Already array of strings
+            const normalizedVideos = feed.videos
+              .map((vid: string) => normalizeMediaUrl(vid))
+              .filter((src: string): src is string =>
+                Boolean(src && src.trim())
+              );
+            if (normalizedVideos.length > 0) {
+              video = normalizedVideos[0];
+              if (normalizedVideos.length > 1) {
+                videosArray = normalizedVideos;
+              }
+            }
+          }
+        } else if (feed.video_url || feed.video) {
+          video = normalizeMediaUrl(feed.video_url || feed.video);
+        }
+
         const newPost: Post = {
           id: feed.post_id ?? feed.id ?? Date.now(),
           userName: feed.user?.display_name || feed.user_name || userName,
           userAvatar:
             feed.user?.profile_image_url || feed.user_avatar || getUserAvatar(),
           action: feed.action || "",
-          timeAgo: feed.time_ago || feed.created_at || "Just now",
-          image:
-            feed.image_url ||
-            feed.image ||
-            (feed.images && feed.images.length === 1 ? feed.images[0] : ""),
-          images:
-            feed.images && feed.images.length > 1 ? feed.images : undefined,
-          video:
-            feed.video_url ||
-            feed.video ||
-            (feed.videos && feed.videos.length > 0 ? feed.videos[0] : ""),
-          videos:
-            feed.videos && feed.videos.length > 1 ? feed.videos : undefined,
+          timeAgo: feed.time_ago || feed.created_at || feed.time || "Just now",
+          image,
+          images: imagesArray,
+          video,
+          videos: videosArray,
           likes: feed.likes_count || feed.likes || 0,
           comments: feed.comments_count || feed.comments || 0,
           views: feed.views_count || feed.views || 0,
@@ -522,8 +662,24 @@ const NewsFeed: React.FC = () => {
               : ""),
         };
 
-        // Add new post at the beginning of the array
+        console.log("Created new post:", newPost);
+
+        // Add post to local state immediately for instant feedback
         setPosts((prevPosts) => [newPost, ...prevPosts]);
+
+        // Add a small delay to ensure post is fully committed to database
+        // This helps avoid race conditions where the feed query runs before the post is visible
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        // Refetch feeds from database to ensure:
+        // 1. Post is properly persisted in database
+        // 2. All users see the same data
+        // 3. Media URLs are correctly set after backend processing
+        // 4. Posts persist across browser refreshes
+        // 5. Post appears in correct position with all metadata
+        await fetchFeeds();
+
+        console.log("Feeds refreshed after post creation");
       } else {
         console.error("Failed to create post:", response);
         alert("Failed to create post. Please try again.");
@@ -591,7 +747,6 @@ const NewsFeed: React.FC = () => {
   };
 
   const trending = calculateTrendingHashtags();
-
 
   // Mock chat conversations
   interface ChatMessage {
@@ -722,9 +877,7 @@ const NewsFeed: React.FC = () => {
   };
 
   // Extract all unique people from posts for search functionality
-  const allPeople = [
-    ...new Set(posts.map((p) => p.userName)),
-  ].map((name) => {
+  const allPeople = [...new Set(posts.map((p) => p.userName))].map((name) => {
     const post = posts.find((p) => p.userName === name);
     return {
       id: Math.random(),
@@ -1131,33 +1284,45 @@ const NewsFeed: React.FC = () => {
   };
 
   // Close dropdown when clicking outside
-  const handleClickOutside = useCallback((event: MouseEvent) => {
-    if (
-      createMenuRef.current &&
-      !createMenuRef.current.contains(event.target as Node)
-    ) {
-      setIsCreateMenuOpen(false);
-    }
-    if (
-      searchRef.current &&
-      !searchRef.current.contains(event.target as Node)
-    ) {
-      setIsSearchFocused(false);
-    }
-    if (
-      addFriendModalRef.current &&
-      !addFriendModalRef.current.contains(event.target as Node)
-    ) {
-      // Don't close if clicking on the overlay itself (it will be handled by overlay onClick)
-      const target = event.target as HTMLElement;
-      if (!target.closest(".newsfeed-add-friend-modal")) {
-        setIsAddFriendModalOpen(false);
+  const handleClickOutside = useCallback(
+    (event: MouseEvent) => {
+      // Only close if menu is open and click is outside the wrapper
+      if (
+        isCreateMenuOpen &&
+        createMenuRef.current &&
+        !createMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsCreateMenuOpen(false);
       }
-    }
-  }, []);
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(event.target as Node)
+      ) {
+        setIsSearchFocused(false);
+      }
+      if (
+        addFriendModalRef.current &&
+        !addFriendModalRef.current.contains(event.target as Node)
+      ) {
+        // Don't close if clicking on the overlay itself (it will be handled by overlay onClick)
+        const target = event.target as HTMLElement;
+        if (!target.closest(".newsfeed-add-friend-modal")) {
+          setIsAddFriendModalOpen(false);
+        }
+      }
+      if (
+        isFriendRequestsDropdownOpen &&
+        friendRequestsDropdownRef.current &&
+        !friendRequestsDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsFriendRequestsDropdownOpen(false);
+      }
+    },
+    [isCreateMenuOpen, isFriendRequestsDropdownOpen]
+  );
 
   useEffect(() => {
-    if (isCreateMenuOpen || isSearchFocused || isAddFriendModalOpen) {
+    if (isCreateMenuOpen || isSearchFocused || isAddFriendModalOpen || isFriendRequestsDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
@@ -1168,31 +1333,99 @@ const NewsFeed: React.FC = () => {
     isCreateMenuOpen,
     isSearchFocused,
     isAddFriendModalOpen,
+    isFriendRequestsDropdownOpen,
     handleClickOutside,
   ]);
 
-  const handleCreateClick = () => {
-    setIsCreateMenuOpen(!isCreateMenuOpen);
+  // Fetch friend requests
+  const fetchFriendRequests = useCallback(async () => {
+    try {
+      setIsLoadingFriendRequests(true);
+      const response = await friendApi.getPendingRequests();
+      if (response.success && response.data) {
+        // Only show received requests (requests sent to the current user)
+        setFriendRequests(response.data.received || []);
+      }
+    } catch (error) {
+      console.error("Error fetching friend requests:", error);
+      setFriendRequests([]);
+    } finally {
+      setIsLoadingFriendRequests(false);
+    }
+  }, []);
+
+  // Handle friend requests dropdown toggle
+  const handleFriendRequestsClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const newState = !isFriendRequestsDropdownOpen;
+    setIsFriendRequestsDropdownOpen(newState);
+    setIsCreateMenuOpen(false);
+    
+    // Fetch requests when opening
+    if (newState) {
+      fetchFriendRequests();
+    }
+  };
+
+  // Handle accept friend request
+  const handleAcceptFriendRequest = async (requestId: number) => {
+    try {
+      const response = await friendApi.acceptFriendRequest(requestId);
+      if (response.success) {
+        // Remove the accepted request from the list
+        setFriendRequests((prev) => prev.filter((req) => req.request_id !== requestId));
+        // Refresh feeds to show new friend's posts
+        await fetchFeeds();
+      }
+    } catch (error) {
+      console.error("Error accepting friend request:", error);
+      alert("Failed to accept friend request. Please try again.");
+    }
+  };
+
+  // Handle reject friend request
+  const handleRejectFriendRequest = async (requestId: number) => {
+    try {
+      const response = await friendApi.rejectFriendRequest(requestId);
+      if (response.success) {
+        // Remove the rejected request from the list
+        setFriendRequests((prev) => prev.filter((req) => req.request_id !== requestId));
+      }
+    } catch (error) {
+      console.error("Error rejecting friend request:", error);
+      alert("Failed to reject friend request. Please try again.");
+    }
+  };
+
+  const handleCreateClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log("Create button clicked, current state:", isCreateMenuOpen);
+    const newState = !isCreateMenuOpen;
+    setIsCreateMenuOpen(newState);
+    setIsFriendRequestsDropdownOpen(false);
+    console.log("Setting menu open to:", newState);
   };
 
   const handleCreatePost = () => {
     setIsCreateMenuOpen(false);
-    // Add logic to open create post modal/form
+    setIsCreatePostModalOpen(true);
   };
 
   const handleCreateStory = () => {
     setIsCreateMenuOpen(false);
-    // Add logic to open create story modal/form
+    setIsCreateStoryModalOpen(true);
   };
 
   const handleCreateGroup = () => {
     setIsCreateMenuOpen(false);
-    // Add logic to open create group modal/form
+    navigate("/forums");
   };
 
   const handleCreateEvent = () => {
     setIsCreateMenuOpen(false);
-    // Add logic to open create event modal/form
+    navigate("/events");
   };
 
   return (
@@ -1225,11 +1458,22 @@ const NewsFeed: React.FC = () => {
                 className="newsfeed-header__icon-btn"
                 title="Create"
                 onClick={handleCreateClick}
+                type="button"
+                aria-expanded={isCreateMenuOpen}
               >
                 <SquarePlus size={20} />
               </button>
               {isCreateMenuOpen && (
-                <div className="newsfeed-header__create-dropdown">
+                <div
+                  className="newsfeed-header__create-dropdown"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    display: "block",
+                    visibility: "visible",
+                    opacity: 1,
+                    zIndex: 1003,
+                  }}
+                >
                   <button
                     className="newsfeed-header__create-item"
                     onClick={handleCreatePost}
@@ -1249,7 +1493,7 @@ const NewsFeed: React.FC = () => {
                     onClick={handleCreateGroup}
                   >
                     <Users size={18} />
-                    <span>Create Group</span>
+                    <span>Create Forum</span>
                   </button>
                   <button
                     className="newsfeed-header__create-item"
@@ -1261,13 +1505,115 @@ const NewsFeed: React.FC = () => {
                 </div>
               )}
             </div>
-            <button
-              className="newsfeed-header__icon-btn"
-              title="Add Friend"
-              onClick={() => setIsAddFriendModalOpen(true)}
+            <div
+              className="newsfeed-header__create-wrapper"
+              ref={friendRequestsDropdownRef}
             >
-              <UserPlus size={20} />
-            </button>
+              <button
+                className="newsfeed-header__icon-btn"
+                title="Friend Requests"
+                onClick={handleFriendRequestsClick}
+                type="button"
+                aria-expanded={isFriendRequestsDropdownOpen}
+              >
+                <UserPlus size={20} />
+                {friendRequests.length > 0 && (
+                  <span className="newsfeed-header__badge">
+                    {friendRequests.length > 9 ? "9+" : friendRequests.length}
+                  </span>
+                )}
+              </button>
+              {isFriendRequestsDropdownOpen && (
+                <div
+                  className="newsfeed-header__create-dropdown newsfeed-header__friend-requests-dropdown"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    display: "block",
+                    visibility: "visible",
+                    opacity: 1,
+                    zIndex: 1003,
+                  }}
+                >
+                  <div className="newsfeed-header__friend-requests-header">
+                    <h3>Friend Requests</h3>
+                  </div>
+                  {isLoadingFriendRequests ? (
+                    <div className="newsfeed-header__friend-requests-loading">
+                      Loading...
+                    </div>
+                  ) : friendRequests.length === 0 ? (
+                    <div className="newsfeed-header__friend-requests-empty">
+                      No friend requests
+                    </div>
+                  ) : (
+                    <div className="newsfeed-header__friend-requests-list">
+                      {friendRequests.map((request) => {
+                        const sender = request.sender;
+                        const senderName = sender
+                          ? `${sender.user_firstname || ""} ${sender.user_lastname || ""}`.trim() || "Unknown User"
+                          : "Unknown User";
+                        const senderAvatar = sender?.user_picture || "";
+                        
+                        return (
+                          <div
+                            key={request.request_id}
+                            className="newsfeed-header__friend-request-item"
+                          >
+                            <div className="newsfeed-header__friend-request-info">
+                              {senderAvatar ? (
+                                <LazyImage
+                                  src={senderAvatar}
+                                  alt={senderName}
+                                  className="newsfeed-header__friend-request-avatar"
+                                />
+                              ) : (
+                                <div className="newsfeed-header__friend-request-avatar newsfeed-header__friend-request-avatar--placeholder">
+                                  {senderName.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <div className="newsfeed-header__friend-request-details">
+                                <div className="newsfeed-header__friend-request-name">
+                                  {senderName}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="newsfeed-header__friend-request-actions">
+                              <button
+                                className="newsfeed-header__friend-request-btn newsfeed-header__friend-request-btn--accept"
+                                onClick={() => handleAcceptFriendRequest(request.request_id)}
+                                title="Accept"
+                              >
+                                <UserCheck size={16} />
+                              </button>
+                              <button
+                                className="newsfeed-header__friend-request-btn newsfeed-header__friend-request-btn--reject"
+                                onClick={() => handleRejectFriendRequest(request.request_id)}
+                                title="Reject"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {friendRequests.length > 0 && (
+                    <div className="newsfeed-header__friend-requests-footer">
+                      <button
+                        className="newsfeed-header__friend-requests-view-all"
+                        onClick={() => {
+                          setIsFriendRequestsDropdownOpen(false);
+                          navigate("/request");
+                        }}
+                      >
+                        View All Requests
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <button
               className="newsfeed-header__icon-btn"
               title="Messages"
@@ -1400,6 +1746,8 @@ const NewsFeed: React.FC = () => {
             userName={userName}
             userAvatar={getUserAvatar()}
             onStory={handleNewStory}
+            forceOpenStoryModal={isCreateStoryModalOpen}
+            onStoryModalClose={() => setIsCreateStoryModalOpen(false)}
           />
           {isAuthenticated() && userName && (
             <CreatePostInput
@@ -1515,7 +1863,9 @@ const NewsFeed: React.FC = () => {
         >
           <div className="newsfeed-aside__header">
             <h3>
-              {isBusinessAccount ? "Trending & Businesses" : "Trending & Friends"}
+              {isBusinessAccount
+                ? "Trending & Businesses"
+                : "Trending & Friends"}
             </h3>
             <button
               className="newsfeed-aside__close"
@@ -1539,16 +1889,13 @@ const NewsFeed: React.FC = () => {
               }, 100);
             }}
           />
-          <SuggestedFriends
-            friends={[]}
-            onFriendAdded={handleFriendAdded}
-          />
+          <SuggestedFriends friends={[]} onFriendAdded={handleFriendAdded} />
         </aside>
       </div>
 
-          {/* Footer */}
+      {/* Footer */}
       <footer className="newsfeed-footer">
-            <p>© 2026 JOSCity</p>
+        <p>© 2026 JOSCity</p>
         <div className="newsfeed-footer__links">
           <a
             href="/about"
@@ -1587,7 +1934,7 @@ const NewsFeed: React.FC = () => {
             Contact Us
           </a>
         </div>
-          </footer>
+      </footer>
 
       {/* Add Friend Modal */}
       <FindFriendsModal
@@ -2226,6 +2573,17 @@ const NewsFeed: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Create Post Modal */}
+      {isAuthenticated() && userName && (
+        <CreatePostModal
+          isOpen={isCreatePostModalOpen}
+          onClose={() => setIsCreatePostModalOpen(false)}
+          userName={userName}
+          userAvatar={getUserAvatar()}
+          onPost={handleNewPost}
+        />
       )}
     </div>
   );

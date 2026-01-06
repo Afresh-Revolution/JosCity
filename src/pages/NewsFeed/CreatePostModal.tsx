@@ -142,12 +142,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
       alert("Error processing images. Please try again.");
     });
 
-    // Clear video if images are selected
-    setSelectedVideos([]);
-    setVideoFiles([]);
-    if (videoInputRef.current) {
-      videoInputRef.current.value = "";
-    }
+    // Note: Videos are NOT cleared - allows images + videos posts
   };
 
   const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -222,20 +217,24 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
       reader.readAsDataURL(file);
     });
 
-    // Clear images if videos are selected
-    setSelectedImages([]);
-    setImageFiles([]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    // Note: Images are NOT cleared - allows images + videos posts
   };
 
   const handlePost = async () => {
+    // Validation: Allow posts with:
+    // 1. Text only
+    // 2. Text + Image(s)
+    // 3. Text + Video(s)
+    // 4. Text + Image(s) + Video(s) - NEW
+    // 5. Image(s) only
+    // 6. Video(s) only
+    // 7. Image(s) + Video(s) - NEW
     if (
       !caption.trim() &&
       selectedImages.length === 0 &&
       selectedVideos.length === 0
     ) {
+      alert("Please add some content to your post (text, image, or video).");
       return;
     }
 
@@ -243,7 +242,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
     if (onPost) {
       try {
         await onPost(
-          caption,
+          caption.trim(), // Send text (can be empty if only media)
           imageFiles.length > 0 ? imageFiles : null,
           videoFiles.length > 0 ? videoFiles : null
         );

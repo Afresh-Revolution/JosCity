@@ -986,19 +986,6 @@ const VideoViewer: React.FC<VideoViewerProps> = ({
           Your browser does not support the video tag.
         </video>
       </div>
-
-      {/* Delete Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={showDeleteConfirm}
-        onClose={() => setShowDeleteConfirm(false)}
-        onConfirm={handleConfirmDelete}
-        title="Delete Post"
-        message="Are you sure you want to delete this post? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-        type="delete"
-        isLoading={isDeleting}
-      />
     </div>
   );
 };

@@ -136,11 +136,6 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
     return filteredFriends.slice(0, 4);
   }, [filteredFriends]);
 
-  // Remaining friends for "See All" modal
-  const remainingFriends = useMemo(() => {
-    return filteredFriends.slice(4);
-  }, [filteredFriends]);
-
   const handleAddFriend = (friend: Friend) => {
     // Add to friends list
     addFriend(friend.id);

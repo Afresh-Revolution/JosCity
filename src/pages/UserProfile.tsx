@@ -843,7 +843,7 @@ const UserProfile: React.FC = () => {
                         <span>Account Created</span>
                       </div>
                       <div className="user-profile__info-value">
-                        {formatDate(userData?.created_at as string | undefined)}
+                        {formatDate(userData?.user_registered as string | undefined)}
                       </div>
                     </div>
                   </div>

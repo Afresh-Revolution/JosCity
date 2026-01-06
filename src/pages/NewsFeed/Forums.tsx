@@ -97,6 +97,14 @@ const Forums: React.FC = () => {
   const forumImageInputRef = useRef<HTMLInputElement>(null);
   const forumVideoInputRef = useRef<HTMLInputElement>(null);
   const [joinedForumIds, setJoinedForumIds] = useState<Set<number>>(new Set());
+  const [showDeleteForumConfirm, setShowDeleteForumConfirm] = useState(false);
+  const [showRemoveUserConfirm, setShowRemoveUserConfirm] = useState(false);
+  const [showRevokeAdminConfirm, setShowRevokeAdminConfirm] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{
+    type: "deleteForum" | "removeUser" | "revokeAdmin";
+    forumId: number;
+    userId?: number;
+  } | null>(null);
   const createMenuRef = useRef<HTMLDivElement>(null);
   const chatPanelRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);

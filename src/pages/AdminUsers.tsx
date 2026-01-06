@@ -176,6 +176,22 @@ const AdminUsers: React.FC = () => {
     await executeAction(userId, action, actionFn, ...args);
   };
 
+  const handleConfirmDelete = async () => {
+    if (!pendingAction || pendingAction.action !== "delete") return;
+    const { userId, action, actionFn, args } = pendingAction;
+    await executeAction(userId, action, actionFn, ...(args || []));
+    setShowDeleteConfirm(false);
+    setPendingAction(null);
+  };
+
+  const handleConfirmBan = async () => {
+    if (!pendingAction || pendingAction.action !== "ban") return;
+    const { userId, action, actionFn, args } = pendingAction;
+    await executeAction(userId, action, actionFn, ...(args || []));
+    setShowBanConfirm(false);
+    setPendingAction(null);
+  };
+
   const executeAction = async (
     userId: string,
     action: string,

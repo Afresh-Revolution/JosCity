@@ -413,7 +413,9 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
               <div className="newsfeed-stories__avatar-wrapper">
                 {shouldShowInitials ? (
                   <div className="newsfeed-stories__avatar newsfeed-stories__avatar--initials">
-                    <span>{getInitialsFromName(story.userName)}</span>
+                    {/* <span>{getInitialsFromName(story.userName)}</span> */}
+                    <span>{story.content? story.content : "Text"}</span>
+
                   </div>
                 ) : (
                   <LazyImage

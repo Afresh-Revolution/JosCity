@@ -25,6 +25,7 @@ import {
   type User,
   type UsersResponse,
 } from "../services/adminApi";
+import ConfirmationModal from "../components/ConfirmationModal";
 // Citizen count is now fetched from API
 import "../main.css";
 import "../scss/_admin.scss";
@@ -40,6 +41,15 @@ const AdminUsers: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showBanConfirm, setShowBanConfirm] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{
+    userId: string;
+    action: string;
+    userName: string;
+    actionFn: (id: string, ...args: any[]) => Promise<any>;
+    args: any[];
+  } | null>(null);
 
   useEffect(() => {
     loadUsers();
@@ -144,29 +154,34 @@ const AdminUsers: React.FC = () => {
     actionFn: (id: string, ...args: any[]) => Promise<any>,
     ...args: any[]
   ) => {
-    // Special handling for delete action - require confirmation
+    const user = users.find(u => u.user_id === userId);
+    const userName = user 
+      ? `${user.user_firstname} ${user.user_lastname}`.trim() || user.user_email || `User ID: ${userId}`
+      : `User ID: ${userId}`;
+
+    // Special handling for delete and ban actions - show confirmation modal
     if (action === "delete") {
-      const user = users.find(u => u.user_id === userId);
-      const userName = user 
-        ? `${user.user_firstname} ${user.user_lastname}`.trim() || user.user_email || `User ID: ${userId}`
-        : `User ID: ${userId}`;
-      
-      const confirmed = window.confirm(
-        `⚠️ WARNING: This will permanently delete ${userName} and ALL their data from the database and website.\n\n` +
-        `This includes:\n` +
-        `• All posts, comments, and reactions\n` +
-        `• All friends, followers, and messages\n` +
-        `• All groups, pages, and events they created\n` +
-        `• All payment and transaction history\n` +
-        `• All other user-related data\n\n` +
-        `This action CANNOT be undone!\n\n` +
-        `Are you absolutely sure you want to delete this user?`
-      );
-      
-      if (!confirmed) {
-        return;
-      }
+      setPendingAction({ userId, action, userName, actionFn, args });
+      setShowDeleteConfirm(true);
+      return;
     }
+
+    if (action === "ban") {
+      setPendingAction({ userId, action, userName, actionFn, args });
+      setShowBanConfirm(true);
+      return;
+    }
+
+    // For other actions, proceed directly
+    await executeAction(userId, action, actionFn, ...args);
+  };
+
+  const executeAction = async (
+    userId: string,
+    action: string,
+    actionFn: (id: string, ...args: any[]) => Promise<any>,
+    ...args: any[]
+  ) => {
 
     try {
       setProcessing(userId);
@@ -511,6 +526,54 @@ const AdminUsers: React.FC = () => {
           )}
         </>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setPendingAction(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Delete User Account"
+        message={
+          pendingAction
+            ? `⚠️ WARNING: This will permanently delete ${pendingAction.userName} and ALL their data from the database and website.\n\n` +
+              `This includes:\n` +
+              `• All posts, comments, and reactions\n` +
+              `• All friends, followers, and messages\n` +
+              `• All groups, pages, and events they created\n` +
+              `• All payment and transaction history\n` +
+              `• All other user-related data\n\n` +
+              `This action CANNOT be undone!\n\n` +
+              `Are you absolutely sure you want to delete this user?`
+            : ""
+        }
+        confirmText="Delete User"
+        cancelText="Cancel"
+        type="danger"
+        isLoading={processing === pendingAction?.userId}
+      />
+
+      {/* Ban Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showBanConfirm}
+        onClose={() => {
+          setShowBanConfirm(false);
+          setPendingAction(null);
+        }}
+        onConfirm={handleConfirmBan}
+        title="Ban User Account"
+        message={
+          pendingAction
+            ? `Are you sure you want to ban ${pendingAction.userName}? They will not be able to access their account until you unban them.`
+            : ""
+        }
+        confirmText="Ban User"
+        cancelText="Cancel"
+        type="ban"
+        isLoading={processing === pendingAction?.userId}
+      />
     </div>
   );
 };

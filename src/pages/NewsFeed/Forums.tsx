@@ -32,6 +32,7 @@ import {
   MoreVertical,
   UserX,
 } from "lucide-react";
+import ConfirmationModal from "../../components/ConfirmationModal";
 
 import primaryLogo from "../../image/primary-logo.png";
 import "../../main.css";
@@ -360,21 +361,24 @@ const Forums: React.FC = () => {
 
   // Handle delete forum (admin only)
   const handleDeleteForum = (forumId: number) => {
-    if (
-      window.confirm(
-        "Are you sure you want to delete this forum? This action cannot be undone."
-      )
-    ) {
-      setForums((prev) => prev.filter((forum) => forum.id !== forumId));
-      setJoinedForumIds((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(forumId);
-        return newSet;
-      });
-      if (selectedForumId === forumId) {
-        setSelectedForumId(null);
-      }
+    setPendingAction({ type: "deleteForum", forumId });
+    setShowDeleteForumConfirm(true);
+  };
+
+  const handleConfirmDeleteForum = () => {
+    if (!pendingAction || pendingAction.type !== "deleteForum") return;
+    const { forumId } = pendingAction;
+    setForums((prev) => prev.filter((forum) => forum.id !== forumId));
+    setJoinedForumIds((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(forumId);
+      return newSet;
+    });
+    if (selectedForumId === forumId) {
+      setSelectedForumId(null);
     }
+    setShowDeleteForumConfirm(false);
+    setPendingAction(null);
   };
 
   // Handle edit forum (admin only)
@@ -411,29 +415,32 @@ const Forums: React.FC = () => {
 
   // Handle remove user from forum (admin only)
   const handleRemoveUserFromForum = (forumId: number, userId: number) => {
-    if (
-      window.confirm(
-        "Are you sure you want to remove this user from the forum?"
-      )
-    ) {
-      setForums((prev) =>
-        prev.map((forum) => {
-          if (forum.id === forumId) {
-            return {
-              ...forum,
-              members: forum.members.filter((id) => id !== userId),
-              admins: forum.admins.filter((id) => id !== userId),
-              memberCount: Math.max(0, forum.memberCount - 1),
-            };
-          }
-          return forum;
-        })
-      );
-      // If removed user was viewing the forum, close it
-      if (selectedForumId === forumId && userId === currentUserId) {
-        setSelectedForumId(null);
-      }
+    setPendingAction({ type: "removeUser", forumId, userId });
+    setShowRemoveUserConfirm(true);
+  };
+
+  const handleConfirmRemoveUser = () => {
+    if (!pendingAction || pendingAction.type !== "removeUser" || !pendingAction.userId) return;
+    const { forumId, userId } = pendingAction;
+    setForums((prev) =>
+      prev.map((forum) => {
+        if (forum.id === forumId) {
+          return {
+            ...forum,
+            members: forum.members.filter((id) => id !== userId),
+            admins: forum.admins.filter((id) => id !== userId),
+            memberCount: Math.max(0, forum.memberCount - 1),
+          };
+        }
+        return forum;
+      })
+    );
+    // If removed user was viewing the forum, close it
+    if (selectedForumId === forumId && userId === currentUserId) {
+      setSelectedForumId(null);
     }
+    setShowRemoveUserConfirm(false);
+    setPendingAction(null);
   };
 
   // Handle grant admin privileges (creator/admin only)
@@ -456,27 +463,31 @@ const Forums: React.FC = () => {
     // Cannot revoke creator's admin status
     const forum = forums.find((f) => f.id === forumId);
     if (forum && forum.creatorId === userId) {
+      // Show a simple alert for this case (not a destructive action, just informational)
       alert("Cannot revoke admin privileges from the forum creator.");
       return;
     }
 
-    if (
-      window.confirm(
-        "Are you sure you want to revoke admin privileges from this user?"
-      )
-    ) {
-      setForums((prev) =>
-        prev.map((forum) => {
-          if (forum.id === forumId) {
-            return {
-              ...forum,
-              admins: forum.admins.filter((id) => id !== userId),
-            };
-          }
-          return forum;
-        })
-      );
-    }
+    setPendingAction({ type: "revokeAdmin", forumId, userId });
+    setShowRevokeAdminConfirm(true);
+  };
+
+  const handleConfirmRevokeAdmin = () => {
+    if (!pendingAction || pendingAction.type !== "revokeAdmin" || !pendingAction.userId) return;
+    const { forumId, userId } = pendingAction;
+    setForums((prev) =>
+      prev.map((forum) => {
+        if (forum.id === forumId) {
+          return {
+            ...forum,
+            admins: forum.admins.filter((id) => id !== userId),
+          };
+        }
+        return forum;
+      })
+    );
+    setShowRevokeAdminConfirm(false);
+    setPendingAction(null);
   };
 
   // Scroll forum messages to bottom
@@ -2460,6 +2471,51 @@ const Forums: React.FC = () => {
         categories={categories}
         editingForum={editingForum}
         onEdit={handleEditForum}
+      />
+
+      {/* Delete Forum Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteForumConfirm}
+        onClose={() => {
+          setShowDeleteForumConfirm(false);
+          setPendingAction(null);
+        }}
+        onConfirm={handleConfirmDeleteForum}
+        title="Delete Forum"
+        message="Are you sure you want to delete this forum? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="delete"
+      />
+
+      {/* Remove User Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showRemoveUserConfirm}
+        onClose={() => {
+          setShowRemoveUserConfirm(false);
+          setPendingAction(null);
+        }}
+        onConfirm={handleConfirmRemoveUser}
+        title="Remove User"
+        message="Are you sure you want to remove this user from the forum?"
+        confirmText="Remove"
+        cancelText="Cancel"
+        type="warning"
+      />
+
+      {/* Revoke Admin Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showRevokeAdminConfirm}
+        onClose={() => {
+          setShowRevokeAdminConfirm(false);
+          setPendingAction(null);
+        }}
+        onConfirm={handleConfirmRevokeAdmin}
+        title="Revoke Admin Privileges"
+        message="Are you sure you want to revoke admin privileges from this user?"
+        confirmText="Revoke"
+        cancelText="Cancel"
+        type="warning"
       />
     </div>
   );

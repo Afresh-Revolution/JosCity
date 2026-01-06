@@ -69,6 +69,7 @@ import "../../scss/_profilemodal.scss";
 import "../../scss/_messagepopup.scss";
 import "../../scss/_newsfeed.scss";
 import { feedApi } from "../../services/feedApi";
+import { friendApi, type FriendRequest } from "../../services/friendApi";
 
 interface SearchResult {
   type: "person" | "hashtag" | "post";
@@ -127,6 +128,10 @@ const NewsFeed: React.FC = () => {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [filteredHashtag, setFilteredHashtag] = useState<string | null>(null);
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
+  const [isFriendRequestsDropdownOpen, setIsFriendRequestsDropdownOpen] = useState(false);
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
+  const [isLoadingFriendRequests, setIsLoadingFriendRequests] = useState(false);
+  const friendRequestsDropdownRef = useRef<HTMLDivElement>(null);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [selectedChatId, setSelectedChatId] = useState<number | null>(null);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
@@ -659,12 +664,19 @@ const NewsFeed: React.FC = () => {
 
         console.log("Created new post:", newPost);
 
-        // Instead of adding to local state, refetch feeds from database
-        // This ensures:
+        // Add post to local state immediately for instant feedback
+        setPosts((prevPosts) => [newPost, ...prevPosts]);
+
+        // Add a small delay to ensure post is fully committed to database
+        // This helps avoid race conditions where the feed query runs before the post is visible
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        // Refetch feeds from database to ensure:
         // 1. Post is properly persisted in database
         // 2. All users see the same data
         // 3. Media URLs are correctly set after backend processing
         // 4. Posts persist across browser refreshes
+        // 5. Post appears in correct position with all metadata
         await fetchFeeds();
 
         console.log("Feeds refreshed after post creation");
@@ -1298,12 +1310,19 @@ const NewsFeed: React.FC = () => {
           setIsAddFriendModalOpen(false);
         }
       }
+      if (
+        isFriendRequestsDropdownOpen &&
+        friendRequestsDropdownRef.current &&
+        !friendRequestsDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsFriendRequestsDropdownOpen(false);
+      }
     },
-    [isCreateMenuOpen]
+    [isCreateMenuOpen, isFriendRequestsDropdownOpen]
   );
 
   useEffect(() => {
-    if (isCreateMenuOpen || isSearchFocused || isAddFriendModalOpen) {
+    if (isCreateMenuOpen || isSearchFocused || isAddFriendModalOpen || isFriendRequestsDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
@@ -1314,8 +1333,70 @@ const NewsFeed: React.FC = () => {
     isCreateMenuOpen,
     isSearchFocused,
     isAddFriendModalOpen,
+    isFriendRequestsDropdownOpen,
     handleClickOutside,
   ]);
+
+  // Fetch friend requests
+  const fetchFriendRequests = useCallback(async () => {
+    try {
+      setIsLoadingFriendRequests(true);
+      const response = await friendApi.getPendingRequests();
+      if (response.success && response.data) {
+        // Only show received requests (requests sent to the current user)
+        setFriendRequests(response.data.received || []);
+      }
+    } catch (error) {
+      console.error("Error fetching friend requests:", error);
+      setFriendRequests([]);
+    } finally {
+      setIsLoadingFriendRequests(false);
+    }
+  }, []);
+
+  // Handle friend requests dropdown toggle
+  const handleFriendRequestsClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const newState = !isFriendRequestsDropdownOpen;
+    setIsFriendRequestsDropdownOpen(newState);
+    setIsCreateMenuOpen(false);
+    
+    // Fetch requests when opening
+    if (newState) {
+      fetchFriendRequests();
+    }
+  };
+
+  // Handle accept friend request
+  const handleAcceptFriendRequest = async (requestId: number) => {
+    try {
+      const response = await friendApi.acceptFriendRequest(requestId);
+      if (response.success) {
+        // Remove the accepted request from the list
+        setFriendRequests((prev) => prev.filter((req) => req.request_id !== requestId));
+        // Refresh feeds to show new friend's posts
+        await fetchFeeds();
+      }
+    } catch (error) {
+      console.error("Error accepting friend request:", error);
+      alert("Failed to accept friend request. Please try again.");
+    }
+  };
+
+  // Handle reject friend request
+  const handleRejectFriendRequest = async (requestId: number) => {
+    try {
+      const response = await friendApi.rejectFriendRequest(requestId);
+      if (response.success) {
+        // Remove the rejected request from the list
+        setFriendRequests((prev) => prev.filter((req) => req.request_id !== requestId));
+      }
+    } catch (error) {
+      console.error("Error rejecting friend request:", error);
+      alert("Failed to reject friend request. Please try again.");
+    }
+  };
 
   const handleCreateClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -1323,6 +1404,7 @@ const NewsFeed: React.FC = () => {
     console.log("Create button clicked, current state:", isCreateMenuOpen);
     const newState = !isCreateMenuOpen;
     setIsCreateMenuOpen(newState);
+    setIsFriendRequestsDropdownOpen(false);
     console.log("Setting menu open to:", newState);
   };
 
@@ -1423,13 +1505,115 @@ const NewsFeed: React.FC = () => {
                 </div>
               )}
             </div>
-            <button
-              className="newsfeed-header__icon-btn"
-              title="Add Friend"
-              onClick={() => setIsAddFriendModalOpen(true)}
+            <div
+              className="newsfeed-header__create-wrapper"
+              ref={friendRequestsDropdownRef}
             >
-              <UserPlus size={20} />
-            </button>
+              <button
+                className="newsfeed-header__icon-btn"
+                title="Friend Requests"
+                onClick={handleFriendRequestsClick}
+                type="button"
+                aria-expanded={isFriendRequestsDropdownOpen}
+              >
+                <UserPlus size={20} />
+                {friendRequests.length > 0 && (
+                  <span className="newsfeed-header__badge">
+                    {friendRequests.length > 9 ? "9+" : friendRequests.length}
+                  </span>
+                )}
+              </button>
+              {isFriendRequestsDropdownOpen && (
+                <div
+                  className="newsfeed-header__create-dropdown newsfeed-header__friend-requests-dropdown"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    display: "block",
+                    visibility: "visible",
+                    opacity: 1,
+                    zIndex: 1003,
+                  }}
+                >
+                  <div className="newsfeed-header__friend-requests-header">
+                    <h3>Friend Requests</h3>
+                  </div>
+                  {isLoadingFriendRequests ? (
+                    <div className="newsfeed-header__friend-requests-loading">
+                      Loading...
+                    </div>
+                  ) : friendRequests.length === 0 ? (
+                    <div className="newsfeed-header__friend-requests-empty">
+                      No friend requests
+                    </div>
+                  ) : (
+                    <div className="newsfeed-header__friend-requests-list">
+                      {friendRequests.map((request) => {
+                        const sender = request.sender;
+                        const senderName = sender
+                          ? `${sender.user_firstname || ""} ${sender.user_lastname || ""}`.trim() || "Unknown User"
+                          : "Unknown User";
+                        const senderAvatar = sender?.user_picture || "";
+                        
+                        return (
+                          <div
+                            key={request.request_id}
+                            className="newsfeed-header__friend-request-item"
+                          >
+                            <div className="newsfeed-header__friend-request-info">
+                              {senderAvatar ? (
+                                <LazyImage
+                                  src={senderAvatar}
+                                  alt={senderName}
+                                  className="newsfeed-header__friend-request-avatar"
+                                />
+                              ) : (
+                                <div className="newsfeed-header__friend-request-avatar newsfeed-header__friend-request-avatar--placeholder">
+                                  {senderName.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <div className="newsfeed-header__friend-request-details">
+                                <div className="newsfeed-header__friend-request-name">
+                                  {senderName}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="newsfeed-header__friend-request-actions">
+                              <button
+                                className="newsfeed-header__friend-request-btn newsfeed-header__friend-request-btn--accept"
+                                onClick={() => handleAcceptFriendRequest(request.request_id)}
+                                title="Accept"
+                              >
+                                <UserCheck size={16} />
+                              </button>
+                              <button
+                                className="newsfeed-header__friend-request-btn newsfeed-header__friend-request-btn--reject"
+                                onClick={() => handleRejectFriendRequest(request.request_id)}
+                                title="Reject"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {friendRequests.length > 0 && (
+                    <div className="newsfeed-header__friend-requests-footer">
+                      <button
+                        className="newsfeed-header__friend-requests-view-all"
+                        onClick={() => {
+                          setIsFriendRequestsDropdownOpen(false);
+                          navigate("/request");
+                        }}
+                      >
+                        View All Requests
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <button
               className="newsfeed-header__icon-btn"
               title="Messages"

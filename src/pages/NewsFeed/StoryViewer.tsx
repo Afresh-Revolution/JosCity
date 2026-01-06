@@ -1,24 +1,27 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { X, Heart, Eye, Trash2 } from "lucide-react";
 import LazyImage from "../../components/LazyImage";
 import Avatar from "../../components/Avatar";
 import { getUserName } from "../../utils/userUtils";
 import { feedApi } from "../../services/feedApi";
 
+interface Story {
+  id: number;
+  userName: string;
+  avatar: string;
+  type: "text" | "photo" | "video";
+  content: string;
+  caption?: string;
+  createdAt: number;
+  expiresAt: number;
+  views?: Array<{ userId: number; userName: string; viewedAt: number }>;
+  reactions?: Array<{ userId: number; userName: string; reactedAt: number }>;
+  isOwner?: boolean;
+}
+
 interface StoryViewerProps {
-  story: {
-    id: number;
-    userName: string;
-    avatar: string;
-    type: "text" | "photo" | "video";
-    content: string;
-    caption?: string;
-    createdAt: number;
-    expiresAt: number;
-    views?: Array<{ userId: number; userName: string; viewedAt: number }>;
-    reactions?: Array<{ userId: number; userName: string; reactedAt: number }>;
-    isOwner?: boolean;
-  };
+  story: Story;
+  allStories?: Story[]; // All stories for the current user
   onClose: () => void;
   onDelete?: (storyId: number) => void;
   onView?: (storyId: number) => void;
@@ -26,80 +29,133 @@ interface StoryViewerProps {
 }
 
 const StoryViewer: React.FC<StoryViewerProps> = ({
-  story,
+  story: initialStory,
+  allStories = [],
   onClose,
   onDelete,
   onView,
   onReact,
 }) => {
+  // Use allStories if provided, otherwise use single story
+  const storiesList = (allStories && allStories.length > 0) ? allStories : [initialStory];
+  const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [isExpired, setIsExpired] = useState(false);
   const [hasReacted, setHasReacted] = useState(false);
   const [showViews, setShowViews] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
-  const [viewsCount, setViewsCount] = useState(story.views?.length || 0);
+  const [isPaused, setIsPaused] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const STORY_DURATION = 5000; // 5 seconds per story
 
+  // Ensure we have a valid story
+  const currentStory = storiesList[currentStoryIndex] || storiesList[0] || initialStory;
   const currentUser = getUserName();
-  const isOwner = story.isOwner || story.userName === currentUser;
+  const isOwner = currentStory?.isOwner || currentStory?.userName === currentUser;
+  const [viewsCount, setViewsCount] = useState(currentStory?.views?.length || 0);
+
+  // Handle story navigation
+  const goToNextStory = useCallback(() => {
+    if (currentStoryIndex < storiesList.length - 1) {
+      setCurrentStoryIndex(currentStoryIndex + 1);
+      setCurrentTime(0);
+      setHasReacted(false);
+    } else {
+      // No more stories, close viewer
+      onClose();
+    }
+  }, [currentStoryIndex, storiesList.length, onClose]);
+
+  const goToPreviousStory = useCallback(() => {
+    if (currentStoryIndex > 0) {
+      setCurrentStoryIndex(currentStoryIndex - 1);
+      setCurrentTime(0);
+      setHasReacted(false);
+    }
+  }, [currentStoryIndex]);
+
+  // Auto-advance to next story
+  useEffect(() => {
+    if (isPaused || storiesList.length <= 1) return;
+
+    // Clear any existing timer
+    if (autoAdvanceTimerRef.current) {
+      clearTimeout(autoAdvanceTimerRef.current);
+    }
+
+    // Set timer to advance to next story
+    autoAdvanceTimerRef.current = setTimeout(() => {
+      goToNextStory();
+    }, STORY_DURATION);
+
+    return () => {
+      if (autoAdvanceTimerRef.current) {
+        clearTimeout(autoAdvanceTimerRef.current);
+      }
+    };
+  }, [currentStoryIndex, isPaused, storiesList.length, goToNextStory]);
 
   useEffect(() => {
+    // Safety check - ensure we have a valid story
+    if (!currentStory || !currentStory.id) {
+      console.warn("StoryViewer: Invalid story, closing");
+      onClose();
+      return;
+    }
+
     // Check if story is expired
     const now = Date.now();
-    if (story.expiresAt <= now) {
+    if (currentStory.expiresAt && currentStory.expiresAt <= now) {
       setIsExpired(true);
+      goToNextStory();
       return;
     }
 
     // Check if current user has already viewed
-    const userViewed = story.views?.some(
+    const userViewed = currentStory.views?.some(
       (view) => view.userName === currentUser
     );
 
     // Check if current user has already reacted
-    const userReacted = story.reactions?.some(
+    const userReacted = currentStory.reactions?.some(
       (reaction) => reaction.userName === currentUser
     );
     setHasReacted(!!userReacted);
 
     // Track view if not already viewed and not owner
     if (!userViewed && !isOwner && onView) {
-      onView(story.id);
+      onView(currentStory.id);
     }
 
-    // Auto-close after remaining time (max 5 seconds for preview)
-    const remainingTime = Math.min(story.expiresAt - now, 5000);
-    const timer = setTimeout(() => {
-      if (!isExpired) {
-        onClose();
-      }
-    }, remainingTime);
+    // Reset views count
+    setViewsCount(currentStory.views?.length || 0);
 
     return () => {
-      clearTimeout(timer);
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
       }
+      if (autoAdvanceTimerRef.current) {
+        clearTimeout(autoAdvanceTimerRef.current);
+      }
     };
-  }, [story, currentUser, isOwner, onView, onClose, isExpired]);
+  }, [currentStory, currentUser, isOwner, onView, currentStoryIndex, goToNextStory, onClose]);
 
   useEffect(() => {
-    // Update progress bar
-    if (!isExpired && story.expiresAt) {
+    // Update progress bar for current story
+    if (!isExpired && currentStory && currentStory.expiresAt && !isPaused) {
+      setCurrentTime(0); // Reset progress when story changes
+      
       progressIntervalRef.current = setInterval(() => {
-        const now = Date.now();
-        const elapsed = now - story.createdAt;
-        const total = story.expiresAt - story.createdAt;
-        const progress = (elapsed / total) * 100;
-        setCurrentTime(progress);
-
-        if (progress >= 100) {
-          setIsExpired(true);
-          if (progressIntervalRef.current) {
-            clearInterval(progressIntervalRef.current);
+        setCurrentTime((prev) => {
+          const newProgress = prev + (100 / (STORY_DURATION / 100));
+          if (newProgress >= 100) {
+            // Story progress complete, will auto-advance
+            return 100;
           }
-        }
+          return newProgress;
+        });
       }, 100);
 
       return () => {
@@ -108,13 +164,13 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
         }
       };
     }
-  }, [story.createdAt, story.expiresAt, isExpired]);
+  }, [currentStory, isExpired, isPaused, currentStoryIndex]);
 
   const handleReact = () => {
     if (hasReacted || isExpired) return;
 
     if (onReact) {
-      onReact(story.id);
+      onReact(currentStory.id);
       setHasReacted(true);
     }
   };
@@ -122,13 +178,46 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
   const handleDelete = () => {
     if (window.confirm("Are you sure you want to delete this story?")) {
       if (onDelete) {
-        onDelete(story.id);
+        onDelete(currentStory.id);
       }
-      onClose();
+      // If there are more stories, go to next, otherwise close
+      if (currentStoryIndex < storiesList.length - 1) {
+        goToNextStory();
+      } else if (currentStoryIndex > 0) {
+        goToPreviousStory();
+      } else {
+        onClose();
+      }
     }
   };
 
-  const reactionsCount = story.reactions?.length || 0;
+  // Handle click to pause/resume
+  const handleContentClick = () => {
+    setIsPaused(!isPaused);
+  };
+
+  // Handle keyboard navigation
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") {
+        goToPreviousStory();
+      } else if (e.key === "ArrowRight") {
+        goToNextStory();
+      } else if (e.key === " ") {
+        setIsPaused(!isPaused);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, [currentStoryIndex, isPaused, goToNextStory, goToPreviousStory]);
+
+  const reactionsCount = currentStory?.reactions?.length || 0;
+
+  // Safety check - if no valid story, don't render
+  if (!currentStory || !currentStory.type || !currentStory.content) {
+    return null;
+  }
 
   if (isExpired) {
     return (
@@ -148,31 +237,72 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
   return (
     <div className="story-viewer-overlay" onClick={onClose}>
       <div className="story-viewer" onClick={(e) => e.stopPropagation()}>
-        {/* Progress bar */}
+        {/* Progress bars for all stories */}
         <div className="story-viewer__progress-container">
-          <div
-            className="story-viewer__progress"
-            style={{ width: `${100 - currentTime}%` }}
-          />
+          {storiesList.map((s, index) => (
+            <div key={s.id} className="story-viewer__progress-bar-wrapper">
+              <div
+                className={`story-viewer__progress-bar ${
+                  index < currentStoryIndex ? "story-viewer__progress-bar--completed" : ""
+                } ${index === currentStoryIndex ? "story-viewer__progress-bar--active" : ""}`}
+                style={{
+                  width: index < currentStoryIndex 
+                    ? "100%" 
+                    : index === currentStoryIndex 
+                    ? `${currentTime}%` 
+                    : "0%",
+                }}
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Navigation buttons */}
+        <div 
+          className="story-viewer__nav story-viewer__nav--prev"
+          onClick={(e) => {
+            e.stopPropagation();
+            goToPreviousStory();
+          }}
+          style={{ 
+            display: currentStoryIndex > 0 ? "flex" : "none",
+            cursor: "pointer"
+          }}
+        >
+          <div className="story-viewer__nav-area" />
+        </div>
+        <div 
+          className="story-viewer__nav story-viewer__nav--next"
+          onClick={(e) => {
+            e.stopPropagation();
+            goToNextStory();
+          }}
+          style={{ 
+            display: currentStoryIndex < storiesList.length - 1 ? "flex" : "none",
+            cursor: "pointer"
+          }}
+        >
+          <div className="story-viewer__nav-area" />
         </div>
 
         {/* Header */}
         <div className="story-viewer__header">
           <div className="story-viewer__user-info">
             <Avatar
-              src={story.avatar}
-              name={story.userName}
+              src={currentStory.avatar}
+              name={currentStory.userName}
               size={40}
               className="story-viewer__avatar"
               backgroundColor="rgba(0, 0, 0, 0.5)"
             />
             <div>
-              <p className="story-viewer__user-name">{story.userName}</p>
+              <p className="story-viewer__user-name">{currentStory.userName}</p>
               <p className="story-viewer__time">
-                {Math.floor((story.expiresAt - Date.now()) / (1000 * 60 * 60))}h
+                {storiesList.length > 1 && `${currentStoryIndex + 1} / ${storiesList.length} • `}
+                {Math.floor((currentStory.expiresAt - Date.now()) / (1000 * 60 * 60))}h
                 {" "}
                 {Math.floor(
-                  ((story.expiresAt - Date.now()) % (1000 * 60 * 60)) /
+                  ((currentStory.expiresAt - Date.now()) % (1000 * 60 * 60)) /
                     (1000 * 60)
                 )}
                 m left
@@ -184,11 +314,12 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
             {isOwner && (
               <button
                 className="story-viewer__action-btn"
-                onClick={async () => {
+                onClick={async (e) => {
+                  e.stopPropagation();
                   setShowViews(true);
                   // Fetch story views count from API
                   try {
-                    const response = await feedApi.getStoryViews(story.id);
+                    const response = await feedApi.getStoryViews(currentStory.id);
                     if (response.success && response.data) {
                       setViewsCount(response.data.views_count || 0);
                     }
@@ -206,7 +337,8 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
             )}
             <button
               className="story-viewer__action-btn"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 if (!hasReacted) {
                   handleReact();
                 }
@@ -222,7 +354,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
                 color={hasReacted ? "#ff4444" : "currentColor"}
               />
               {(reactionsCount > 0 || hasReacted) && (
-                <span className="story-viewer__badge">{reactionsCount + (hasReacted && !story.reactions?.some(r => r.userName === currentUser) ? 1 : 0)}</span>
+                <span className="story-viewer__badge">{reactionsCount + (hasReacted && !currentStory.reactions?.some(r => r.userName === currentUser) ? 1 : 0)}</span>
               )}
             </button>
             {isOwner && (
@@ -245,8 +377,8 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
         </div>
 
         {/* Content */}
-        <div className="story-viewer__content">
-          {story.type === "text" && (
+        <div className="story-viewer__content" onClick={handleContentClick}>
+          {currentStory.type === "text" && (
             <div
               className="story-viewer__text-content"
               style={{
@@ -259,43 +391,67 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                cursor: "pointer",
               }}
             >
               <p style={{ fontSize: "24px", textAlign: "center" }}>
-                {story.content}
+                {currentStory.content}
               </p>
+              {isPaused && (
+                <div style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  fontSize: "48px",
+                  opacity: 0.7,
+                }}>⏸</div>
+              )}
             </div>
           )}
 
-          {story.type === "photo" && (
-            <div className="story-viewer__media">
+          {currentStory.type === "photo" && (
+            <div className="story-viewer__media" style={{ cursor: "pointer" }}>
               <LazyImage
-                src={story.content}
-                alt={story.caption || "Story"}
+                src={currentStory.content}
+                alt={currentStory.caption || "Story"}
                 className="story-viewer__image"
               />
+              {isPaused && (
+                <div style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  fontSize: "48px",
+                  opacity: 0.7,
+                  pointerEvents: "none",
+                }}>⏸</div>
+              )}
             </div>
           )}
 
-          {story.type === "video" && (
-            <div className="story-viewer__media">
+          {currentStory.type === "video" && (
+            <div className="story-viewer__media" style={{ cursor: "pointer" }}>
               <video
                 ref={videoRef}
-                src={story.content}
+                src={currentStory.content}
                 controls
-                autoPlay
+                autoPlay={!isPaused}
                 className="story-viewer__video"
                 onEnded={() => {
-                  // Auto-close when video ends
-                  setTimeout(() => onClose(), 1000);
+                  // Auto-advance to next story when video ends
+                  setTimeout(() => goToNextStory(), 500);
                 }}
+                onPlay={() => setIsPaused(false)}
+                onPause={() => setIsPaused(true)}
               />
             </div>
           )}
 
-          {story.caption && (
+          {currentStory.caption && (
             <div className="story-viewer__caption">
-              <p>{story.caption}</p>
+              <p>{currentStory.caption}</p>
             </div>
           )}
         </div>
@@ -317,9 +473,9 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
                 </button>
               </div>
               <div className="story-viewer__modal-content">
-                {story.views && story.views.length > 0 ? (
+                {currentStory.views && currentStory.views.length > 0 ? (
                   <ul className="story-viewer__viewers-list">
-                    {story.views.map((view, index) => (
+                    {currentStory.views.map((view, index) => (
                       <li key={index} className="story-viewer__viewer-item">
                         <span className="story-viewer__viewer-name">
                           {view.userName}
@@ -355,9 +511,9 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
                 </button>
               </div>
               <div className="story-viewer__modal-content">
-                {((story.reactions && story.reactions.length > 0) || hasReacted) ? (
+                {((currentStory.reactions && currentStory.reactions.length > 0) || hasReacted) ? (
                   <ul className="story-viewer__viewers-list">
-                    {story.reactions?.map((reaction, index) => (
+                    {currentStory.reactions?.map((reaction, index) => (
                       <li key={index} className="story-viewer__viewer-item">
                         <Heart
                           size={16}
@@ -373,7 +529,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
                         </span>
                       </li>
                     ))}
-                    {hasReacted && !story.reactions?.some(r => r.userName === currentUser) && (
+                    {hasReacted && !currentStory.reactions?.some(r => r.userName === currentUser) && (
                       <li className="story-viewer__viewer-item">
                         <Heart
                           size={16}

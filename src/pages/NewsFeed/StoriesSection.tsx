@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Plus, Type, Image, Video, X } from "lucide-react";
 import LazyImage from "../../components/LazyImage";
 import CreateStoryModal from "./CreateStoryModal";
@@ -137,6 +137,25 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
     return () => clearInterval(interval);
   }, []);
 
+  // Handle force open story modal from parent component
+  useEffect(() => {
+    if (forceOpenStoryModal) {
+      // Check if user is authenticated
+      if (!isAuthenticated()) {
+        alert("Please sign in to create a story.");
+        navigate("/signin");
+        if (onStoryModalClose) onStoryModalClose();
+        return;
+      }
+      // Open the story type selection panel
+      setIsStoryTypePanelOpen(true);
+      // Reset the parent state so it can be triggered again
+      if (onStoryModalClose) {
+        onStoryModalClose();
+      }
+    }
+  }, [forceOpenStoryModal, navigate, onStoryModalClose]);
+
   const handleAddStoryClick = () => {
     // Check if user is authenticated
     if (!isAuthenticated()) {
@@ -220,9 +239,12 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
     }
   };
 
-  const handleStoryClick = (story: Story) => {
-    setViewingStory(story);
-  };
+  // Removed unused handleStoryClick - using handleUserStoryClick instead
+  //   // Removed unused handleStoryClick - using handleUserStoryClick instead
+  // const handleStoryClick = (story: Story) => {
+  //   setViewingStory(story);
+  // };
+
 
   const handleStoryView = async (storyId: number) => {
     try {
@@ -353,82 +375,365 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
     };
   }, [isStoryTypePanelOpen]);
 
-  const filteredStories = stories.filter((story) => {
-    if (!story.expiresAt) return true;
-    return story.expiresAt > Date.now();
-  });
+  const filteredStories = useMemo(() => {
+    if (!Array.isArray(stories)) {
+      console.warn("stories is not an array:", stories);
+      return [];
+    }
+    return stories.filter((story) => {
+      if (!story || !story.expiresAt) return true;
+      return story.expiresAt > Date.now();
+    });
+  }, [stories]);
+
+  // Group stories by user (one card per user)
+  interface UserStoryGroup {
+    userName: string;
+    avatar: string;
+    stories: Story[];
+    hasNewStory: boolean;
+    mostRecentStory: Story | null;
+  }
+
+  const groupedStories = useMemo(() => {
+    const groups = new Map<string, UserStoryGroup>();
+    
+    // Safety check - ensure filteredStories is an array
+    if (!Array.isArray(filteredStories)) {
+      console.warn("filteredStories is not an array:", filteredStories);
+      return [];
+    }
+    
+    filteredStories.forEach((story) => {
+      const key = story.userName;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          userName: story.userName,
+          avatar: story.avatar,
+          stories: [],
+          hasNewStory: false,
+          mostRecentStory: null,
+        });
+      }
+      
+      const group = groups.get(key)!;
+      group.stories.push(story);
+      
+      // Sort stories by creation date (most recent first)
+      group.stories.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      
+      // Set most recent story (prefer photo/video for preview, but any story works)
+      if (!group.mostRecentStory || (story.createdAt || 0) > (group.mostRecentStory.createdAt || 0)) {
+        group.mostRecentStory = story;
+      }
+      
+      // Check if user has new story
+      if (story.hasNewStory) {
+        group.hasNewStory = true;
+      }
+    });
+    
+    // Sort groups by most recent story (most recent first)
+    return Array.from(groups.values()).sort((a, b) => {
+      const aTime = a.mostRecentStory?.createdAt || 0;
+      const bTime = b.mostRecentStory?.createdAt || 0;
+      return bTime - aTime;
+    });
+  }, [filteredStories]);
+
+  // Get all stories for the currently viewing story's user
+  const getStoriesForUser = useCallback((storyUserName: string): Story[] => {
+    if (!Array.isArray(filteredStories) || !storyUserName) {
+      return [];
+    }
+    try {
+      return filteredStories
+        .filter((s) => s && s.userName === storyUserName)
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    } catch (error) {
+      console.error("Error getting stories for user:", error);
+      return [];
+    }
+  }, [filteredStories]);
 
   // Check if user is logged in (has a valid currentUser)
   const isLoggedIn = currentUser && currentUser !== "User";
+
+  const getInitialsFromName = (name: string): string => {
+    const parts = name.trim().split(" ");
+    if (parts.length >= 2) {
+      return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  const handleUserStoryClick = (userGroup: UserStoryGroup) => {
+    // Set the first story from the group to start viewing
+    // All stories for this user will be passed to StoryViewer
+    if (userGroup.stories.length > 0) {
+      setViewingStory(userGroup.stories[0]);
+    }
+  };
 
   return (
     <div className="newsfeed-stories">
       <div className="newsfeed-stories__container">
         {/* Add Story Button - Always show for logged-in users */}
-        {isLoggedIn && (
-          <div className="newsfeed-stories__item">
-            <button
-              ref={buttonRef}
-              className="newsfeed-stories__add-icon"
-              onClick={handleAddStoryClick}
-              aria-label="Add story"
-              title="Add story"
-            >
-              <Plus size={16} />
-            </button>
-            <div className="newsfeed-stories__avatar-wrapper">
-              {userAvatar ? (
-                <LazyImage
-                  src={userAvatar}
-                  alt={userName || currentUser || "You"}
-                  className="newsfeed-stories__avatar"
-                />
-              ) : (
-                <div className="newsfeed-stories__avatar newsfeed-stories__avatar--initials">
-                  <span>{getUserInitials()}</span>
+        {isLoggedIn && (() => {
+          try {
+            // Get user's own stories for preview
+            const userStories = filteredStories
+              .filter((s) => s.userName === (userName || currentUser))
+              .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            const mostRecentUserStory = userStories.length > 0 ? userStories[0] : null;
+            const hasUserStories = userStories.length > 0;
+
+            return (
+              <div 
+                className="newsfeed-stories__item"
+                onClick={(e) => {
+                  // If user has stories, clicking on avatar opens viewer with all user stories
+                  if (hasUserStories && !(e.target as HTMLElement).closest('.newsfeed-stories__add-icon')) {
+                    setViewingStory(userStories[0]);
+                  }
+                }}
+                style={{ cursor: hasUserStories ? "pointer" : "default" }}
+              >
+                <button
+                  ref={buttonRef}
+                  className="newsfeed-stories__add-icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAddStoryClick();
+                  }}
+                  aria-label="Add story"
+                  title="Add story"
+                >
+                  <Plus size={16} />
+                </button>
+                <div className="newsfeed-stories__avatar-wrapper">
+                  {userAvatar ? (
+                    <div className="newsfeed-stories__avatar-container">
+                      <LazyImage
+                        src={userAvatar}
+                        alt={userName || currentUser || "You"}
+                        className="newsfeed-stories__avatar"
+                      />
+                      {/* Show preview of most recent story inside avatar */}
+                      {mostRecentUserStory && mostRecentUserStory.type && mostRecentUserStory.type !== "text" && mostRecentUserStory.content && (
+                        <div className="newsfeed-stories__avatar-preview">
+                          {mostRecentUserStory.type === "photo" ? (
+                            <img 
+                              src={mostRecentUserStory.content} 
+                              alt="Story preview"
+                              className="newsfeed-stories__preview-image"
+                              onError={(e) => {
+                                // Hide preview if image fails to load
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          ) : mostRecentUserStory.type === "video" ? (
+                            <video 
+                              src={mostRecentUserStory.content}
+                              className="newsfeed-stories__preview-video"
+                              muted
+                              playsInline
+                              onError={(e) => {
+                                // Hide preview if video fails to load
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="newsfeed-stories__avatar newsfeed-stories__avatar--initials">
+                      <span>{getUserInitials()}</span>
+                      {/* Show preview of most recent story inside initials avatar */}
+                      {mostRecentUserStory && mostRecentUserStory.type && mostRecentUserStory.type !== "text" && mostRecentUserStory.content && (
+                        <div className="newsfeed-stories__avatar-preview">
+                          {mostRecentUserStory.type === "photo" ? (
+                            <img 
+                              src={mostRecentUserStory.content} 
+                              alt="Story preview"
+                              className="newsfeed-stories__preview-image"
+                              onError={(e) => {
+                                // Hide preview if image fails to load
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          ) : mostRecentUserStory.type === "video" ? (
+                            <video 
+                              src={mostRecentUserStory.content}
+                              className="newsfeed-stories__preview-video"
+                              muted
+                              playsInline
+                              onError={(e) => {
+                                // Hide preview if video fails to load
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <p className="newsfeed-stories__name">{userName || currentUser || "You"}</p>
-          </div>
-        )}
-
-        {filteredStories.map((story) => {
-          const shouldShowInitials = !story.avatar || story.avatar.trim() === "";
-          const getInitialsFromName = (name: string): string => {
-            const parts = name.trim().split(" ");
-            if (parts.length >= 2) {
-              return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-            }
-            return name.substring(0, 2).toUpperCase();
-          };
-
-          return (
-            <div
-              key={story.id}
-              className="newsfeed-stories__item"
-              onClick={() => handleStoryClick(story)}
-              style={{ cursor: "pointer" }}
-            >
-              <div className="newsfeed-stories__avatar-wrapper">
-                {shouldShowInitials ? (
-                  <div className="newsfeed-stories__avatar newsfeed-stories__avatar--initials">
-                    <span>{getInitialsFromName(story.userName)}</span>
-                  </div>
-                ) : (
-                  <LazyImage
-                    src={story.avatar}
-                    alt={story.userName}
-                    className="newsfeed-stories__avatar"
-                  />
-                )}
-                {story.hasNewStory && (
-                  <div className="newsfeed-stories__new-indicator" />
-                )}
+                <p className="newsfeed-stories__name">{userName || currentUser || "You"}</p>
               </div>
-              <p className="newsfeed-stories__name">{story.userName}</p>
-            </div>
-          );
+            );
+          } catch (error) {
+            console.error("Error rendering user story card:", error);
+            // Fallback to simple version without preview
+            return (
+              <div className="newsfeed-stories__item">
+                <button
+                  ref={buttonRef}
+                  className="newsfeed-stories__add-icon"
+                  onClick={handleAddStoryClick}
+                  aria-label="Add story"
+                  title="Add story"
+                >
+                  <Plus size={16} />
+                </button>
+                <div className="newsfeed-stories__avatar-wrapper">
+                  {userAvatar ? (
+                    <LazyImage
+                      src={userAvatar}
+                      alt={userName || currentUser || "You"}
+                      className="newsfeed-stories__avatar"
+                    />
+                  ) : (
+                    <div className="newsfeed-stories__avatar newsfeed-stories__avatar--initials">
+                      <span>{getUserInitials()}</span>
+                    </div>
+                  )}
+                </div>
+                <p className="newsfeed-stories__name">{userName || currentUser || "You"}</p>
+              </div>
+            );
+          }
+        })()}
+
+        {/* Display one card per user with preview of most recent story */}
+        {groupedStories.map((userGroup) => {
+          try {
+            const shouldShowInitials = !userGroup.avatar || userGroup.avatar.trim() === "";
+            const mostRecent = userGroup.mostRecentStory;
+            
+            return (
+              <div
+                key={userGroup.userName}
+                className="newsfeed-stories__item"
+                onClick={() => handleUserStoryClick(userGroup)}
+                style={{ cursor: "pointer" }}
+              >
+                <div className="newsfeed-stories__avatar-wrapper">
+                  {shouldShowInitials ? (
+                    <div className="newsfeed-stories__avatar newsfeed-stories__avatar--initials">
+                      <span>{getInitialsFromName(userGroup.userName)}</span>
+                      {/* Show preview of most recent story inside initials avatar */}
+                      {mostRecent && mostRecent.type && mostRecent.type !== "text" && mostRecent.content && (
+                        <div className="newsfeed-stories__avatar-preview">
+                          {mostRecent.type === "photo" ? (
+                            <img 
+                              src={mostRecent.content} 
+                              alt="Story preview"
+                              className="newsfeed-stories__preview-image"
+                              onError={(e) => {
+                                // Hide preview if image fails to load
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          ) : mostRecent.type === "video" ? (
+                            <video 
+                              src={mostRecent.content}
+                              className="newsfeed-stories__preview-video"
+                              muted
+                              playsInline
+                              onError={(e) => {
+                                // Hide preview if video fails to load
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="newsfeed-stories__avatar-container">
+                      <LazyImage
+                        src={userGroup.avatar}
+                        alt={userGroup.userName}
+                        className="newsfeed-stories__avatar"
+                      />
+                      {/* Show preview of most recent story inside avatar */}
+                      {mostRecent && mostRecent.type && mostRecent.type !== "text" && mostRecent.content && (
+                        <div className="newsfeed-stories__avatar-preview">
+                          {mostRecent.type === "photo" ? (
+                            <img 
+                              src={mostRecent.content} 
+                              alt="Story preview"
+                              className="newsfeed-stories__preview-image"
+                              onError={(e) => {
+                                // Hide preview if image fails to load
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          ) : mostRecent.type === "video" ? (
+                            <video 
+                              src={mostRecent.content}
+                              className="newsfeed-stories__preview-video"
+                              muted
+                              playsInline
+                              onError={(e) => {
+                                // Hide preview if video fails to load
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {userGroup.hasNewStory && (
+                    <div className="newsfeed-stories__new-indicator" />
+                  )}
+                </div>
+                <p className="newsfeed-stories__name">{userGroup.userName}</p>
+              </div>
+            );
+          } catch (error) {
+            console.error("Error rendering story card for user:", userGroup.userName, error);
+            // Fallback to simple version without preview
+            return (
+              <div
+                key={userGroup.userName}
+                className="newsfeed-stories__item"
+                onClick={() => handleUserStoryClick(userGroup)}
+                style={{ cursor: "pointer" }}
+              >
+                <div className="newsfeed-stories__avatar-wrapper">
+                  {!userGroup.avatar || userGroup.avatar.trim() === "" ? (
+                    <div className="newsfeed-stories__avatar newsfeed-stories__avatar--initials">
+                      <span>{getInitialsFromName(userGroup.userName)}</span>
+                    </div>
+                  ) : (
+                    <LazyImage
+                      src={userGroup.avatar}
+                      alt={userGroup.userName}
+                      className="newsfeed-stories__avatar"
+                    />
+                  )}
+                  {userGroup.hasNewStory && (
+                    <div className="newsfeed-stories__new-indicator" />
+                  )}
+                </div>
+                <p className="newsfeed-stories__name">{userGroup.userName}</p>
+              </div>
+            );
+          }
         })}
       </div>
 
@@ -508,7 +813,7 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
         onStory={handleStoryCreated}
       />
 
-      {/* Story Viewer */}
+      {/* Story Viewer - Pass all stories for the user */}
       {viewingStory && viewingStory.type && viewingStory.content && (
         <StoryViewer
           story={{
@@ -524,6 +829,12 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
             reactions: viewingStory.reactions,
             isOwner: viewingStory.isOwner,
           }}
+          allStories={viewingStory.userName ? getStoriesForUser(viewingStory.userName)
+            .filter((s): s is Story => s.type !== undefined && (s.type === "text" || s.type === "photo" || s.type === "video"))
+            .map(s => ({
+              ...s,
+              type: s.type! as "text" | "photo" | "video"
+            })) as any : []}
           onClose={() => setViewingStory(null)}
           onDelete={handleStoryDelete}
           onView={handleStoryView}
@@ -547,6 +858,12 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
             reactions: newlyPostedStory.reactions,
             isOwner: newlyPostedStory.isOwner,
           }}
+          allStories={newlyPostedStory.userName ? getStoriesForUser(newlyPostedStory.userName)
+            .filter((s): s is Story => s.type !== undefined && (s.type === "text" || s.type === "photo" || s.type === "video"))
+            .map(s => ({
+              ...s,
+              type: s.type! as "text" | "photo" | "video"
+            })) as any : []}
           onClose={() => {
             setShowViewerAfterPost(false);
             setNewlyPostedStory(null);

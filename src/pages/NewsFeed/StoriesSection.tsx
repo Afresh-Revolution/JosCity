@@ -366,7 +366,10 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
     });
 
     if (validStories.length > 0) {
-      setViewingStories(validStories);
+      // Reverse the array to show from oldest (first) to newest (last)
+      // Stories are stored newest first, so reverse to get oldest first
+      const storiesFromOldestToNewest = [...validStories].reverse();
+      setViewingStories(storiesFromOldestToNewest);
       setCurrentStoryIndex(0);
     }
   };

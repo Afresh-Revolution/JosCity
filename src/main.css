@@ -7167,7 +7167,9 @@ body {
   animation: futuristicFloat 6s ease-in-out infinite;
   transition: box-shadow 0.3s ease, transform 0.3s ease,
     -webkit-filter 0.3s ease;
+  transition: box-shadow 0.3s ease, transform 0.3s ease, -webkit-filter 0.3s ease;
   transition: filter 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+  transition: filter 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease, -webkit-filter 0.3s ease;
   transition: filter 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease,
     -webkit-filter 0.3s ease;
 }
@@ -8519,6 +8521,18 @@ body {
 }
 .register-form-group input::-ms-input-placeholder,
 .register-form-group select::-ms-input-placeholder {
+  color: #999;
+}
+.register-form-group input::-webkit-input-placeholder, .register-form-group select::-webkit-input-placeholder {
+  color: #999;
+}
+.register-form-group input::-moz-placeholder, .register-form-group select::-moz-placeholder {
+  color: #999;
+}
+.register-form-group input:-ms-input-placeholder, .register-form-group select:-ms-input-placeholder {
+  color: #999;
+}
+.register-form-group input::-ms-input-placeholder, .register-form-group select::-ms-input-placeholder {
   color: #999;
 }
 .register-form-group input::placeholder,
@@ -10846,7 +10860,7 @@ body {
   color: white;
   font-weight: 600;
   font-size: 16px;
-  text-transform: uppercase;
+  /* text-transform: uppercase; */
   display: flex !important;
   align-items: center;
   justify-content: center;
@@ -15882,6 +15896,18 @@ body {
 [data-theme="dark"]
   .newsfeed-add-friend-modal__search-input::-ms-input-placeholder,
 [data-theme="dark"] .newsfeed-modal__caption::-ms-input-placeholder {
+  color: rgba(245, 245, 245, 0.7);
+}
+[data-theme="dark"] .newsfeed-search-section__input::-webkit-input-placeholder, [data-theme="dark"] .newsfeed-create-post__input::-webkit-input-placeholder, [data-theme="dark"] .newsfeed-chat-panel__input::-webkit-input-placeholder, [data-theme="dark"] .newsfeed-add-friend-modal__search-input::-webkit-input-placeholder, [data-theme="dark"] .newsfeed-modal__caption::-webkit-input-placeholder {
+  color: rgba(245, 245, 245, 0.7);
+}
+[data-theme="dark"] .newsfeed-search-section__input::-moz-placeholder, [data-theme="dark"] .newsfeed-create-post__input::-moz-placeholder, [data-theme="dark"] .newsfeed-chat-panel__input::-moz-placeholder, [data-theme="dark"] .newsfeed-add-friend-modal__search-input::-moz-placeholder, [data-theme="dark"] .newsfeed-modal__caption::-moz-placeholder {
+  color: rgba(245, 245, 245, 0.7);
+}
+[data-theme="dark"] .newsfeed-search-section__input:-ms-input-placeholder, [data-theme="dark"] .newsfeed-create-post__input:-ms-input-placeholder, [data-theme="dark"] .newsfeed-chat-panel__input:-ms-input-placeholder, [data-theme="dark"] .newsfeed-add-friend-modal__search-input:-ms-input-placeholder, [data-theme="dark"] .newsfeed-modal__caption:-ms-input-placeholder {
+  color: rgba(245, 245, 245, 0.7);
+}
+[data-theme="dark"] .newsfeed-search-section__input::-ms-input-placeholder, [data-theme="dark"] .newsfeed-create-post__input::-ms-input-placeholder, [data-theme="dark"] .newsfeed-chat-panel__input::-ms-input-placeholder, [data-theme="dark"] .newsfeed-add-friend-modal__search-input::-ms-input-placeholder, [data-theme="dark"] .newsfeed-modal__caption::-ms-input-placeholder {
   color: rgba(245, 245, 245, 0.7);
 }
 [data-theme="dark"] .newsfeed-search-section__input::placeholder,
@@ -24332,6 +24358,18 @@ html.reels-page-active::-webkit-scrollbar {
 [data-theme="dark"] .admin-settings__input::-ms-input-placeholder,
 [data-theme="dark"] .admin-settings__select::-ms-input-placeholder,
 [data-theme="dark"] .admin-settings__textarea::-ms-input-placeholder {
+  color: var(--text-tertiary);
+}
+[data-theme="dark"] .admin-settings__input::-webkit-input-placeholder, [data-theme="dark"] .admin-settings__select::-webkit-input-placeholder, [data-theme="dark"] .admin-settings__textarea::-webkit-input-placeholder {
+  color: var(--text-tertiary);
+}
+[data-theme="dark"] .admin-settings__input::-moz-placeholder, [data-theme="dark"] .admin-settings__select::-moz-placeholder, [data-theme="dark"] .admin-settings__textarea::-moz-placeholder {
+  color: var(--text-tertiary);
+}
+[data-theme="dark"] .admin-settings__input:-ms-input-placeholder, [data-theme="dark"] .admin-settings__select:-ms-input-placeholder, [data-theme="dark"] .admin-settings__textarea:-ms-input-placeholder {
+  color: var(--text-tertiary);
+}
+[data-theme="dark"] .admin-settings__input::-ms-input-placeholder, [data-theme="dark"] .admin-settings__select::-ms-input-placeholder, [data-theme="dark"] .admin-settings__textarea::-ms-input-placeholder {
   color: var(--text-tertiary);
 }
 [data-theme="dark"] .admin-settings__input::placeholder,

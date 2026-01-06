@@ -3,7 +3,11 @@ import { Plus, Type, Image, Video, X } from "lucide-react";
 import LazyImage from "../../components/LazyImage";
 import CreateStoryModal from "./CreateStoryModal";
 import StoryViewer from "./StoryViewer";
-import { getUserName, isAuthenticated, getUserInitials } from "../../utils/userUtils";
+import {
+  getUserName,
+  isAuthenticated,
+  getUserInitials,
+} from "../../utils/userUtils";
 import { useNavigate } from "react-router-dom";
 import { feedApi } from "../../services/feedApi";
 
@@ -12,11 +16,11 @@ interface Story {
   userName: string;
   avatar: string;
   hasNewStory?: boolean;
-  type?: "text" | "photo" | "video";
-  content?: string;
+  type: "text" | "photo" | "video";
+  content: string;
   caption?: string;
-  createdAt?: number;
-  expiresAt?: number;
+  createdAt: number;
+  expiresAt: number;
   views?: Array<{ userId: number; userName: string; viewedAt: number }>;
   reactions?: Array<{ userId: number; userName: string; reactedAt: number }>;
   isOwner?: boolean;
@@ -25,24 +29,33 @@ interface Story {
 interface StoriesSectionProps {
   userName?: string;
   userAvatar?: string;
-  onStory?: (type: "text" | "photo" | "video", content: string, caption?: string) => void;
+  onStory?: (
+    type: "text" | "photo" | "video",
+    content: string,
+    caption?: string
+  ) => void;
   forceOpenStoryModal?: boolean;
   onStoryModalClose?: () => void;
 }
 
-const StoriesSection: React.FC<StoriesSectionProps> = ({ 
+const StoriesSection: React.FC<StoriesSectionProps> = ({
   userName = "You",
   userAvatar,
   onStory,
-  forceOpenStoryModal = false,
-  onStoryModalClose
+  onStoryModalClose,
 }) => {
   const navigate = useNavigate();
   const [stories, setStories] = useState<Story[]>([]);
+  const [storiesByUser, setStoriesByUser] = useState<Map<string, Story[]>>(
+    new Map()
+  );
   const [isStoryTypePanelOpen, setIsStoryTypePanelOpen] = useState(false);
   const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
-  const [selectedStoryType, setSelectedStoryType] = useState<"text" | "photo" | "video">("text");
-  const [viewingStory, setViewingStory] = useState<Story | null>(null);
+  const [selectedStoryType, setSelectedStoryType] = useState<
+    "text" | "photo" | "video"
+  >("text");
+  const [viewingStories, setViewingStories] = useState<Story[]>([]);
+  const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [showViewerAfterPost, setShowViewerAfterPost] = useState(false);
   const [newlyPostedStory, setNewlyPostedStory] = useState<Story | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -63,38 +76,114 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
         if (response.success && response.data && Array.isArray(response.data)) {
           // Backend returns stories grouped by user
           // Structure: [{ user: { id, name, picture, verified }, stories: [{ id, type, src, ... }], has_unseen: boolean }]
-          // We need to flatten this structure and map field names
-          const currentUserId = JSON.parse(localStorage.getItem("user") || "{}")?.user_id || null;
-          
-          const transformedStories: Story[] = [];
-          response.data.forEach((userStoryGroup: any) => {
-            if (userStoryGroup.stories && Array.isArray(userStoryGroup.stories)) {
-              userStoryGroup.stories.forEach((story: any) => {
-                transformedStories.push({
-                  id: story.id || story.story_id || Date.now(),
-                  userName: userStoryGroup.user?.name || userStoryGroup.user?.display_name || "Unknown",
-                  avatar: userStoryGroup.user?.picture || userStoryGroup.user?.profile_image_url || "",
-                  hasNewStory: userStoryGroup.has_unseen || false,
-                  type: story.type || "text",
-                  content: story.src || story.content || story.image_url || story.video_url || "",
-                  caption: story.caption,
-                  createdAt: story.created_at ? new Date(story.created_at).getTime() : Date.now(),
-                  expiresAt: story.expires_at ? new Date(story.expires_at).getTime() : Date.now() + 24 * 60 * 60 * 1000,
-                  views: story.views || [],
-                  reactions: story.reactions || [],
-                  isOwner: userStoryGroup.user?.id === currentUserId || story.user_id === currentUserId,
+          const currentUserId =
+            JSON.parse(localStorage.getItem("user") || "{}")?.user_id || null;
+
+          const storiesMap = new Map<string, Story[]>();
+          const latestStories: Story[] = [];
+
+          response.data.forEach(
+            (userStoryGroup: {
+              user?: {
+                id?: number;
+                name?: string;
+                display_name?: string;
+                picture?: string;
+                profile_image_url?: string;
+              };
+              stories?: Array<{
+                id?: number;
+                story_id?: number;
+                type?: "text" | "photo" | "video";
+                src?: string;
+                content?: string;
+                image_url?: string;
+                video_url?: string;
+                caption?: string;
+                created_at?: string;
+                expires_at?: string;
+                views?: Array<{
+                  userId: number;
+                  userName: string;
+                  viewedAt: number;
+                }>;
+                reactions?: Array<{
+                  userId: number;
+                  userName: string;
+                  reactedAt: number;
+                }>;
+                user_id?: number;
+              }>;
+              has_unseen?: boolean;
+            }) => {
+              if (
+                userStoryGroup.stories &&
+                Array.isArray(userStoryGroup.stories)
+              ) {
+                const storyUserName =
+                  userStoryGroup.user?.name ||
+                  userStoryGroup.user?.display_name ||
+                  "Unknown";
+                const userStories: Story[] = [];
+
+                userStoryGroup.stories.forEach((story) => {
+                  const storyObj: Story = {
+                    id: story.id || story.story_id || Date.now(),
+                    userName: storyUserName,
+                    avatar:
+                      userStoryGroup.user?.picture ||
+                      userStoryGroup.user?.profile_image_url ||
+                      "",
+                    hasNewStory: userStoryGroup.has_unseen || false,
+                    type: (story.type || "text") as "text" | "photo" | "video",
+                    content:
+                      story.src ||
+                      story.content ||
+                      story.image_url ||
+                      story.video_url ||
+                      "",
+                    caption: story.caption,
+                    createdAt: story.created_at
+                      ? new Date(story.created_at).getTime()
+                      : Date.now(),
+                    expiresAt: story.expires_at
+                      ? new Date(story.expires_at).getTime()
+                      : Date.now() + 24 * 60 * 60 * 1000,
+                    views: story.views || [],
+                    reactions: story.reactions || [],
+                    isOwner:
+                      userStoryGroup.user?.id === currentUserId ||
+                      story.user_id === currentUserId,
+                  };
+                  userStories.push(storyObj);
                 });
-              });
+
+                // Sort stories by creation date (newest first)
+                userStories.sort(
+                  (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+                );
+
+                // Store all stories for this user
+                storiesMap.set(storyUserName, userStories);
+
+                // Add only the latest story to display
+                if (userStories.length > 0) {
+                  latestStories.push(userStories[0]);
+                }
+              }
             }
-          });
-          
-          setStories(transformedStories);
+          );
+
+          setStoriesByUser(storiesMap);
+          setStories(latestStories);
         } else {
           setStories([]);
+          setStoriesByUser(new Map());
         }
       } catch (error) {
         console.error("Error fetching stories:", error);
         setStories([]);
+        setStoriesByUser(new Map());
       }
     };
 
@@ -113,10 +202,13 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
         })
         .map((story, index) => {
           // Update hasNewStory based on whether user has viewed
-          const hasViewed = story.views?.some((view) => view.userName === currentUser);
+          const hasViewed = story.views?.some(
+            (view) => view.userName === currentUser
+          );
           return {
             ...story,
-            hasNewStory: index === 0 && !hasViewed && story.userName === currentUser,
+            hasNewStory:
+              index === 0 && !hasViewed && story.userName === currentUser,
           };
         });
     });
@@ -172,7 +264,11 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
     setIsStoryModalOpen(true);
   };
 
-  const handleStoryCreated = async (type: "text" | "photo" | "video", content: string, caption?: string) => {
+  const handleStoryCreated = async (
+    type: "text" | "photo" | "video",
+    content: string,
+    caption?: string
+  ) => {
     // Check if user is authenticated
     if (!isAuthenticated()) {
       alert("Please sign in to create a story.");
@@ -196,26 +292,62 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
 
       // Call API to create story
       const response = await feedApi.createStory(storyData);
-      
+
       if (response.success && response.data) {
-        const apiStory: any = response.data;
+        const apiStory = response.data as {
+          story_id?: number;
+          id?: number;
+          user?: { display_name?: string; profile_image_url?: string };
+          user_name?: string;
+          user_avatar?: string;
+          caption?: string;
+          created_at?: string;
+          expires_at?: string;
+        };
+        const storyUserName =
+          apiStory.user?.display_name || apiStory.user_name || userName;
         const newStory: Story = {
           id: apiStory.story_id || apiStory.id || Date.now(),
-          userName: apiStory.user?.display_name || apiStory.user_name || userName,
-          avatar: apiStory.user?.profile_image_url || apiStory.user_avatar || userAvatar || "",
+          userName: storyUserName,
+          avatar:
+            apiStory.user?.profile_image_url ||
+            apiStory.user_avatar ||
+            userAvatar ||
+            "",
           hasNewStory: false,
           type: type,
           content: content,
           caption: caption || apiStory.caption,
-          createdAt: apiStory.created_at ? new Date(apiStory.created_at).getTime() : Date.now(),
-          expiresAt: apiStory.expires_at ? new Date(apiStory.expires_at).getTime() : Date.now() + 24 * 60 * 60 * 1000,
+          createdAt: apiStory.created_at
+            ? new Date(apiStory.created_at).getTime()
+            : Date.now(),
+          expiresAt: apiStory.expires_at
+            ? new Date(apiStory.expires_at).getTime()
+            : Date.now() + 24 * 60 * 60 * 1000,
           views: [],
           reactions: [],
           isOwner: true,
         };
 
-        // Add to stories
-        setStories((prevStories) => [newStory, ...prevStories]);
+        // Add to stories map
+        const userNameForMap = newStory.userName;
+        setStoriesByUser((prevMap) => {
+          const userStories = prevMap.get(userNameForMap) || [];
+          const updatedStories = [newStory, ...userStories].sort(
+            (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+          );
+          const newMap = new Map(prevMap);
+          newMap.set(userNameForMap, updatedStories);
+          return newMap;
+        });
+
+        // Update latest stories display
+        setStories((prevStories) => {
+          const filtered = prevStories.filter(
+            (s) => s.userName !== userNameForMap
+          );
+          return [newStory, ...filtered];
+        });
 
         // Show viewer after posting
         setNewlyPostedStory(newStory);
@@ -235,7 +367,11 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
       }
     } catch (error) {
       console.error("Error creating story:", error);
-      alert(error instanceof Error ? `Error creating story: ${error.message}` : "Failed to create story. Please try again.");
+      alert(
+        error instanceof Error
+          ? `Error creating story: ${error.message}`
+          : "Failed to create story. Please try again."
+      );
     }
   };
 
@@ -250,14 +386,16 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
     try {
       // Call API to record story view
       await feedApi.viewStory(storyId);
-      
+
       // Update local state optimistically
       setStories((prevStories) =>
         prevStories.map((story) => {
           if (story.id === storyId) {
             const views = story.views || [];
             // Check if current user already viewed
-            const hasViewed = views.some((view) => view.userName === currentUser);
+            const hasViewed = views.some(
+              (view) => view.userName === currentUser
+            );
             if (!hasViewed) {
               return {
                 ...story,
@@ -282,7 +420,9 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
         prevStories.map((story) => {
           if (story.id === storyId) {
             const views = story.views || [];
-            const hasViewed = views.some((view) => view.userName === currentUser);
+            const hasViewed = views.some(
+              (view) => view.userName === currentUser
+            );
             if (!hasViewed) {
               return {
                 ...story,
@@ -309,7 +449,9 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
         if (story.id === storyId) {
           const reactions = story.reactions || [];
           // Check if current user already reacted
-          const hasReacted = reactions.some((reaction) => reaction.userName === currentUser);
+          const hasReacted = reactions.some(
+            (reaction) => reaction.userName === currentUser
+          );
           if (!hasReacted) {
             const updatedStory = {
               ...story,
@@ -322,13 +464,15 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
                 },
               ],
             };
-            
+
             // Notify story owner (if not the current user)
             if (story.userName !== currentUser) {
               // In a real app, you'd send a notification to the backend
-              console.log(`Notification: ${currentUser} reacted to ${story.userName}'s story`);
+              console.log(
+                `Notification: ${currentUser} reacted to ${story.userName}'s story`
+              );
             }
-            
+
             return updatedStory;
           }
         }
@@ -341,15 +485,61 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
     try {
       // Call API to delete story
       await feedApi.deleteStory(storyId);
-      
-      // Update local state
-      setStories((prevStories) => prevStories.filter((story) => story.id !== storyId));
-      setViewingStory(null);
+
+      // Find the story to get userName
+      const storyToDelete = Array.from(storiesByUser.values())
+        .flat()
+        .find((s) => s.id === storyId);
+
+      if (storyToDelete) {
+        const userName = storyToDelete.userName;
+
+        // Update stories map
+        setStoriesByUser((prevMap) => {
+          const userStories = prevMap.get(userName) || [];
+          const updatedStories = userStories.filter((s) => s.id !== storyId);
+          const newMap = new Map(prevMap);
+          if (updatedStories.length > 0) {
+            newMap.set(userName, updatedStories);
+            // Update latest story for this user
+            setStories((prevStories) => {
+              const filtered = prevStories.filter(
+                (s) => s.userName !== userName
+              );
+              return [updatedStories[0], ...filtered];
+            });
+          } else {
+            newMap.delete(userName);
+            // Remove user from latest stories
+            setStories((prevStories) =>
+              prevStories.filter((s) => s.userName !== userName)
+            );
+          }
+          return newMap;
+        });
+      }
+
+      // Update viewing stories
+      setViewingStories((prevStories) => {
+        const updated = prevStories.filter((s) => s.id !== storyId);
+        if (updated.length === 0) {
+          setViewingStories([]);
+          setCurrentStoryIndex(0);
+        } else if (currentStoryIndex >= updated.length) {
+          setCurrentStoryIndex(updated.length - 1);
+        }
+        return updated;
+      });
+
       setShowViewerAfterPost(false);
       setNewlyPostedStory(null);
     } catch (error) {
       console.error("Error deleting story:", error);
-      alert(error instanceof Error ? `Error deleting story: ${error.message}` : "Failed to delete story. Please try again.");
+      alert(
+        error instanceof Error
+          ? `Error deleting story: ${error.message}`
+          : "Failed to delete story. Please try again."
+      );
     }
   };
 
@@ -741,28 +931,24 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
       {isStoryTypePanelOpen && (
         <div
           className="newsfeed-story-type-panel-overlay"
-          onClick={() => setIsStoryTypePanelOpen(false)}
-        >
+          onClick={() => setIsStoryTypePanelOpen(false)}>
           <div
             ref={panelRef}
             className="newsfeed-story-type-panel"
-            onClick={(e) => e.stopPropagation()}
-          >
+            onClick={(e) => e.stopPropagation()}>
             <div className="newsfeed-story-type-panel__header">
               <h3>Create Story</h3>
               <button
                 className="newsfeed-story-type-panel__close"
                 onClick={() => setIsStoryTypePanelOpen(false)}
-                aria-label="Close panel"
-              >
+                aria-label="Close panel">
                 <X size={20} />
               </button>
             </div>
             <div className="newsfeed-story-type-panel__content">
               <button
                 className="newsfeed-story-type-panel__option"
-                onClick={() => handleStoryTypeSelect("text")}
-              >
+                onClick={() => handleStoryTypeSelect("text")}>
                 <div className="newsfeed-story-type-panel__icon newsfeed-story-type-panel__icon--text">
                   <Type size={24} />
                 </div>
@@ -773,8 +959,7 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
               </button>
               <button
                 className="newsfeed-story-type-panel__option"
-                onClick={() => handleStoryTypeSelect("photo")}
-              >
+                onClick={() => handleStoryTypeSelect("photo")}>
                 <div className="newsfeed-story-type-panel__icon newsfeed-story-type-panel__icon--photo">
                   <Image size={24} />
                 </div>
@@ -785,8 +970,7 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
               </button>
               <button
                 className="newsfeed-story-type-panel__option"
-                onClick={() => handleStoryTypeSelect("video")}
-              >
+                onClick={() => handleStoryTypeSelect("video")}>
                 <div className="newsfeed-story-type-panel__icon newsfeed-story-type-panel__icon--video">
                   <Video size={24} />
                 </div>

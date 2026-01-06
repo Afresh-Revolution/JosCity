@@ -25,20 +25,32 @@ import primaryLogo from "../../image/primary-logo.png";
 import LazyImage from "../../components/LazyImage";
 import SearchBar from "../../components/SearchBar";
 import { getUserInitials, getProfileUsername } from "../../utils/userUtils";
+import { createEvent, updateEvent, deleteEvent, getEvents, type Event } from "../../api/events";
 import "../../scss/_eventspage.scss";
 import "../../scss/_searchbar.scss";
 
-// Event interface
-interface Event {
-  id: number;
-  title: string;
-  description?: string;
-  category: string;
-  date: string;
-  location?: string;
-  image?: string;
-  capacity?: number; // Maximum number of attendees
-}
+// Helper function to normalize event data from API to component format
+const normalizeEvent = (event: Event): Event => {
+  return {
+    id: event.event_id || event.id,
+    event_id: event.event_id || event.id,
+    title: event.event_title || event.title,
+    event_title: event.event_title || event.title,
+    description: event.event_description || event.description,
+    event_description: event.event_description || event.description,
+    category: event.event_category || event.category || "All",
+    event_category: event.event_category || event.category,
+    date: event.event_date || event.date,
+    event_date: event.event_date || event.date,
+    location: event.event_location || event.location,
+    event_location: event.event_location || event.location,
+    image: event.event_cover || event.image,
+    event_cover: event.event_cover || event.image,
+    capacity: event.event_capacity || event.capacity,
+    event_capacity: event.event_capacity || event.capacity,
+    user_picture: event.user_picture,
+  };
+};
 
 const EventsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -51,6 +63,8 @@ const EventsPage: React.FC = () => {
   const [isCreateEventModalOpen, setIsCreateEventModalOpen] = useState(false);
   const [isEditEventModalOpen, setIsEditEventModalOpen] = useState(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventsError, setEventsError] = useState<string | null>(null);
   const createMenuRef = useRef<HTMLDivElement>(null);
   const categoryMenuRef = useRef<HTMLDivElement>(null);
   const createEventModalRef = useRef<HTMLDivElement>(null);
@@ -113,17 +127,29 @@ const EventsPage: React.FC = () => {
     "Religion",
   ];
 
-  // Load events from localStorage or use empty array
+  // Load events from API
   useEffect(() => {
-    try {
-      const savedEvents = JSON.parse(
-        localStorage.getItem("events") || "[]"
-      ) as Event[];
-      setEvents(savedEvents);
-    } catch (error) {
-      console.error("Error loading events:", error);
-      setEvents([]);
-    }
+    const loadEvents = async () => {
+      setEventsLoading(true);
+      setEventsError(null);
+      try {
+        const response = await getEvents({ limit: 100 }); // Get all events
+        if (response.success && response.data) {
+          const normalizedEvents = response.data.map(normalizeEvent);
+          setEvents(normalizedEvents);
+        } else {
+          setEvents([]);
+        }
+      } catch (error) {
+        console.error("Error loading events:", error);
+        setEventsError(error instanceof Error ? error.message : "Failed to load events");
+        setEvents([]);
+      } finally {
+        setEventsLoading(false);
+      }
+    };
+
+    loadEvents();
   }, []);
 
   // Filter events based on selected category and active tab
@@ -162,7 +188,7 @@ const EventsPage: React.FC = () => {
     if (selectedCategory !== "All") {
       filtered = filtered.filter(
         (event) =>
-          event.category.toLowerCase() === selectedCategory.toLowerCase()
+          event.category?.toLowerCase() === selectedCategory.toLowerCase()
       );
     }
 
@@ -261,7 +287,7 @@ const EventsPage: React.FC = () => {
     setEventForm({
       title: eventToEdit.title,
       description: eventToEdit.description || "",
-      category: eventToEdit.category,
+      category: eventToEdit.category || "All",
       date: dateStr,
       time: "",
       timeHour: hour12.toString(),
@@ -345,66 +371,84 @@ const EventsPage: React.FC = () => {
     }));
   };
 
-  const handleSubmitEvent = (e: React.FormEvent) => {
+  const handleSubmitEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Create new event object
-    const time24 = convertTo24Hour(
-      eventForm.timeHour,
-      eventForm.timeMinute,
-      eventForm.timePeriod
-    );
-    const newEvent: Event = {
-      id: editingEventId || Date.now(), // Use existing ID if editing, otherwise create new
-      title: eventForm.title,
-      description: eventForm.description,
-      category: eventForm.category,
-      date: `${eventForm.date}T${time24}`,
-      location: eventForm.location,
-      image: eventForm.imagePreview,
-      capacity: eventForm.capacity ? parseInt(eventForm.capacity) : undefined,
-    };
+    setEventsError(null);
 
-    // Update or add to events list
-    let updatedEvents: Event[];
-    if (editingEventId) {
-      // Update existing event
-      updatedEvents = events.map((event) =>
-        event.id === editingEventId ? newEvent : event
-      );
-    } else {
-      // Add new event
-      updatedEvents = [...events, newEvent];
-      // Automatically add to "My Events" list when user creates an event
-      const updatedLists = {
-        ...userEventLists,
-        myEvents: [...userEventLists.myEvents, newEvent.id],
-      };
-      setUserEventLists(updatedLists);
-      // Save updated lists
-      try {
-        localStorage.setItem("userEventLists", JSON.stringify(updatedLists));
-      } catch (error) {
-        console.error("Error saving user event lists:", error);
-      }
-    }
-    setEvents(updatedEvents);
-
-    // Save to localStorage
     try {
-      localStorage.setItem("events", JSON.stringify(updatedEvents));
+      // Create new event object
+      const time24 = convertTo24Hour(
+        eventForm.timeHour,
+        eventForm.timeMinute,
+        eventForm.timePeriod
+      );
+      const eventDate = `${eventForm.date}T${time24}`;
+
+      const eventData = {
+        title: eventForm.title,
+        description: eventForm.description || undefined,
+        category: eventForm.category !== "All" ? eventForm.category : undefined,
+        date: eventDate,
+        location: eventForm.location || undefined,
+        image: eventForm.imagePreview || undefined,
+        capacity: eventForm.capacity ? parseInt(eventForm.capacity) : undefined,
+      };
+
+      let savedEvent: Event;
+
+      if (editingEventId) {
+        // Update existing event
+        const response = await updateEvent(editingEventId, eventData);
+        if (response.success && response.data) {
+          savedEvent = normalizeEvent(response.data);
+          // Update events list
+          const updatedEvents = events.map((event) =>
+            event.id === editingEventId ? savedEvent : event
+          );
+          setEvents(updatedEvents);
+          alert("Event updated successfully!");
+        } else {
+          throw new Error("Failed to update event");
+        }
+      } else {
+        // Create new event
+        const response = await createEvent(eventData);
+        if (response.success && response.data) {
+          savedEvent = normalizeEvent(response.data);
+          // Add to events list
+          const updatedEvents = [...events, savedEvent];
+          setEvents(updatedEvents);
+          
+          // Automatically add to "My Events" list when user creates an event
+          const updatedLists = {
+            ...userEventLists,
+            myEvents: [...userEventLists.myEvents, savedEvent.id],
+          };
+          setUserEventLists(updatedLists);
+          // Save updated lists
+          try {
+            localStorage.setItem("userEventLists", JSON.stringify(updatedLists));
+          } catch (error) {
+            console.error("Error saving user event lists:", error);
+          }
+          
+          alert("Event created successfully!");
+        } else {
+          throw new Error("Failed to create event");
+        }
+      }
+
+      // Close modal and reset form
+      handleCloseCreateEventModal();
     } catch (error) {
       console.error("Error saving event:", error);
+      setEventsError(error instanceof Error ? error.message : "Failed to save event");
+      alert(
+        error instanceof Error
+          ? `Error: ${error.message}`
+          : "Failed to save event. Please try again."
+      );
     }
-
-    // Close modal and reset form
-    handleCloseCreateEventModal();
-
-    // Show success message (you can add a toast notification here)
-    alert(
-      editingEventId
-        ? "Event updated successfully!"
-        : "Event created successfully!"
-    );
   };
 
   // Convert 12-hour time to 24-hour format
@@ -463,32 +507,48 @@ const EventsPage: React.FC = () => {
   };
 
   // Handle event deletion
-  const handleDeleteEvent = (eventId: number) => {
+  const handleDeleteEvent = async (eventId: number) => {
     if (
       window.confirm(
         "Are you sure you want to delete this event? This action cannot be undone."
       )
     ) {
-      // Remove from events list
-      const updatedEvents = events.filter((event) => event.id !== eventId);
-      setEvents(updatedEvents);
-
-      // Remove from all user lists
-      const updatedLists = {
-        going: userEventLists.going.filter((id) => id !== eventId),
-        interested: userEventLists.interested.filter((id) => id !== eventId),
-        invited: userEventLists.invited.filter((id) => id !== eventId),
-        myEvents: userEventLists.myEvents.filter((id) => id !== eventId),
-      };
-      setUserEventLists(updatedLists);
-
-      // Save to localStorage
+      setEventsError(null);
       try {
-        localStorage.setItem("events", JSON.stringify(updatedEvents));
-        localStorage.setItem("userEventLists", JSON.stringify(updatedLists));
+        const response = await deleteEvent(eventId);
+        if (response.success) {
+          // Remove from events list
+          const updatedEvents = events.filter((event) => event.id !== eventId);
+          setEvents(updatedEvents);
+
+          // Remove from all user lists
+          const updatedLists = {
+            going: userEventLists.going.filter((id) => id !== eventId),
+            interested: userEventLists.interested.filter((id) => id !== eventId),
+            invited: userEventLists.invited.filter((id) => id !== eventId),
+            myEvents: userEventLists.myEvents.filter((id) => id !== eventId),
+          };
+          setUserEventLists(updatedLists);
+
+          // Save updated lists
+          try {
+            localStorage.setItem("userEventLists", JSON.stringify(updatedLists));
+          } catch (error) {
+            console.error("Error saving user event lists:", error);
+          }
+
+          alert("Event deleted successfully!");
+        } else {
+          throw new Error("Failed to delete event");
+        }
       } catch (error) {
         console.error("Error deleting event:", error);
-        alert("Error deleting event. Please try again.");
+        setEventsError(error instanceof Error ? error.message : "Failed to delete event");
+        alert(
+          error instanceof Error
+            ? `Error: ${error.message}`
+            : "Error deleting event. Please try again."
+        );
       }
     }
   };
@@ -739,7 +799,26 @@ const EventsPage: React.FC = () => {
               </>
             )}
             <div className="eventspage-main__content">
-              {filteredEvents.length === 0 ? (
+              {eventsLoading ? (
+                <div className="eventspage-main__empty">
+                  <div className="eventspage-main__empty-illustration">
+                    <div className="eventspage-main__empty-icon">
+                      <Clock size={48} />
+                    </div>
+                  </div>
+                  <p className="eventspage-main__empty-text">Loading events...</p>
+                </div>
+              ) : eventsError ? (
+                <div className="eventspage-main__empty">
+                  <div className="eventspage-main__empty-illustration">
+                    <div className="eventspage-main__empty-icon">
+                      <X size={48} />
+                    </div>
+                  </div>
+                  <p className="eventspage-main__empty-text">Error loading events</p>
+                  <p className="eventspage-main__empty-subtext">{eventsError}</p>
+                </div>
+              ) : filteredEvents.length === 0 ? (
                 <div className="eventspage-main__empty">
                   <div className="eventspage-main__empty-illustration">
                     <div className="eventspage-main__empty-icon">

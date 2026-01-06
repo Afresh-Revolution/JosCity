@@ -26,12 +26,16 @@ interface StoriesSectionProps {
   userName?: string;
   userAvatar?: string;
   onStory?: (type: "text" | "photo" | "video", content: string, caption?: string) => void;
+  forceOpenStoryModal?: boolean;
+  onStoryModalClose?: () => void;
 }
 
 const StoriesSection: React.FC<StoriesSectionProps> = ({ 
   userName = "You",
   userAvatar,
-  onStory 
+  onStory,
+  forceOpenStoryModal = false,
+  onStoryModalClose
 }) => {
   const navigate = useNavigate();
   const [stories, setStories] = useState<Story[]>([]);
@@ -203,6 +207,10 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
           onStory(type, content, caption);
         }
         setIsStoryModalOpen(false);
+        // Notify parent that story modal closed
+        if (onStoryModalClose) {
+          onStoryModalClose();
+        }
       } else {
         alert("Failed to create story. Please try again.");
       }
@@ -490,7 +498,10 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
       {/* Story Creation Modal */}
       <CreateStoryModal
         isOpen={isStoryModalOpen}
-        onClose={() => setIsStoryModalOpen(false)}
+        onClose={() => {
+          setIsStoryModalOpen(false);
+          if (onStoryModalClose) onStoryModalClose();
+        }}
         userName={userName}
         userAvatar={userAvatar}
         storyType={selectedStoryType}

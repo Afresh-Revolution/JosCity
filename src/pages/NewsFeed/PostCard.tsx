@@ -626,6 +626,11 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
                           boxSizing: "border-box"
                         }}
                         onClick={(e) => e.stopPropagation()}
+                        onError={(e) => {
+                          console.error("Error loading video:", vid);
+                          const target = e.target as HTMLVideoElement;
+                          target.style.display = "none";
+                        }}
                       >
                         Your browser does not support the video tag.
                       </video>
@@ -662,6 +667,11 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
                         boxSizing: "border-box"
                       }}
                       onClick={(e) => e.stopPropagation()}
+                      onError={(e) => {
+                        console.error("Error loading video:", vid);
+                        const target = e.target as HTMLVideoElement;
+                        target.style.display = "none";
+                      }}
                     >
                       Your browser does not support the video tag.
                     </video>

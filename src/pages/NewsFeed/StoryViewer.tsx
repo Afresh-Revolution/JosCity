@@ -39,6 +39,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
   onReact,
 }) => {
   const [currentTime, setCurrentTime] = useState(0);
+  const [timerProgress, setTimerProgress] = useState(0);
   const [isExpired, setIsExpired] = useState(false);
   const [hasReacted, setHasReacted] = useState(false);
   const [showViews, setShowViews] = useState(false);
@@ -47,19 +48,40 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const autoSlideTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerProgressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const currentUser = getUserName();
   const story = stories[currentIndex];
   const isOwner = story?.isOwner || story?.userName === currentUser;
 
-  // Auto-slide to next story after 5 seconds
+  // Auto-slide to next story after 5 seconds with animated progress
   useEffect(() => {
     if (!story || isExpired) return;
 
-    // Clear existing timer
+    // Reset timer progress
+    setTimerProgress(0);
+
+    // Clear existing timers
     if (autoSlideTimerRef.current) {
       clearTimeout(autoSlideTimerRef.current);
     }
+    if (timerProgressIntervalRef.current) {
+      clearInterval(timerProgressIntervalRef.current);
+    }
+
+    // Update progress every 50ms for smooth animation (5000ms / 50ms = 100 updates)
+    const startTime = Date.now();
+    timerProgressIntervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min((elapsed / 5000) * 100, 100);
+      setTimerProgress(progress);
+
+      if (progress >= 100) {
+        if (timerProgressIntervalRef.current) {
+          clearInterval(timerProgressIntervalRef.current);
+        }
+      }
+    }, 50);
 
     // Set timer to auto-slide after 5 seconds
     autoSlideTimerRef.current = setTimeout(() => {
@@ -74,6 +96,9 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
       if (autoSlideTimerRef.current) {
         clearTimeout(autoSlideTimerRef.current);
       }
+      if (timerProgressIntervalRef.current) {
+        clearInterval(timerProgressIntervalRef.current);
+      }
     };
   }, [story, currentIndex, stories.length, isExpired, onNavigate, onClose]);
 
@@ -82,6 +107,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
 
     // Reset state when story changes
     setCurrentTime(0);
+    setTimerProgress(0);
     setIsExpired(false);
     setHasReacted(false);
     setShowViews(false);
@@ -249,7 +275,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
                 {index === currentIndex && (
                   <div
                     className="story-viewer__progress-indicator-fill"
-                    style={{ width: `${100 - currentTime}%` }}
+                    style={{ width: `${timerProgress}%` }}
                   />
                 )}
               </div>

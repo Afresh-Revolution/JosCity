@@ -16538,8 +16538,9 @@ body {
   left: 0;
   height: 100%;
   background-color: #ffffff;
-  transition: width 0.1s linear;
+  transition: width 0.05s linear;
   border-radius: 2px;
+  will-change: width;
 }
 
 .story-viewer__nav-btn {

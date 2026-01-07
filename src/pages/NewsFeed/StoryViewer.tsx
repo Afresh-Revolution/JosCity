@@ -52,7 +52,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
   const autoSlideTimerRef = useRef<NodeJS.Timeout | null>(null);
   const timerProgressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
-  const pausedTimeRef = useRef<number>(0);
   const onNavigateRef = useRef(onNavigate);
   const onCloseRef = useRef(onClose);
 
@@ -86,7 +85,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
     // Reset timer progress
     setTimerProgress(0);
     startTimeRef.current = Date.now();
-    pausedTimeRef.current = 0;
 
     // Clear existing timers
     if (autoSlideTimerRef.current) {
@@ -100,7 +98,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
 
     // Update progress every 50ms for smooth animation (5000ms / 50ms = 100 updates)
     timerProgressIntervalRef.current = setInterval(() => {
-      const elapsed = Date.now() - startTimeRef.current - pausedTimeRef.current;
+      const elapsed = Date.now() - startTimeRef.current;
       const progress = Math.min((elapsed / 5000) * 100, 100);
       setTimerProgress(progress);
 
@@ -108,6 +106,12 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
         if (timerProgressIntervalRef.current) {
           clearInterval(timerProgressIntervalRef.current);
           timerProgressIntervalRef.current = null;
+        }
+        // Auto-advance to next story
+        if (currentIndex < stories.length - 1) {
+          onNavigateRef.current(currentIndex + 1);
+        } else {
+          onCloseRef.current();
         }
       }
     }, 50);
@@ -133,6 +137,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
         timerProgressIntervalRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [story, currentIndex, stories.length, isExpired]);
 
   useEffect(() => {
@@ -453,7 +458,9 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
                 ref={videoRef}
                 src={currentStory.content}
                 controls
-                autoPlay={!isPaused}
+                autoPlay
+                muted
+                playsInline
                 className="story-viewer__video"
                 onEnded={() => {
                   // Auto-advance to next story when video ends

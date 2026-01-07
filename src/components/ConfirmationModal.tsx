@@ -11,6 +11,8 @@ interface ConfirmationModalProps {
   cancelText?: string;
   type?: "delete" | "ban" | "warning" | "danger";
   isLoading?: boolean;
+  avatarUrl?: string;
+  avatarInitials?: string;
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -23,6 +25,8 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   cancelText = "Cancel",
   type = "warning",
   isLoading = false,
+  avatarUrl,
+  avatarInitials,
 }) => {
   if (!isOpen) return null;
 
@@ -47,6 +51,28 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       default:
         return <AlertTriangle size={32} />;
     }
+  };
+
+  const shouldShowAvatar = Boolean(avatarUrl || avatarInitials);
+
+  const renderIcon = () => {
+    if (!shouldShowAvatar) return getIcon();
+
+    return (
+      <div className="confirmation-modal__avatar" aria-hidden="true">
+        {avatarUrl ? (
+          <img
+            className="confirmation-modal__avatar-img"
+            src={avatarUrl}
+            alt=""
+          />
+        ) : (
+          <span className="confirmation-modal__avatar-initials">
+            {avatarInitials}
+          </span>
+        )}
+      </div>
+    );
   };
 
   const getButtonClass = () => {
@@ -76,8 +102,12 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
           <X size={20} />
         </button>
 
-        <div className={`confirmation-modal__icon confirmation-modal__icon--${type}`}>
-          {getIcon()}
+        <div
+          className={`confirmation-modal__icon confirmation-modal__icon--${type} ${
+            shouldShowAvatar ? "confirmation-modal__icon--avatar" : ""
+          }`}
+        >
+          {renderIcon()}
         </div>
 
         <h2 className="confirmation-modal__title">{title}</h2>

@@ -23,7 +23,7 @@
     padding: 8px 16px;
     background-color: rgba(13, 74, 31, 0.1);
     border-radius: 20px;
-    color: $color-primary;
+    color: #000;
     font-size: 14px;
     font-weight: 500;
     margin-bottom: 20px;
@@ -36,8 +36,18 @@
       transform: translateY(0);
     }
 
+    text-transform: uppercase;
+
+    [data-theme="dark"] & {
+      color: #fff;
+    }
+
     svg {
-      color: $color-primary;
+      color: #000;
+
+      [data-theme="dark"] & {
+        color: #fff;
+      }
     }
   }
 

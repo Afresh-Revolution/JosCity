@@ -13,17 +13,8 @@ function App() {
     scroll_target_id?: string;
     requires_auth: boolean;
   }> = [];
-  const navbarSettings = {
-    logo_url: primaryLogo,
-    get_started_button_text: "Get Started",
-    get_started_button_route: "/welcome",
-  };
 
-  const handleGetStarted = () => {
-    navigate(navbarSettings.get_started_button_route);
-  };
-
-  const handleMenuItemClick = (item: typeof menuItems[0]) => {
+  const handleMenuItemClick = (item: (typeof menuItems)[0]) => {
     setIsMenuOpen(false);
     if (item.link_type === "scroll" && item.scroll_target_id) {
       const targetId = item.scroll_target_id;
@@ -214,7 +205,7 @@ function App() {
             ) : (
               // Fallback menu items if API fails
               <>
-                <li className="navbar__nav-item active" onClick={scrollToHome}>
+                <li className="navbar__nav-item" onClick={scrollToHome}>
                   HOME
                 </li>
                 <li className="navbar__nav-item" onClick={scrollToAbout}>
@@ -232,15 +223,6 @@ function App() {
               </>
             )}
           </ul>
-        </div>
-        <div className="navbar__right-section">
-          <button
-            type="button"
-            onClick={handleGetStarted}
-            className="navbar__get-started-button"
-          >
-            {navbarSettings.get_started_button_text || "GET STARTED"}
-          </button>
         </div>
       </nav>
     </>

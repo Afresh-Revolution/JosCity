@@ -81,6 +81,37 @@
   &--default {
     background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
   }
+
+  &--avatar {
+    background: transparent;
+    color: inherit;
+  }
+}
+
+.confirmation-modal__avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.confirmation-modal__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.confirmation-modal__avatar-initials {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--text-primary, #fff);
 }
 
 .confirmation-modal__title {
@@ -158,12 +189,12 @@
   }
 
   &--danger {
-    background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+    background: rgb(220, 53, 69); // solid red (default)
+    background-image: none;
     color: white;
 
     &:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(255, 68, 68, 0.3);
+      transform: scale(1.05); // only scale on hover
     }
   }
 

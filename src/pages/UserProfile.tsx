@@ -31,6 +31,7 @@ import {
 import { userApi } from "../services/userApi";
 import { getUserProfile } from "../api/auth";
 import LazyImage from "../components/LazyImage";
+import ConfirmationModal from "../components/ConfirmationModal";
 
 const UserProfile: React.FC = () => {
   const navigate = useNavigate();
@@ -57,6 +58,8 @@ const UserProfile: React.FC = () => {
     CAC_number: "",
   });
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const accountType = getUserAccountType().toLowerCase();
   const isBusinessAccount = accountType === "business";
 
@@ -303,18 +306,23 @@ const UserProfile: React.FC = () => {
     }));
   };
 
+  const showUploadBadge = (text: string, type: "success" | "error") => {
+    setUploadStatus({ text, type });
+    window.setTimeout(() => setUploadStatus(null), 3000);
+  };
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       // Validate file type
       if (!file.type.startsWith("image/")) {
-        alert("Please select a valid image file");
+        showUploadBadge("Invalid image file", "error");
         return;
       }
 
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert("Image size should be less than 5MB");
+        showUploadBadge("Image must be under 5MB", "error");
         return;
       }
 
@@ -325,10 +333,10 @@ const UserProfile: React.FC = () => {
         setProfilePicture(result);
         // Store in localStorage
         localStorage.setItem("userProfilePicture", result);
-        alert("Profile picture updated successfully!");
+        showUploadBadge("Profile picture updated", "success");
       };
       reader.onerror = () => {
-        alert("Error reading image file");
+        showUploadBadge("Failed to read image", "error");
       };
       reader.readAsDataURL(file);
     }
@@ -360,21 +368,29 @@ const UserProfile: React.FC = () => {
   };
 
   const handleLogout = () => {
-    if (window.confirm("Are you sure you want to logout?")) {
-      // Clear all authentication data
-      localStorage.removeItem("token");
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("user");
-      localStorage.removeItem("userProfilePicture");
-      localStorage.removeItem("accountType");
+    setIsLogoutModalOpen(true);
+  };
 
-      // Clear any other user-related data
-      localStorage.removeItem("userEventLists");
-      localStorage.removeItem("events");
+  const confirmLogout = () => {
+    // Clear all authentication data
+    localStorage.removeItem("token");
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("user");
+    localStorage.removeItem("userProfilePicture");
+    localStorage.removeItem("accountType");
 
-      // Redirect to landing page
-      navigate("/");
-    }
+    // Clear any other user-related data
+    localStorage.removeItem("userEventLists");
+    localStorage.removeItem("events");
+
+    setIsLogoutModalOpen(false);
+    // Redirect to landing page
+    navigate("/");
+  };
+
+  const getAccountTypeLabel = () => {
+    const accountType = getUserAccountType().trim();
+    return accountType || "Basic";
   };
 
   const getAccountTypeBadge = () => {
@@ -417,6 +433,16 @@ const UserProfile: React.FC = () => {
 
   return (
     <div className="user-profile-page">
+      {uploadStatus && (
+        <div
+          className={`user-profile__upload-badge user-profile__upload-badge--${uploadStatus.type}`}
+          role="status"
+          aria-live="polite"
+        >
+          {uploadStatus.type === "success" ? <CheckCircle size={18} /> : <X size={18} />}
+          <span>{uploadStatus.text}</span>
+        </div>
+      )}
       {/* Header Bar */}
       <header className="user-profile-header">
         <div className="user-profile-header__container">
@@ -833,7 +859,9 @@ const UserProfile: React.FC = () => {
                         <span>Account Type</span>
                       </div>
                       <div className="user-profile__info-value user-profile__info-value--account-type">
-                        {getAccountTypeBadge()}
+                        <span className="user-profile__account-type-text">
+                          {getAccountTypeLabel()}
+                        </span>
                       </div>
                     </div>
 
@@ -879,6 +907,19 @@ const UserProfile: React.FC = () => {
           </div>
         </main>
       </div>
+
+      <ConfirmationModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={confirmLogout}
+        title="Logout?"
+        message="Are you sure you want to logout?"
+        confirmText="Logout"
+        cancelText="Cancel"
+        type="danger"
+        avatarUrl={profilePicture || undefined}
+        avatarInitials={getUserInitials()}
+      />
     </div>
   );
 };

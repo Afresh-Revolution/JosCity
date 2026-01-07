@@ -1053,11 +1053,9 @@ const Business: React.FC = () => {
             businesses={[]}
             onBusinessAdded={handleFriendAdded}
           />
-        </aside>
-      </div>
-
-      {/* Footer */}
-      <footer className="newsfeed-footer">
+          
+          {/* Footer inside Aside */}
+          <footer className="newsfeed-footer">
         <p>© 2026 JOSCity</p>
         <div className="newsfeed-footer__links">
           <a
@@ -1098,6 +1096,8 @@ const Business: React.FC = () => {
           </a>
         </div>
       </footer>
+        </aside>
+      </div>
 
       {/* Add Friend Modal */}
       <FindFriendsModal

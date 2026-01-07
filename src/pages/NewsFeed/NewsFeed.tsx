@@ -38,6 +38,7 @@ import NewsFeedSidebar from "./NewsFeedSidebar";
 import StoriesSection from "./StoriesSection";
 import CreatePostInput from "./CreatePostInput";
 import CreatePostModal from "./CreatePostModal";
+import SimpleCreateStoryModal from "./SimpleCreateStoryModal";
 import PostCard from "./PostCard";
 import TrendingSection from "./TrendingSection";
 import SuggestedFriends from "./SuggestedFriends";
@@ -694,6 +695,49 @@ const NewsFeed: React.FC = () => {
   ) => {
     console.log("New story created:", { type, content, caption });
     // StoriesSection handles story creation internally now
+  };
+
+  // Handler for story creation from SimpleCreateStoryModal
+  const handleStoryCreate = async (
+    type: "text" | "photo" | "video",
+    content: string,
+    caption?: string
+  ) => {
+    try {
+      // Prepare story data for API
+      const storyData: {
+        type: "photo" | "video" | "text";
+        src: string;
+        background_color?: string;
+        text_color?: string;
+        duration?: number;
+      } = {
+        type: type,
+        src: content,
+        duration: 24, // 24 hours
+      };
+
+      // Call API to create story
+      const response = await feedApi.createStory(storyData);
+
+      if (response.success && response.data) {
+        // Story created successfully
+        // StoriesSection will pick it up on next fetch
+        console.log("Story created successfully");
+        setIsCreateStoryModalOpen(false);
+      } else {
+        alert("Failed to create story. Please try again.");
+        // Don't close modal on error so user can retry
+      }
+    } catch (error) {
+      console.error("Error creating story:", error);
+      alert(
+        error instanceof Error
+          ? `Error creating story: ${error.message}`
+          : "Failed to create story. Please try again."
+      );
+      // Don't close modal on error so user can retry
+    }
   };
 
   // Get account type
@@ -2401,6 +2445,13 @@ const NewsFeed: React.FC = () => {
           onPost={handleNewPost}
         />
       )}
+
+      {/* Simple Create Story Modal */}
+      <SimpleCreateStoryModal
+        isOpen={isCreateStoryModalOpen}
+        onClose={() => setIsCreateStoryModalOpen(false)}
+        onStory={handleStoryCreate}
+      />
     </div>
   );
 };

@@ -5,20 +5,24 @@ import Avatar from "../../components/Avatar";
 import { getUserName } from "../../utils/userUtils";
 import { feedApi } from "../../services/feedApi";
 
+interface Story {
+  id: number;
+  userName: string;
+  avatar: string;
+  type: "text" | "photo" | "video";
+  content: string;
+  caption?: string;
+  createdAt: number;
+  expiresAt: number;
+  views?: Array<{ userId: number; userName: string; viewedAt: number }>;
+  reactions?: Array<{ userId: number; userName: string; reactedAt: number }>;
+  isOwner?: boolean;
+}
+
 interface StoryViewerProps {
-  story: {
-    id: number;
-    userName: string;
-    avatar: string;
-    type: "text" | "photo" | "video";
-    content: string;
-    caption?: string;
-    createdAt: number;
-    expiresAt: number;
-    views?: Array<{ userId: number; userName: string; viewedAt: number }>;
-    reactions?: Array<{ userId: number; userName: string; reactedAt: number }>;
-    isOwner?: boolean;
-  };
+  stories: Story[];
+  currentIndex: number;
+  onNavigate: (index: number) => void;
   onClose: () => void;
   onDelete?: (storyId: number) => void;
   onView?: (storyId: number) => void;
@@ -26,25 +30,90 @@ interface StoryViewerProps {
 }
 
 const StoryViewer: React.FC<StoryViewerProps> = ({
-  story,
+  stories,
+  currentIndex,
+  onNavigate,
   onClose,
   onDelete,
   onView,
   onReact,
 }) => {
   const [currentTime, setCurrentTime] = useState(0);
+  const [timerProgress, setTimerProgress] = useState(0);
   const [isExpired, setIsExpired] = useState(false);
   const [hasReacted, setHasReacted] = useState(false);
   const [showViews, setShowViews] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
-  const [viewsCount, setViewsCount] = useState(story.views?.length || 0);
+  const [viewsCount, setViewsCount] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const autoSlideTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerProgressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const currentUser = getUserName();
-  const isOwner = story.isOwner || story.userName === currentUser;
+  const story = stories[currentIndex];
+  const isOwner = story?.isOwner || story?.userName === currentUser;
+
+  // Auto-slide to next story after 5 seconds with animated progress
+  useEffect(() => {
+    if (!story || isExpired) return;
+
+    // Reset timer progress
+    setTimerProgress(0);
+
+    // Clear existing timers
+    if (autoSlideTimerRef.current) {
+      clearTimeout(autoSlideTimerRef.current);
+    }
+    if (timerProgressIntervalRef.current) {
+      clearInterval(timerProgressIntervalRef.current);
+    }
+
+    // Update progress every 50ms for smooth animation (5000ms / 50ms = 100 updates)
+    const startTime = Date.now();
+    timerProgressIntervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min((elapsed / 5000) * 100, 100);
+      setTimerProgress(progress);
+
+      if (progress >= 100) {
+        if (timerProgressIntervalRef.current) {
+          clearInterval(timerProgressIntervalRef.current);
+        }
+      }
+    }, 50);
+
+    // Set timer to auto-slide after 5 seconds
+    autoSlideTimerRef.current = setTimeout(() => {
+      if (currentIndex < stories.length - 1) {
+        onNavigate(currentIndex + 1);
+      } else {
+        onClose();
+      }
+    }, 5000);
+
+    return () => {
+      if (autoSlideTimerRef.current) {
+        clearTimeout(autoSlideTimerRef.current);
+      }
+      if (timerProgressIntervalRef.current) {
+        clearInterval(timerProgressIntervalRef.current);
+      }
+    };
+  }, [story, currentIndex, stories.length, isExpired, onNavigate, onClose]);
 
   useEffect(() => {
+    if (!story) return;
+
+    // Reset state when story changes
+    setCurrentTime(0);
+    setTimerProgress(0);
+    setIsExpired(false);
+    setHasReacted(false);
+    setShowViews(false);
+    setShowReactions(false);
+    setViewsCount(story.views?.length || 0);
+
     // Check if story is expired
     const now = Date.now();
     if (story.expiresAt <= now) {
@@ -67,24 +136,14 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
     if (!userViewed && !isOwner && onView) {
       onView(story.id);
     }
-
-    // Auto-close after remaining time (max 5 seconds for preview)
-    const remainingTime = Math.min(story.expiresAt - now, 5000);
-    const timer = setTimeout(() => {
-      if (!isExpired) {
-        onClose();
-      }
-    }, remainingTime);
-
-    return () => {
-      clearTimeout(timer);
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-      }
-    };
-  }, [story, currentUser, isOwner, onView, onClose, isExpired]);
+  }, [story, currentUser, isOwner, onView]);
 
   useEffect(() => {
+    if (!story) return;
+
+    // Reset progress when story changes
+    setCurrentTime(0);
+
     // Update progress bar
     if (!isExpired && story.expiresAt) {
       progressIntervalRef.current = setInterval(() => {
@@ -108,10 +167,10 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
         }
       };
     }
-  }, [story.createdAt, story.expiresAt, isExpired]);
+  }, [story, story?.createdAt, story?.expiresAt, isExpired]);
 
   const handleReact = () => {
-    if (hasReacted || isExpired) return;
+    if (!story || hasReacted || isExpired) return;
 
     if (onReact) {
       onReact(story.id);
@@ -120,15 +179,33 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
   };
 
   const handleDelete = () => {
+    if (!story) return;
     if (window.confirm("Are you sure you want to delete this story?")) {
       if (onDelete) {
         onDelete(story.id);
       }
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      onNavigate(currentIndex - 1);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentIndex < stories.length - 1) {
+      onNavigate(currentIndex + 1);
+    } else {
       onClose();
     }
   };
 
-  const reactionsCount = story.reactions?.length || 0;
+  const reactionsCount = story?.reactions?.length || 0;
+
+  if (!story) { 
+    return null;
+  }
 
   if (isExpired) {
     return (
@@ -145,16 +222,104 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
     );
   }
 
+  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    // Only close if clicking directly on overlay, not on story content
+    if (target.classList.contains("story-viewer-overlay")) {
+      onClose();
+    }
+  };
+
+  const handleStoryClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const width = rect.width;
+
+    // Click on left third goes to previous story
+    if (clickX < width / 3 && currentIndex > 0) {
+      handlePrevious();
+    }
+    // Click on right third goes to next story
+    else if (clickX > (width * 2) / 3 && currentIndex < stories.length - 1) {
+      handleNext();
+    }
+    // Click in middle closes (or does nothing)
+    else if (clickX >= width / 3 && clickX <= (width * 2) / 3) {
+      // Do nothing on middle click, or close if you prefer
+    }
+  };
+
   return (
-    <div className="story-viewer-overlay" onClick={onClose}>
-      <div className="story-viewer" onClick={(e) => e.stopPropagation()}>
-        {/* Progress bar */}
-        <div className="story-viewer__progress-container">
-          <div
-            className="story-viewer__progress"
-            style={{ width: `${100 - currentTime}%` }}
-          />
-        </div>
+    <div className="story-viewer-overlay" onClick={handleOverlayClick}>
+      <div className="story-viewer" onClick={handleStoryClick}>
+        {/* Progress indicators for multiple stories */}
+        {stories.length > 1 && (
+          <div className="story-viewer__progress-indicators">
+            {stories.map((_, index) => (
+              <div
+                key={index}
+                className={`story-viewer__progress-indicator ${
+                  index === currentIndex
+                    ? "story-viewer__progress-indicator--active"
+                    : ""
+                } ${
+                  index < currentIndex
+                    ? "story-viewer__progress-indicator--completed"
+                    : ""
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNavigate(index);
+                }}>
+                {index === currentIndex && (
+                  <div
+                    className="story-viewer__progress-indicator-fill"
+                    style={{ width: `${timerProgress}%` }}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Single progress bar for current story */}
+        {stories.length === 1 && (
+          <div className="story-viewer__progress-container">
+            <div
+              className="story-viewer__progress"
+              style={{ width: `${100 - currentTime}%` }}
+            />
+          </div>
+        )}
+
+        {/* Navigation buttons */}
+        {stories.length > 1 && (
+          <>
+            {currentIndex > 0 && (
+              <button
+                className="story-viewer__nav-btn story-viewer__nav-btn--prev"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePrevious();
+                }}
+                aria-label="Previous story">
+                ←
+              </button>
+            )}
+            {currentIndex < stories.length - 1 && (
+              <button
+                className="story-viewer__nav-btn story-viewer__nav-btn--next"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNext();
+                }}
+                aria-label="Next story">
+                →
+              </button>
+            )}
+          </>
+        )}
 
         {/* Header */}
         <div className="story-viewer__header">
@@ -169,8 +334,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
             <div>
               <p className="story-viewer__user-name">{story.userName}</p>
               <p className="story-viewer__time">
-                {Math.floor((story.expiresAt - Date.now()) / (1000 * 60 * 60))}h
-                {" "}
+                {Math.floor((story.expiresAt - Date.now()) / (1000 * 60 * 60))}h{" "}
                 {Math.floor(
                   ((story.expiresAt - Date.now()) % (1000 * 60 * 60)) /
                     (1000 * 60)
@@ -179,6 +343,11 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
               </p>
             </div>
           </div>
+          {stories.length > 1 && (
+            <div className="story-viewer__story-counter">
+              {currentIndex + 1} / {stories.length}
+            </div>
+          )}
 
           <div className="story-viewer__header-actions">
             {isOwner && (
@@ -196,8 +365,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
                     console.error("Error fetching story views:", error);
                   }
                 }}
-                title="View stats"
-              >
+                title="View stats">
                 <Eye size={20} />
                 {viewsCount > 0 && (
                   <span className="story-viewer__badge">{viewsCount}</span>
@@ -214,31 +382,36 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
                   setShowReactions(true);
                 }
               }}
-              title={hasReacted ? "You reacted - Click to see reactions" : "React"}
-            >
+              title={
+                hasReacted ? "You reacted - Click to see reactions" : "React"
+              }>
               <Heart
                 size={20}
                 fill={hasReacted ? "currentColor" : "none"}
                 color={hasReacted ? "#ff4444" : "currentColor"}
               />
               {(reactionsCount > 0 || hasReacted) && (
-                <span className="story-viewer__badge">{reactionsCount + (hasReacted && !story.reactions?.some(r => r.userName === currentUser) ? 1 : 0)}</span>
+                <span className="story-viewer__badge">
+                  {reactionsCount +
+                    (hasReacted &&
+                    !story.reactions?.some((r) => r.userName === currentUser)
+                      ? 1
+                      : 0)}
+                </span>
               )}
             </button>
             {isOwner && (
               <button
                 className="story-viewer__action-btn story-viewer__action-btn--delete"
                 onClick={handleDelete}
-                title="Delete story"
-              >
+                title="Delete story">
                 <Trash2 size={20} />
               </button>
             )}
             <button
               className="story-viewer__close-btn"
               onClick={onClose}
-              title="Close"
-            >
+              title="Close">
               <X size={24} />
             </button>
           </div>
@@ -246,7 +419,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
 
         {/* Content */}
         <div className="story-viewer__content">
-          {story.type === "text" && (
+          {/* {story.type === "text" && (
             <div
               className="story-viewer__text-content"
               style={{
@@ -262,6 +435,34 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
               }}
             >
               <p style={{ fontSize: "24px", textAlign: "center" }}>
+                {story.content}
+              </p>
+            </div>
+          )} */}
+
+          {story.type === "text" && (
+            <div
+              className="story-viewer__text-content"
+              style={{
+                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                color: "white",
+                padding: "2rem",
+                borderRadius: "8px",
+                minHeight: "400px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}>
+              <p
+                style={{
+                  fontSize: "24px",
+                  textAlign: "center",
+                  wordWrap: "break-word",
+                  overflowWrap: "break-word",
+                  whiteSpace: "pre-wrap",
+                  maxWidth: "100%",
+                  padding: "1rem",
+                }}>
                 {story.content}
               </p>
             </div>
@@ -304,12 +505,10 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
         {showViews && (
           <div
             className="story-viewer__modal-overlay"
-            onClick={() => setShowViews(false)}
-          >
+            onClick={() => setShowViews(false)}>
             <div
               className="story-viewer__modal"
-              onClick={(e) => e.stopPropagation()}
-            >
+              onClick={(e) => e.stopPropagation()}>
               <div className="story-viewer__modal-header">
                 <h3>Story Views ({viewsCount})</h3>
                 <button onClick={() => setShowViews(false)}>
@@ -342,12 +541,10 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
         {showReactions && (
           <div
             className="story-viewer__modal-overlay"
-            onClick={() => setShowReactions(false)}
-          >
+            onClick={() => setShowReactions(false)}>
             <div
               className="story-viewer__modal"
-              onClick={(e) => e.stopPropagation()}
-            >
+              onClick={(e) => e.stopPropagation()}>
               <div className="story-viewer__modal-header">
                 <h3>Story Reactions ({reactionsCount})</h3>
                 <button onClick={() => setShowReactions(false)}>
@@ -355,7 +552,8 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
                 </button>
               </div>
               <div className="story-viewer__modal-content">
-                {((story.reactions && story.reactions.length > 0) || hasReacted) ? (
+                {(story.reactions && story.reactions.length > 0) ||
+                hasReacted ? (
                   <ul className="story-viewer__viewers-list">
                     {story.reactions?.map((reaction, index) => (
                       <li key={index} className="story-viewer__viewer-item">
@@ -373,22 +571,25 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
                         </span>
                       </li>
                     ))}
-                    {hasReacted && !story.reactions?.some(r => r.userName === currentUser) && (
-                      <li className="story-viewer__viewer-item">
-                        <Heart
-                          size={16}
-                          fill="#ff4444"
-                          color="#ff4444"
-                          style={{ marginRight: "8px" }}
-                        />
-                        <span className="story-viewer__viewer-name">
-                          {currentUser} (You)
-                        </span>
-                        <span className="story-viewer__viewer-time">
-                          Just now
-                        </span>
-                      </li>
-                    )}
+                    {hasReacted &&
+                      !story.reactions?.some(
+                        (r) => r.userName === currentUser
+                      ) && (
+                        <li className="story-viewer__viewer-item">
+                          <Heart
+                            size={16}
+                            fill="#ff4444"
+                            color="#ff4444"
+                            style={{ marginRight: "8px" }}
+                          />
+                          <span className="story-viewer__viewer-name">
+                            {currentUser} (You)
+                          </span>
+                          <span className="story-viewer__viewer-time">
+                            Just now
+                          </span>
+                        </li>
+                      )}
                   </ul>
                 ) : (
                   <p>No reactions yet</p>
@@ -403,4 +604,3 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
 };
 
 export default StoryViewer;
-

@@ -402,10 +402,20 @@
     border: 1px solid var(--border-color, transparent);
 
     &--account-type {
-      background-color: transparent;
-      padding: 0;
-      min-height: auto;
+      // Make Account Type display feel like a real field (bigger like inputs)
+      background-color: var(--bg-secondary, #f8f8f8);
+      padding: 12px 14px;
+      min-height: 48px;
+      border-radius: 8px;
+      border: 2px solid var(--border-color, #ddd);
     }
+  }
+
+  &__account-type-text {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary, #333);
+    letter-spacing: 0.2px;
   }
 
   &__input {
@@ -445,6 +455,65 @@
     }
   }
 
+  // Upload success/error badge
+  &__upload-badge {
+    position: fixed;
+    top: 84px;
+    right: 16px;
+    z-index: 1200;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.15px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2),
+      0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+    animation: profile-badge-fade 3s ease-in-out forwards;
+
+    &--success {
+      background: linear-gradient(135deg, var(--color-primary), #00a844);
+    }
+
+    &--error {
+      background: linear-gradient(135deg, #ff4444, #cc0000);
+    }
+  }
+
+  @keyframes profile-badge-fade {
+    0% {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+    10%,
+    90% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+  }
+
+  @media (max-width: 768px) {
+    &__upload-badge {
+      top: 76px;
+      right: 12px;
+      padding: 8px 10px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    &__upload-badge {
+      top: 70px;
+      right: 10px;
+      padding: 6px 10px;
+      font-size: 0.95rem;
+    }
+  }
     &__save-btn {
     display: flex;
     align-items: center;

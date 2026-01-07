@@ -59,6 +59,7 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [showViewerAfterPost, setShowViewerAfterPost] = useState(false);
   const [newlyPostedStory, setNewlyPostedStory] = useState<Story | null>(null);
+  const [postedViewerIndex, setPostedViewerIndex] = useState(0);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const currentUser = getUserName();
@@ -264,6 +265,20 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
     setSelectedStoryType(type);
     setIsStoryModalOpen(true);
   };
+
+  // Initialize/keep the posted viewer index in sync with the newly posted story set
+  useEffect(() => {
+    if (showViewerAfterPost && newlyPostedStory) {
+      const userStories = storiesByUser.get(newlyPostedStory.userName) || [
+        newlyPostedStory,
+      ];
+      const storyIndex = userStories.findIndex(
+        (s) => s.id === newlyPostedStory.id
+      );
+      const indexToShow = storyIndex >= 0 ? storyIndex : 0;
+      setPostedViewerIndex(indexToShow);
+    }
+  }, [showViewerAfterPost, newlyPostedStory, storiesByUser]);
 
   const handleStoryCreated = async (
     type: "text" | "photo" | "video",
@@ -1046,24 +1061,20 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
           const userStories = storiesByUser.get(newlyPostedStory.userName) || [
             newlyPostedStory,
           ];
-          const storyIndex = userStories.findIndex(
-            (s) => s.id === newlyPostedStory.id
-          );
-          const indexToShow = storyIndex >= 0 ? storyIndex : 0;
 
           return (
             <StoryViewer
               stories={userStories}
-              currentIndex={indexToShow}
+              currentIndex={postedViewerIndex}
               onNavigate={(index) => {
-                // Update index if needed, but for newly posted story, we want to show it
                 if (index >= 0 && index < userStories.length) {
-                  // Index is valid, viewer will handle it
+                  setPostedViewerIndex(index);
                 }
               }}
               onClose={() => {
                 setShowViewerAfterPost(false);
                 setNewlyPostedStory(null);
+                setPostedViewerIndex(0);
               }}
               onDelete={handleStoryDelete}
               onView={handleStoryView}

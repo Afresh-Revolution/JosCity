@@ -128,7 +128,8 @@ const NewsFeed: React.FC = () => {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [filteredHashtag, setFilteredHashtag] = useState<string | null>(null);
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
-  const [isFriendRequestsDropdownOpen, setIsFriendRequestsDropdownOpen] = useState(false);
+  const [isFriendRequestsDropdownOpen, setIsFriendRequestsDropdownOpen] =
+    useState(false);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
   const [isLoadingFriendRequests, setIsLoadingFriendRequests] = useState(false);
   const friendRequestsDropdownRef = useRef<HTMLDivElement>(null);
@@ -172,6 +173,12 @@ const NewsFeed: React.FC = () => {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
+  // Upload success badge
+  const [uploadBadge, setUploadBadge] = useState<{ text: string } | null>(null);
+  const showUploadBadge = (text: string) => {
+    setUploadBadge({ text });
+    window.setTimeout(() => setUploadBadge(null), 3000);
+  };
   // Get time-based greeting with motivational messages
   const getTimeBasedGreeting = () => {
     const hour = new Date().getHours();
@@ -680,6 +687,16 @@ const NewsFeed: React.FC = () => {
         await fetchFeeds();
 
         console.log("Feeds refreshed after post creation");
+        // Show success badge with type
+        const kind =
+          videos && videos.length > 0
+            ? "Video"
+            : images && images.length > 0
+            ? "Photo"
+            : caption.trim()
+            ? "Text"
+            : "Post";
+        showUploadBadge(`${kind} uploaded`);
       } else {
         console.error("Failed to create post:", response);
         alert("Failed to create post. Please try again.");
@@ -706,6 +723,7 @@ const NewsFeed: React.FC = () => {
   ) => {
     console.log("New story created:", { type, content, caption });
     // StoriesSection handles story creation internally now
+    showUploadBadge("Story uploaded");
   };
 
   // Get account type
@@ -1322,7 +1340,12 @@ const NewsFeed: React.FC = () => {
   );
 
   useEffect(() => {
-    if (isCreateMenuOpen || isSearchFocused || isAddFriendModalOpen || isFriendRequestsDropdownOpen) {
+    if (
+      isCreateMenuOpen ||
+      isSearchFocused ||
+      isAddFriendModalOpen ||
+      isFriendRequestsDropdownOpen
+    ) {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
@@ -1361,7 +1384,7 @@ const NewsFeed: React.FC = () => {
     const newState = !isFriendRequestsDropdownOpen;
     setIsFriendRequestsDropdownOpen(newState);
     setIsCreateMenuOpen(false);
-    
+
     // Fetch requests when opening
     if (newState) {
       fetchFriendRequests();
@@ -1374,7 +1397,9 @@ const NewsFeed: React.FC = () => {
       const response = await friendApi.acceptFriendRequest(requestId);
       if (response.success) {
         // Remove the accepted request from the list
-        setFriendRequests((prev) => prev.filter((req) => req.request_id !== requestId));
+        setFriendRequests((prev) =>
+          prev.filter((req) => req.request_id !== requestId)
+        );
         // Refresh feeds to show new friend's posts
         await fetchFeeds();
       }
@@ -1390,7 +1415,9 @@ const NewsFeed: React.FC = () => {
       const response = await friendApi.rejectFriendRequest(requestId);
       if (response.success) {
         // Remove the rejected request from the list
-        setFriendRequests((prev) => prev.filter((req) => req.request_id !== requestId));
+        setFriendRequests((prev) =>
+          prev.filter((req) => req.request_id !== requestId)
+        );
       }
     } catch (error) {
       console.error("Error rejecting friend request:", error);
@@ -1430,6 +1457,12 @@ const NewsFeed: React.FC = () => {
 
   return (
     <div className="newsfeed-page">
+      {uploadBadge && (
+        <div className="newsfeed-upload-badge" role="status" aria-live="polite">
+          <CheckCircle size={18} />
+          <span>{uploadBadge.text}</span>
+        </div>
+      )}
       {/* Top Navigation Bar */}
       <header className="newsfeed-header">
         <div className="newsfeed-header__container">
@@ -1550,10 +1583,12 @@ const NewsFeed: React.FC = () => {
                       {friendRequests.map((request) => {
                         const sender = request.sender;
                         const senderName = sender
-                          ? `${sender.user_firstname || ""} ${sender.user_lastname || ""}`.trim() || "Unknown User"
+                          ? `${sender.user_firstname || ""} ${
+                              sender.user_lastname || ""
+                            }`.trim() || "Unknown User"
                           : "Unknown User";
                         const senderAvatar = sender?.user_picture || "";
-                        
+
                         return (
                           <div
                             key={request.request_id}
@@ -1580,14 +1615,18 @@ const NewsFeed: React.FC = () => {
                             <div className="newsfeed-header__friend-request-actions">
                               <button
                                 className="newsfeed-header__friend-request-btn newsfeed-header__friend-request-btn--accept"
-                                onClick={() => handleAcceptFriendRequest(request.request_id)}
+                                onClick={() =>
+                                  handleAcceptFriendRequest(request.request_id)
+                                }
                                 title="Accept"
                               >
                                 <UserCheck size={16} />
                               </button>
                               <button
                                 className="newsfeed-header__friend-request-btn newsfeed-header__friend-request-btn--reject"
-                                onClick={() => handleRejectFriendRequest(request.request_id)}
+                                onClick={() =>
+                                  handleRejectFriendRequest(request.request_id)
+                                }
                                 title="Reject"
                               >
                                 <X size={16} />
@@ -1890,51 +1929,55 @@ const NewsFeed: React.FC = () => {
             }}
           />
           <SuggestedFriends friends={[]} onFriendAdded={handleFriendAdded} />
+
+          {/* Footer inside Aside */}
+          <footer className="newsfeed-footer">
+            <p>© 2026 JOSCity</p>
+            <div className="newsfeed-footer__links">
+              <a
+                href="/about"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/about", { state: { fromNewsfeed: true } });
+                }}
+              >
+                About
+              </a>
+              <a
+                href="/terms-of-service"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/terms-of-service", {
+                    state: { fromNewsfeed: true },
+                  });
+                }}
+              >
+                Terms
+              </a>
+              <a
+                href="/privacy-policy"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/privacy-policy", {
+                    state: { fromNewsfeed: true },
+                  });
+                }}
+              >
+                Privacy
+              </a>
+              <a
+                href="/contact"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/contact", { state: { fromNewsfeed: true } });
+                }}
+              >
+                Contact Us
+              </a>
+            </div>
+          </footer>
         </aside>
       </div>
-
-      {/* Footer */}
-      <footer className="newsfeed-footer">
-        <p>© 2026 JOSCity</p>
-        <div className="newsfeed-footer__links">
-          <a
-            href="/about"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/about", { state: { fromNewsfeed: true } });
-            }}
-          >
-            About
-          </a>
-          <a
-            href="/terms-of-service"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/terms-of-service", { state: { fromNewsfeed: true } });
-            }}
-          >
-            Terms
-          </a>
-          <a
-            href="/privacy-policy"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/privacy-policy", { state: { fromNewsfeed: true } });
-            }}
-          >
-            Privacy
-          </a>
-          <a
-            href="/contact"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/contact", { state: { fromNewsfeed: true } });
-            }}
-          >
-            Contact Us
-          </a>
-        </div>
-      </footer>
 
       {/* Add Friend Modal */}
       <FindFriendsModal

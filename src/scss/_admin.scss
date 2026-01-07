@@ -10,6 +10,48 @@
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+// Upload success/error badge for admin profile
+.admin-upload-badge {
+  position: fixed;
+  top: 84px;
+  right: 16px;
+  z-index: 1200;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.15px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+  animation: admin-badge-fade 3s ease-in-out forwards;
+
+  &--success {
+    background: linear-gradient(135deg, var(--color-primary), #00a844);
+  }
+
+  &--error {
+    background: linear-gradient(135deg, #ff4444, #cc0000);
+  }
+}
+
+@keyframes admin-badge-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  10%,
+  90% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
 .admin-header {
   // Glass effect with backdrop blur
   background: rgba(26, 93, 58, 0.85);

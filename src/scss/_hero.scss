@@ -192,11 +192,32 @@
     &.fade-in {
       opacity: 0.8;
       transform: translateY(0);
+      // Float up/down + subtle pulse infinitely
+      animation: badge-float-pulse 3.2s ease-in-out infinite;
+      will-change: transform;
+      // Make previous hover visuals the default look
+      background: var(--bg-secondary);
+      // Always show border glow by default
+      &::before {
+        opacity: 1;
+        animation: border-glow 2s ease-in-out infinite;
+      }
     }
 
+    // New, stronger hover effect
     &.fade-in:hover {
-      background: var(--bg-secondary);
-      transform: translateY(0) scale(1.05);
+      background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.06),
+        rgba(255, 255, 255, 0.12)
+      );
+      transform: translateY(0) scale(1.08) rotate(-0.75deg);
+      box-shadow: 0 8px 28px rgba(52, 184, 106, 0.45),
+        0 0 0 1px rgba(255, 255, 255, 0.25) inset;
+      // Slightly faster border glow on hover
+      &::before {
+        animation: border-glow 1.6s ease-in-out infinite;
+      }
     }
 
     &.fade-in:active {
@@ -343,9 +364,10 @@
     letter-spacing: 1.5px;
 
     &--primary {
-      background: linear-gradient(135deg, var(--bg-primary), var(--bg-overlay));
-      color: var(--text-secondary);
-      box-shadow: 0 4px 20px var(--shadow-dark),
+      // Green primary styling
+      background: linear-gradient(135deg, var(--color-primary), #0a7a2a);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(13, 74, 31, 0.35),
         0 0 0 1px var(--border-color) inset;
 
       // Animated shine effect
@@ -359,7 +381,7 @@
         background: linear-gradient(
           90deg,
           transparent,
-          rgba(255, 255, 255, 0.5),
+          rgba(255, 255, 255, 0.45),
           transparent
         );
         transition: left 0.5s ease;
@@ -375,20 +397,16 @@
         width: 0;
         height: 0;
         border-radius: 50%;
-        background: rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.28);
         transition: width 0.6s ease, height 0.6s ease;
         z-index: 0;
       }
 
       &:hover {
-        background: linear-gradient(
-          135deg,
-          var(--bg-primary),
-          var(--bg-overlay)
-        );
+        background: linear-gradient(135deg, #0ca03a, var(--color-primary));
         transform: translateY(-3px) scale(1.05);
-        box-shadow: 0 8px 30px var(--shadow-dark),
-          0 0 40px var(--bg-overlay) inset;
+        box-shadow: 0 8px 30px rgba(13, 74, 31, 0.5),
+          0 0 40px rgba(13, 74, 31, 0.25) inset;
 
         &::before {
           left: 100%;
@@ -522,7 +540,8 @@
       [data-theme="dark"] & {
         background-color: var(--color-primary);
         border-color: var(--color-primary);
-        box-shadow: 0 0 20px var(--color-primary), 0 0 40px rgba(52, 184, 106, 0.6);
+        box-shadow: 0 0 20px var(--color-primary),
+          0 0 40px rgba(52, 184, 106, 0.6);
       }
     }
   }
@@ -722,11 +741,12 @@
 @keyframes neon-pulse {
   0%,
   100% {
-    text-shadow: 0 0 15px rgba(52, 184, 106, 0.5), 0 0 30px rgba(52, 184, 106, 0.3);
+    text-shadow: 0 0 15px rgba(52, 184, 106, 0.5),
+      0 0 30px rgba(52, 184, 106, 0.3);
   }
   50% {
-    text-shadow: 0 0 25px rgba(52, 184, 106, 0.8), 0 0 50px rgba(52, 184, 106, 0.5),
-      0 0 75px rgba(52, 184, 106, 0.3);
+    text-shadow: 0 0 25px rgba(52, 184, 106, 0.8),
+      0 0 50px rgba(52, 184, 106, 0.5), 0 0 75px rgba(52, 184, 106, 0.3);
   }
 }
 
@@ -738,6 +758,19 @@
   }
   50% {
     box-shadow: 0 0 30px $color-primary, 0 0 60px rgba(52, 184, 106, 0.8);
+  }
+}
+
+// Badge float + pulse (translateY + scale combined transform)
+@keyframes badge-float-pulse {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-6px) scale(1.03);
+  }
+  100% {
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -820,8 +853,8 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1.25rem;
-    background-color: #d1fae5;
-    color: #059669;
+    background: var(--bg-secondary);
+    color: #000;
     border-radius: 2rem;
     font-size: 0.9rem;
     font-weight: 600;
@@ -829,6 +862,52 @@
     opacity: 0;
     transform: translateX(-30px);
     transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    // Apply same float + pulse animation as hero badge
+    animation: badge-float-pulse 3.2s ease-in-out infinite;
+    will-change: transform;
+
+    // Dark theme text color override
+    [data-theme="dark"] & {
+      color: #fff;
+    }
+
+    // Animated border glow like hero badge
+    &::before {
+      content: "";
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      background: linear-gradient(
+        45deg,
+        $color-primary,
+        transparent,
+        $color-primary
+      );
+      border-radius: 2rem;
+      z-index: -1;
+      opacity: 1;
+      animation: border-glow 2s ease-in-out infinite;
+      transition: opacity 0.3s ease;
+    }
+
+    // Hover effect aligned with hero badge
+    &:hover {
+      background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.06),
+        rgba(255, 255, 255, 0.12)
+      );
+      transform: translateY(0) scale(1.08) rotate(-0.75deg);
+      box-shadow: 0 8px 28px rgba(52, 184, 106, 0.45),
+        0 0 0 1px rgba(255, 255, 255, 0.25) inset;
+      &::before {
+        animation: border-glow 1.6s ease-in-out infinite;
+      }
+    }
 
     svg {
       flex-shrink: 0;
@@ -900,7 +979,13 @@
     background: var(--bg-tertiary);
     border-radius: 12px;
     transition: all 0.3s ease;
-    border: 2px solid transparent;
+    // Darker border in light mode for clearer separation
+    border: 2px solid #aeb2b75d;
+
+    // Keep border subtle in dark mode
+    [data-theme="dark"] & {
+      border-color: var(--border-color);
+    }
 
     &:hover {
       background: var(--card-bg);
@@ -930,7 +1015,11 @@
 
     // Lighter green gradient in dark mode
     [data-theme="dark"] & {
-      background: linear-gradient(135deg, var(--color-primary) 0%, #5ee89f 100%);
+      background: linear-gradient(
+        135deg,
+        var(--color-primary) 0%,
+        #5ee89f 100%
+      );
       box-shadow: 0 4px 15px rgba(52, 184, 106, 0.5);
     }
   }
@@ -964,7 +1053,8 @@
     display: flex;
     align-items: stretch;
     overflow: visible;
-    transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+      transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 
     &.fade-in-right {
       opacity: 1;
@@ -1208,13 +1298,11 @@
   100% {
     opacity: 0.8;
     box-shadow: 0 0 20px rgba(52, 184, 106, 0.8),
-                0 0 40px rgba(52, 184, 106, 0.6),
-                0 0 60px rgba(52, 184, 106, 0.4);
+      0 0 40px rgba(52, 184, 106, 0.6), 0 0 60px rgba(52, 184, 106, 0.4);
   }
   50% {
     opacity: 1;
-    box-shadow: 0 0 30px rgba(52, 184, 106, 1),
-                0 0 60px rgba(52, 184, 106, 0.8),
-                0 0 90px rgba(52, 184, 106, 0.6);
+    box-shadow: 0 0 30px rgba(52, 184, 106, 1), 0 0 60px rgba(52, 184, 106, 0.8),
+      0 0 90px rgba(52, 184, 106, 0.6);
   }
 }

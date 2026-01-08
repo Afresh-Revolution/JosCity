@@ -12,6 +12,7 @@ import {
   Camera,
   Phone,
   MapPin,
+  CheckCircle,
 } from "lucide-react";
 import "../main.css";
 import "../scss/_admin.scss";
@@ -31,6 +32,7 @@ const AdminProfile: React.FC = () => {
     address: "",
   });
   const [profilePicture, setProfilePicture] = useState<string>(userAvatar);
+  const [uploadStatus, setUploadStatus] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
   // Load admin data on mount
   useEffect(() => {
@@ -103,13 +105,15 @@ const AdminProfile: React.FC = () => {
     if (file) {
       // Validate file type
       if (!file.type.startsWith("image/")) {
-        alert("Please select a valid image file");
+        setUploadStatus({ text: "Invalid image file", type: "error" });
+        window.setTimeout(() => setUploadStatus(null), 3000);
         return;
       }
 
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert("Image size should be less than 5MB");
+        setUploadStatus({ text: "Image must be under 5MB", type: "error" });
+        window.setTimeout(() => setUploadStatus(null), 3000);
         return;
       }
 
@@ -120,10 +124,12 @@ const AdminProfile: React.FC = () => {
         setProfilePicture(result);
         // Store in localStorage
         localStorage.setItem("adminProfilePicture", result);
-        alert("Profile picture updated successfully!");
+        setUploadStatus({ text: "Profile picture updated", type: "success" });
+        window.setTimeout(() => setUploadStatus(null), 3000);
       };
       reader.onerror = () => {
-        alert("Error reading image file");
+        setUploadStatus({ text: "Failed to read image", type: "error" });
+        window.setTimeout(() => setUploadStatus(null), 3000);
       };
       reader.readAsDataURL(file);
     }
@@ -157,6 +163,16 @@ const AdminProfile: React.FC = () => {
   return (
     <ProtectedRoute requireAdmin={true}>
       <div className="admin-page">
+        {uploadStatus && (
+          <div
+            className={`admin-upload-badge admin-upload-badge--${uploadStatus.type}`}
+            role="status"
+            aria-live="polite"
+          >
+            {uploadStatus.type === "success" ? <CheckCircle size={18} /> : <X size={18} />}
+            <span>{uploadStatus.text}</span>
+          </div>
+        )}
         {/* Header Bar */}
         <header className="admin-header">
           <div className="admin-header__container">

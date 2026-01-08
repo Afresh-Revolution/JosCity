@@ -48,7 +48,7 @@ import Saved from "./pages/NewsFeed/Saved";
 import Business from "./pages/NewsFeed/Business";
 
 // Prevent browser inspection/devtools
-//preventInspect();
+// preventInspect();
 
 // Landing page component (without WelcomePage or Register)
 export function LandingPage() {

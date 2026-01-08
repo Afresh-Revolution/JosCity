@@ -1,10 +1,11 @@
 @use "./variables" as *;
+@use "./mixins" as *;
 
 .footer {
-  background-color: var(--footer-bg);
-  color: var(--text-primary);
+  background-color: var(--footer-bg); // CSS custom property for theme switching
+  @include text-primary;
   font-family: $font-family;
-  padding: 60px 0 30px;
+  padding: $spacing-xxl 0 $spacing-xl;
 
   &__container {
     max-width: 1200px;
@@ -84,7 +85,7 @@
   &__tagline {
     font-size: 14px;
     line-height: 1.6;
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba($text-white, 0.9);
     margin: 0;
     font-weight: 400;
     text-align: left;
@@ -93,8 +94,8 @@
   &__heading {
     font-size: 18px;
     font-weight: 600;
-    color: white;
-    margin: 0 0 8px 0;
+    color: $text-white;
+    margin: 0 0 $spacing-xs 0;
   }
 
   &__links {
@@ -107,11 +108,11 @@
   }
 
   &__link {
-    color: rgba(255, 255, 255, 0.8);
+    color: rgba($text-white, 0.8);
     text-decoration: none;
     font-size: 14px;
     font-weight: 400;
-    transition: all 0.3s ease;
+    @include smooth-transition(all);
     position: relative;
     display: inline-block;
     padding: 2px 0;
@@ -123,12 +124,12 @@
       left: 0;
       width: 0;
       height: 2px;
-      background: linear-gradient(90deg, $color-primary, rgba(255, 255, 255, 0.8));
-      transition: width 0.3s ease;
+      background: linear-gradient(90deg, $color-primary, rgba($text-white, 0.8));
+      @include smooth-transition(width);
     }
 
     &:hover {
-      color: white;
+      color: $text-white;
       transform: translateX(4px);
 
       &::after {
@@ -149,15 +150,21 @@
 
   &__divider {
     height: 1px;
-    background-color: #99a1af;
+    background-color: $border-gray;
     width: 100%;
-    margin: 30px 0 20px;
+    margin: ($spacing-lg + $spacing-md) 0 $spacing-lg;
   }
 
   &__social-links {
     display: flex;
     gap: 12px;
     align-items: center;
+
+    // Apply the same animation style as the mobile navbar items to the whole container
+    .footer__column.fade-in & {
+      animation: slide-in-from-right 0.5s ease-out both,
+        float-infinite 3s ease-in-out infinite;
+    }
   }
 
   &__social-link {
@@ -190,7 +197,7 @@
 
   &__copyright {
     text-align: center;
-    padding-top: 20px;
+    padding-top: $spacing-lg;
     opacity: 0;
     transform: translateY(10px);
     transition: opacity 0.8s ease-out 0.6s, transform 0.8s ease-out 0.6s;
@@ -203,7 +210,7 @@
     p {
       margin: 0;
       font-size: 14px;
-      color: rgba(255, 255, 255, 0.8);
+      color: rgba($text-white, 0.8);
       font-weight: 400;
     }
   }

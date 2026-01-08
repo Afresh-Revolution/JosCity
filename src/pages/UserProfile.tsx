@@ -29,7 +29,9 @@ import {
   getUserInitials,
 } from "../utils/userUtils";
 import { userApi } from "../services/userApi";
+import { getUserProfile } from "../api/auth";
 import LazyImage from "../components/LazyImage";
+import ConfirmationModal from "../components/ConfirmationModal";
 
 const UserProfile: React.FC = () => {
   const navigate = useNavigate();
@@ -56,6 +58,8 @@ const UserProfile: React.FC = () => {
     CAC_number: "",
   });
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const accountType = getUserAccountType().toLowerCase();
   const isBusinessAccount = accountType === "business";
 
@@ -64,11 +68,41 @@ const UserProfile: React.FC = () => {
     const fetchUserProfile = async () => {
       try {
         setIsLoading(true);
-        // Try to fetch from API first
-        const response = await userApi.getUserProfile();
+        // Fetch from API using the new /api/profile endpoint
+        const response = await getUserProfile();
         if (response.success && response.data) {
           const profileData = response.data;
-          setUserData(profileData as unknown as Record<string, unknown>);
+          
+          // Ensure all data is properly mapped for display in the first section
+          const mappedUserData: Record<string, unknown> = {
+            ...profileData,
+            user_firstname: profileData.user_firstname || "",
+            user_lastname: profileData.user_lastname || "",
+            user_gender: profileData.user_gender || "",
+            user_email: profileData.user_email || "",
+            user_phone: profileData.user_phone || "",
+            nin_number: profileData.nin_number || "",
+            address: profileData.address || "",
+            // Business fields
+            business_name: profileData.business_name || "",
+            business_type: profileData.business_type || "",
+            business_email: profileData.business_email || "",
+            business_phone: profileData.business_phone || "",
+            business_location: profileData.business_location || "",
+            CAC_number: profileData.CAC_number || "",
+            // Display name for header
+            display_name: profileData.display_name || 
+              (profileData.business_name || 
+               `${profileData.user_firstname || ""} ${profileData.user_lastname || ""}`.trim() || 
+               "User"),
+            full_name: profileData.full_name || 
+              `${profileData.user_firstname || ""} ${profileData.user_lastname || ""}`.trim(),
+          };
+          
+          // Set user data for display in the first user-profile__section
+          setUserData(mappedUserData);
+          
+          // Set edited data for form fields
           setEditedData({
             user_firstname: profileData.user_firstname || "",
             user_lastname: profileData.user_lastname || "",
@@ -85,11 +119,24 @@ const UserProfile: React.FC = () => {
             business_location: profileData.business_location || "",
             CAC_number: profileData.CAC_number || "",
           });
+          
           if (profileData.user_picture) {
             setProfilePicture(profileData.user_picture);
           }
+          
+          // Update localStorage with fresh data from database
+          const currentUser = getUserData();
+          if (currentUser) {
+            const mergedUser = { ...currentUser, ...mappedUserData };
+            localStorage.setItem("user", JSON.stringify(mergedUser));
+          } else {
+            localStorage.setItem("user", JSON.stringify(mappedUserData));
+          }
+          
+          console.log("Profile data fetched and loaded into first section:", mappedUserData);
         } else {
           // Fallback to localStorage if API fails
+          console.warn("API fetch failed, using localStorage fallback:", response.message);
           const user = getUserData();
           if (user) {
             setUserData(user);
@@ -259,18 +306,23 @@ const UserProfile: React.FC = () => {
     }));
   };
 
+  const showUploadBadge = (text: string, type: "success" | "error") => {
+    setUploadStatus({ text, type });
+    window.setTimeout(() => setUploadStatus(null), 3000);
+  };
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       // Validate file type
       if (!file.type.startsWith("image/")) {
-        alert("Please select a valid image file");
+        showUploadBadge("Invalid image file", "error");
         return;
       }
 
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert("Image size should be less than 5MB");
+        showUploadBadge("Image must be under 5MB", "error");
         return;
       }
 
@@ -281,10 +333,10 @@ const UserProfile: React.FC = () => {
         setProfilePicture(result);
         // Store in localStorage
         localStorage.setItem("userProfilePicture", result);
-        alert("Profile picture updated successfully!");
+        showUploadBadge("Profile picture updated", "success");
       };
       reader.onerror = () => {
-        alert("Error reading image file");
+        showUploadBadge("Failed to read image", "error");
       };
       reader.readAsDataURL(file);
     }
@@ -316,21 +368,29 @@ const UserProfile: React.FC = () => {
   };
 
   const handleLogout = () => {
-    if (window.confirm("Are you sure you want to logout?")) {
-      // Clear all authentication data
-      localStorage.removeItem("token");
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("user");
-      localStorage.removeItem("userProfilePicture");
-      localStorage.removeItem("accountType");
+    setIsLogoutModalOpen(true);
+  };
 
-      // Clear any other user-related data
-      localStorage.removeItem("userEventLists");
-      localStorage.removeItem("events");
+  const confirmLogout = () => {
+    // Clear all authentication data
+    localStorage.removeItem("token");
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("user");
+    localStorage.removeItem("userProfilePicture");
+    localStorage.removeItem("accountType");
 
-      // Redirect to landing page
-      navigate("/");
-    }
+    // Clear any other user-related data
+    localStorage.removeItem("userEventLists");
+    localStorage.removeItem("events");
+
+    setIsLogoutModalOpen(false);
+    // Redirect to landing page
+    navigate("/");
+  };
+
+  const getAccountTypeLabel = () => {
+    const accountType = getUserAccountType().trim();
+    return accountType || "Basic";
   };
 
   const getAccountTypeBadge = () => {
@@ -373,6 +433,16 @@ const UserProfile: React.FC = () => {
 
   return (
     <div className="user-profile-page">
+      {uploadStatus && (
+        <div
+          className={`user-profile__upload-badge user-profile__upload-badge--${uploadStatus.type}`}
+          role="status"
+          aria-live="polite"
+        >
+          {uploadStatus.type === "success" ? <CheckCircle size={18} /> : <X size={18} />}
+          <span>{uploadStatus.text}</span>
+        </div>
+      )}
       {/* Header Bar */}
       <header className="user-profile-header">
         <div className="user-profile-header__container">
@@ -789,7 +859,9 @@ const UserProfile: React.FC = () => {
                         <span>Account Type</span>
                       </div>
                       <div className="user-profile__info-value user-profile__info-value--account-type">
-                        {getAccountTypeBadge()}
+                        <span className="user-profile__account-type-text">
+                          {getAccountTypeLabel()}
+                        </span>
                       </div>
                     </div>
 
@@ -799,7 +871,7 @@ const UserProfile: React.FC = () => {
                         <span>Account Created</span>
                       </div>
                       <div className="user-profile__info-value">
-                        {formatDate(userData?.created_at as string | undefined)}
+                        {formatDate(userData?.user_registered as string | undefined)}
                       </div>
                     </div>
                   </div>
@@ -835,6 +907,19 @@ const UserProfile: React.FC = () => {
           </div>
         </main>
       </div>
+
+      <ConfirmationModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={confirmLogout}
+        title="Logout?"
+        message="Are you sure you want to logout?"
+        confirmText="Logout"
+        cancelText="Cancel"
+        type="danger"
+        avatarUrl={profilePicture || undefined}
+        avatarInitials={getUserInitials()}
+      />
     </div>
   );
 };

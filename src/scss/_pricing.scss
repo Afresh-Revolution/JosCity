@@ -56,13 +56,13 @@
     backdrop-filter: blur(10px);
     border: 1px solid rgba(13, 74, 31, 0.3);
     border-radius: 50px;
-    color: #0d4a1f;
+    color: #000;
 
     // Lighter green in dark mode
     [data-theme="dark"] & {
       background: rgba(52, 184, 106, 0.3);
       border: 1px solid rgba(52, 184, 106, 0.5);
-      color: var(--color-primary);
+      color: #fff;
     }
     font-size: 13px;
     font-weight: 500;
@@ -79,8 +79,12 @@
     }
 
     svg {
-      color: #0d4a1f;
+      color: #000;
       filter: drop-shadow(0 0 4px rgba(13, 74, 31, 0.5));
+
+      [data-theme="dark"] & {
+        color: #fff;
+      }
     }
   }
 

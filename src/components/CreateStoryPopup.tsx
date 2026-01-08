@@ -1,49 +1,68 @@
-import React, { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, Image as ImageIcon, Video } from "lucide-react";
-import { isAuthenticated } from "../../utils/userUtils";
 
-interface SimpleCreateStoryModalProps {
+interface CreateStoryPopupProps {
   isOpen: boolean;
   onClose: () => void;
-  onStory?: (type: "text" | "photo" | "video", content: string, caption?: string) => void;
+  onPublish?: (message: string, image?: string, video?: string) => void;
 }
 
-const SimpleCreateStoryModal: React.FC<SimpleCreateStoryModalProps> = ({
+const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
   isOpen,
   onClose,
-  onStory,
+  onPublish,
 }) => {
-  const navigate = useNavigate();
   const [message, setMessage] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
+
+  if (!isOpen || !mounted) {
+    console.log("CreateStoryPopup not rendering - isOpen:", isOpen, "mounted:", mounted);
+    return null;
+  }
+
+  console.log("CreateStoryPopup rendering - isOpen:", isOpen);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
       if (!file.type.startsWith("image/")) {
         alert("Please select an image file");
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
+        if (imageInputRef.current) {
+          imageInputRef.current.value = "";
         }
         return;
       }
 
-      // Validate file size (max 10MB)
-      const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+      const MAX_FILE_SIZE = 10 * 1024 * 1024;
       if (file.size > MAX_FILE_SIZE) {
         alert("Image size must be less than 10MB");
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
+        if (imageInputRef.current) {
+          imageInputRef.current.value = "";
         }
         return;
       }
 
-      // Clear video if image is selected
       setSelectedVideo(null);
       if (videoInputRef.current) {
         videoInputRef.current.value = "";
@@ -55,8 +74,8 @@ const SimpleCreateStoryModal: React.FC<SimpleCreateStoryModalProps> = ({
       };
       reader.onerror = () => {
         alert("Error reading file. Please try again.");
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
+        if (imageInputRef.current) {
+          imageInputRef.current.value = "";
         }
       };
       reader.readAsDataURL(file);
@@ -66,7 +85,6 @@ const SimpleCreateStoryModal: React.FC<SimpleCreateStoryModalProps> = ({
   const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
       if (!file.type.startsWith("video/")) {
         alert("Please select a video file");
         if (videoInputRef.current) {
@@ -75,8 +93,7 @@ const SimpleCreateStoryModal: React.FC<SimpleCreateStoryModalProps> = ({
         return;
       }
 
-      // Validate file size (max 50MB)
-      const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+      const MAX_FILE_SIZE = 50 * 1024 * 1024;
       if (file.size > MAX_FILE_SIZE) {
         alert("Video size must be less than 50MB");
         if (videoInputRef.current) {
@@ -85,10 +102,9 @@ const SimpleCreateStoryModal: React.FC<SimpleCreateStoryModalProps> = ({
         return;
       }
 
-      // Clear image if video is selected
       setSelectedImage(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+      if (imageInputRef.current) {
+        imageInputRef.current.value = "";
       }
 
       const reader = new FileReader();
@@ -105,57 +121,15 @@ const SimpleCreateStoryModal: React.FC<SimpleCreateStoryModalProps> = ({
     }
   };
 
-  const handlePublish = async () => {
-    // Check if user is authenticated
-    if (!isAuthenticated()) {
-      alert("Please sign in to create a story.");
-      navigate("/signin");
-      onClose();
-      return;
+  const handlePublish = () => {
+    if (onPublish) {
+      onPublish(message, selectedImage || undefined, selectedVideo || undefined);
     }
-
-    // Determine story type and content
-    let storyType: "text" | "photo" | "video" = "text";
-    let content = "";
-
-    if (selectedImage) {
-      storyType = "photo";
-      content = selectedImage;
-    } else if (selectedVideo) {
-      storyType = "video";
-      content = selectedVideo;
-    } else if (message.trim()) {
-      storyType = "text";
-      content = message.trim();
-    } else {
-      // Nothing to publish
-      return;
-    }
-
-    // Call the onStory callback if provided (it will handle closing the modal)
-    if (onStory) {
-      await onStory(storyType, content, message.trim() || undefined);
-    } else {
-      // If no callback, just close and reset
-      setMessage("");
-      setSelectedImage(null);
-      setSelectedVideo(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-      if (videoInputRef.current) {
-        videoInputRef.current.value = "";
-      }
-      onClose();
-    }
-  };
-
-  const handleClose = () => {
     setMessage("");
     setSelectedImage(null);
     setSelectedVideo(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    if (imageInputRef.current) {
+      imageInputRef.current.value = "";
     }
     if (videoInputRef.current) {
       videoInputRef.current.value = "";
@@ -163,50 +137,91 @@ const SimpleCreateStoryModal: React.FC<SimpleCreateStoryModalProps> = ({
     onClose();
   };
 
-  if (!isOpen) return null;
+  const handleClose = () => {
+    setMessage("");
+    setSelectedImage(null);
+    setSelectedVideo(null);
+    if (imageInputRef.current) {
+      imageInputRef.current.value = "";
+    }
+    if (videoInputRef.current) {
+      videoInputRef.current.value = "";
+    }
+    onClose();
+  };
 
   const canPublish = message.trim().length > 0 || selectedImage !== null || selectedVideo !== null;
 
-  return (
-    <div className="simple-story-modal-overlay" onClick={handleClose}>
-      <div className="simple-story-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="simple-story-modal__header">
-          <h2 className="simple-story-modal__title">Create a story</h2>
-          <button className="simple-story-modal__close" onClick={handleClose}>
+  const popupContent = (
+    <div 
+      className="create-story-popup-overlay" 
+      onClick={handleClose}
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 10000,
+        padding: "20px",
+      }}
+    >
+      <div 
+        className="create-story-popup" 
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          backgroundColor: "#ffffff",
+          borderRadius: "12px",
+          width: "100%",
+          maxWidth: "500px",
+          maxHeight: "90vh",
+          display: "flex",
+          flexDirection: "column",
+          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
+          overflow: "hidden",
+        }}
+      >
+        <div className="create-story-popup__header">
+          <h2 className="create-story-popup__title">Create a story</h2>
+          <button className="create-story-popup__close" onClick={handleClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>
 
-        <div className="simple-story-modal__content">
+        <div className="create-story-popup__content">
           <textarea
-            className="simple-story-modal__message-input"
+            className="create-story-popup__message"
             placeholder="Message..."
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             rows={6}
           />
 
-          <div className="simple-story-modal__upload-section">
+          <div className="create-story-popup__upload-section">
             <input
               type="file"
-              ref={fileInputRef}
+              ref={imageInputRef}
               accept="image/*"
               onChange={handleImageSelect}
               style={{ display: "none" }}
-              id="story-photo-upload"
+              id="story-image-upload"
             />
             <label
-              htmlFor="story-photo-upload"
-              className="simple-story-modal__upload-item"
+              htmlFor="story-image-upload"
+              className="create-story-popup__upload-item"
             >
-              <div className="simple-story-modal__upload-icon">
+              <div className="create-story-popup__upload-icon">
                 <ImageIcon size={32} />
               </div>
-              <span className="simple-story-modal__upload-text">Upload a Photo</span>
+              <span className="create-story-popup__upload-text">Upload a Photo</span>
             </label>
           </div>
 
-          <div className="simple-story-modal__upload-section">
+          <div className="create-story-popup__upload-section">
             <input
               type="file"
               ref={videoInputRef}
@@ -217,44 +232,46 @@ const SimpleCreateStoryModal: React.FC<SimpleCreateStoryModalProps> = ({
             />
             <label
               htmlFor="story-video-upload"
-              className="simple-story-modal__upload-item"
+              className="create-story-popup__upload-item"
             >
-              <div className="simple-story-modal__upload-icon">
+              <div className="create-story-popup__upload-icon">
                 <Video size={32} />
               </div>
-              <span className="simple-story-modal__upload-text">Upload a Video</span>
+              <span className="create-story-popup__upload-text">Upload a Video</span>
             </label>
           </div>
 
           {(selectedImage || selectedVideo) && (
-            <div className="simple-story-modal__preview">
+            <div className="create-story-popup__preview">
               {selectedImage && (
-                <div className="simple-story-modal__preview-item">
+                <div className="create-story-popup__preview-item">
                   <img src={selectedImage} alt="Preview" />
                   <button
-                    className="simple-story-modal__remove-preview"
+                    className="create-story-popup__remove"
                     onClick={() => {
                       setSelectedImage(null);
-                      if (fileInputRef.current) {
-                        fileInputRef.current.value = "";
+                      if (imageInputRef.current) {
+                        imageInputRef.current.value = "";
                       }
                     }}
+                    aria-label="Remove image"
                   >
                     <X size={16} />
                   </button>
                 </div>
               )}
               {selectedVideo && (
-                <div className="simple-story-modal__preview-item">
+                <div className="create-story-popup__preview-item">
                   <video src={selectedVideo} controls />
                   <button
-                    className="simple-story-modal__remove-preview"
+                    className="create-story-popup__remove"
                     onClick={() => {
                       setSelectedVideo(null);
                       if (videoInputRef.current) {
                         videoInputRef.current.value = "";
                       }
                     }}
+                    aria-label="Remove video"
                   >
                     <X size={16} />
                   </button>
@@ -264,9 +281,9 @@ const SimpleCreateStoryModal: React.FC<SimpleCreateStoryModalProps> = ({
           )}
         </div>
 
-        <div className="simple-story-modal__footer">
+        <div className="create-story-popup__footer">
           <button
-            className="simple-story-modal__publish-btn"
+            className="create-story-popup__publish-btn"
             onClick={handlePublish}
             disabled={!canPublish}
           >
@@ -276,6 +293,14 @@ const SimpleCreateStoryModal: React.FC<SimpleCreateStoryModalProps> = ({
       </div>
     </div>
   );
+
+  // Ensure document.body exists
+  if (typeof document === "undefined" || !document.body) {
+    console.error("Cannot create portal - document.body not available");
+    return null;
+  }
+
+  return createPortal(popupContent, document.body);
 };
 
-export default SimpleCreateStoryModal;
+export default CreateStoryPopup;

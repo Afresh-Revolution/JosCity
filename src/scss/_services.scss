@@ -23,7 +23,7 @@
     padding: 8px 16px;
     background-color: rgba(13, 74, 31, 0.1);
     border-radius: 20px;
-    color: $color-primary;
+    color: #000;
     font-size: 14px;
     font-weight: 500;
     margin-bottom: 20px;
@@ -34,8 +34,9 @@
     // Lighter green background and text in dark mode
     [data-theme="dark"] & {
       background-color: rgba(52, 184, 106, 0.2);
-      color: var(--color-primary);
+      color: #fff;
     }
+    text-transform: uppercase;
 
     &.fade-in {
       opacity: 1;
@@ -43,11 +44,11 @@
     }
 
     svg {
-      color: $color-primary;
+      color: #000;
 
       // Lighter green SVG in dark mode
       [data-theme="dark"] & {
-        color: var(--color-primary);
+        color: #fff;
       }
     }
   }

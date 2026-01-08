@@ -348,14 +348,19 @@
 // Search Section - Full Width
 .people-search-section {
   border-radius: 12px;
-  box-shadow: 0 2px 8px var(--shadow-light);
+  box-shadow: none;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  grid-column: 2 / 4; // Span from main content to filters
+  grid-column: 2; // Main content column only
   grid-row: 1; // First row
-  background-color: var(--card-bg);
+  background-color: transparent;
   transition: background-color 0.3s ease;
+  margin-bottom: 0;
+  padding: 0;
+  padding-bottom: 0;
+  position: relative;
+  z-index: 1;
 
   @media (max-width: 992px) {
     grid-column: 1;
@@ -366,6 +371,8 @@
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
+    margin-bottom: 0;
+    padding-bottom: 0;
   }
 
   &__input {
@@ -378,8 +385,10 @@
     outline: none;
     transition: border-color 0.3s;
     box-sizing: border-box;
-    background-color: var(--bg-primary);
+    background-color: transparent;
     color: var(--text-primary);
+    margin: 0;
+    margin-bottom: 0;
 
     @media (max-width: 768px) {
       padding: 10px 36px 10px 14px;
@@ -501,12 +510,14 @@
 
 // People Section
 .people-section {
-  background-color: var(--card-bg);
+  background-color: transparent;
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 2px 8px var(--shadow-light);
+  padding-top: 0;
+  box-shadow: none;
   color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
+  overflow: visible;
 
   &__title {
     font-size: 18px;
@@ -518,15 +529,34 @@
 
   &__empty {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 100px;
+    min-height: 300px;
+    padding: 0 20px 40px 20px;
+    background-color: transparent;
+    margin-top: -100px;
+    position: relative;
+    z-index: 1;
+  }
+
+  &__empty-illustration {
+    margin-bottom: 24px;
+    opacity: 0.6;
+  }
+
+  &__empty-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 8px 0;
+    transition: color 0.3s ease;
   }
 
   &__empty-text {
     color: var(--text-muted);
     font-size: 14px;
-    margin-top: 100px;
+    margin: 0;
     transition: color 0.3s ease;
 
     &--search {

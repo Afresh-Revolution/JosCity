@@ -407,3 +407,90 @@ export const loginBusiness = async (
     };
   }
 };
+
+interface UserProfile {
+  user_id: number;
+  user_firstname: string;
+  user_lastname: string;
+  user_gender?: string;
+  user_phone?: string;
+  user_email: string;
+  nin_number?: string;
+  address?: string;
+  user_picture?: string | null;
+  user_cover?: string | null;
+  user_verified?: boolean;
+  is_verified?: boolean;
+  account_type?: string;
+  account_status?: string;
+  user_registered?: string | null;
+  created_at?: string | null;
+  display_name?: string;
+  full_name?: string;
+  // Business fields
+  business_name?: string;
+  business_type?: string;
+  business_email?: string;
+  business_phone?: string;
+  business_location?: string;
+  CAC_number?: string;
+}
+
+export const getUserProfile = async (): Promise<ApiResponse<UserProfile>> => {
+  try {
+    // Get authentication token from localStorage
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("authToken");
+
+    if (!token) {
+      return {
+        success: false,
+        message: "Authentication required. Please sign in.",
+      };
+    }
+
+    const response = await fetchWithTimeout(`${API_BASE_URL}/profile`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      timeout: 30000, // 30 second timeout
+    });
+
+    let data;
+    try {
+      const text = await response.text();
+      data = text ? JSON.parse(text) : {};
+    } catch (jsonError) {
+      // If response is not valid JSON, return error
+      return {
+        success: false,
+        message: `Server error: ${response.status} ${response.statusText}`,
+        errors: [],
+      };
+    }
+
+    if (!response.ok) {
+      return {
+        success: false,
+        message:
+          data.message ||
+          `Failed to fetch profile: ${response.status} ${response.statusText}`,
+        errors: data.errors || [],
+      };
+    }
+
+    return {
+      success: true,
+      data: data.user || data.data || data,
+      message: data.message || "Profile fetched successfully",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Network error occurred",
+    };
+  }
+};

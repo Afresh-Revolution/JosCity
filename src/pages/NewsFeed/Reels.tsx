@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { Play } from "lucide-react";
+import { Play, Search, X, ArrowUpDown, Loader2 } from "lucide-react";
 import "../../main.css";
 import ReelVideoModal from "../../components/ReelVideoModal";
 import NewsFeedHeader from "./NewsFeedHeader";
@@ -10,7 +10,12 @@ interface VideoData {
   views: string;
   title?: string;
   videoUrl?: string;
+  category?: string;
+  createdAt?: Date;
+  viewCount?: number;
 }
+
+type SortOption = "recent" | "views" | "trending";
 
 // Sample video thumbnails data with video URLs
 const initialVideos: VideoData[] = [
@@ -20,6 +25,9 @@ const initialVideos: VideoData[] = [
     title: "Reel Video 1",
     videoUrl:
       "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+    category: "Films",
+    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+    viewCount: 345,
   },
   {
     id: 2,
@@ -27,6 +35,9 @@ const initialVideos: VideoData[] = [
     title: "Reel Video 2",
     videoUrl:
       "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+    category: "Art",
+    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+    viewCount: 1200,
   },
   {
     id: 3,
@@ -34,6 +45,9 @@ const initialVideos: VideoData[] = [
     title: "Reel Video 3",
     videoUrl:
       "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+    category: "Music",
+    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+    viewCount: 856,
   },
   {
     id: 4,
@@ -41,6 +55,9 @@ const initialVideos: VideoData[] = [
     title: "Reel Video 4",
     videoUrl:
       "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+    category: "Dance",
+    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+    viewCount: 2500,
   },
 ];
 
@@ -53,8 +70,12 @@ const Reels: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [sortOption, setSortOption] = useState<SortOption>("recent");
+  const [error, setError] = useState<string | null>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
   const mainContentRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Add class to body and html to hide scrollbars
@@ -91,46 +112,116 @@ const Reels: React.FC = () => {
   // Initialize videos on mount
   useEffect(() => {
     setVideos(initialVideos);
-    setFilteredVideos(initialVideos);
   }, []);
 
-  // Filter videos when category changes
-  useEffect(() => {
-    if (selectedCategory === "All") {
-      setFilteredVideos(videos);
-    } else {
-      // In a real app, videos would have category metadata
-      // For now, we'll just show all videos (you can add category filtering logic later)
-      setFilteredVideos(videos);
+  // Get category count
+  const getCategoryCount = useCallback((category: string): number => {
+    if (category === "All") {
+      return videos.length;
     }
-  }, [selectedCategory, videos]);
+    return videos.filter((video) => video.category === category).length;
+  }, [videos]);
+
+  // Sort videos function
+  const sortVideos = useCallback((videosToSort: VideoData[], sortBy: SortOption): VideoData[] => {
+    const sorted = [...videosToSort];
+    switch (sortBy) {
+      case "recent":
+        return sorted.sort((a, b) => {
+          const dateA = a.createdAt?.getTime() || 0;
+          const dateB = b.createdAt?.getTime() || 0;
+          return dateB - dateA; // Newest first
+        });
+      case "views":
+        return sorted.sort((a, b) => {
+          const viewsA = a.viewCount || 0;
+          const viewsB = b.viewCount || 0;
+          return viewsB - viewsA; // Most views first
+        });
+      case "trending":
+        // Trending: combination of recent views and recency
+        return sorted.sort((a, b) => {
+          const dateA = a.createdAt?.getTime() || 0;
+          const dateB = b.createdAt?.getTime() || 0;
+          const viewsA = a.viewCount || 0;
+          const viewsB = b.viewCount || 0;
+          // Trending score: views per day
+          const daysA = Math.max(1, (Date.now() - dateA) / (24 * 60 * 60 * 1000));
+          const daysB = Math.max(1, (Date.now() - dateB) / (24 * 60 * 60 * 1000));
+          const scoreA = viewsA / daysA;
+          const scoreB = viewsB / daysB;
+          return scoreB - scoreA;
+        });
+      default:
+        return sorted;
+    }
+  }, []);
+
+  // Filter and sort videos
+  useEffect(() => {
+    let filtered = videos;
+
+    // Filter by category
+    if (selectedCategory !== "All") {
+      filtered = filtered.filter((video) => video.category === selectedCategory);
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (video) =>
+          video.title?.toLowerCase().includes(query) ||
+          video.category?.toLowerCase().includes(query)
+      );
+    }
+
+    // Sort videos
+    const sorted = sortVideos(filtered, sortOption);
+    setFilteredVideos(sorted);
+  }, [selectedCategory, videos, searchQuery, sortOption, sortVideos]);
 
   // Load more videos function
   const loadMoreVideos = useCallback(() => {
     if (isLoading || !hasMore) return;
 
     setIsLoading(true);
+    setError(null);
 
     // Simulate API call delay
     setTimeout(() => {
-      const newVideos: VideoData[] = Array.from({ length: 4 }, (_, i) => ({
-        id: videos.length + i + 1,
-        views: `${Math.floor(Math.random() * 5000)}`,
-        title: `Reel Video ${videos.length + i + 1}`,
-        videoUrl: [
-          "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-          "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-          "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-          "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-        ][i % 4],
-      }));
+      try {
+        const categories = ["Films", "Art", "Music", "Dance", "Fitness", "Food", "Sport"];
+        const newVideos: VideoData[] = Array.from({ length: 4 }, (_, i) => {
+          const viewCount = Math.floor(Math.random() * 5000);
+          const daysAgo = Math.floor(Math.random() * 7);
+          return {
+            id: videos.length + i + 1,
+            views: viewCount > 1000 ? `${(viewCount / 1000).toFixed(1)}K` : `${viewCount}`,
+            title: `Reel Video ${videos.length + i + 1}`,
+            videoUrl: [
+              "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+              "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+              "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+              "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+            ][i % 4],
+            category: categories[Math.floor(Math.random() * categories.length)],
+            createdAt: new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000),
+            viewCount: viewCount,
+          };
+        });
 
-      setVideos((prev) => [...prev, ...newVideos]);
-      setIsLoading(false);
+        setVideos((prev) => [...prev, ...newVideos]);
+        setIsLoading(false);
 
-      // Stop loading after 20 videos (for demo purposes)
-      if (videos.length + newVideos.length >= 20) {
-        setHasMore(false);
+        // Stop loading after 20 videos (for demo purposes)
+        if (videos.length + newVideos.length >= 20) {
+          setHasMore(false);
+        }
+      } catch (err) {
+        setError("Failed to load more videos. Please try again.");
+        setIsLoading(false);
+        console.error("Error loading videos:", err);
       }
     }, 500);
   }, [videos.length, isLoading, hasMore]);
@@ -171,7 +262,22 @@ const Reels: React.FC = () => {
   // Get the initial video index when opening modal
   const getInitialVideoIndex = () => {
     if (!selectedVideo) return 0;
-    return filteredVideos.findIndex((v) => v.id === selectedVideo.id);
+    const index = filteredVideos.findIndex((v) => v.id === selectedVideo.id);
+    return index >= 0 ? index : 0;
+  };
+
+  // Clear filters
+  const handleClearFilters = () => {
+    setSelectedCategory("All");
+    setSearchQuery("");
+    if (searchInputRef.current) {
+      searchInputRef.current.value = "";
+    }
+  };
+
+  // Handle manual load more
+  const handleLoadMore = () => {
+    loadMoreVideos();
   };
 
   return (
@@ -205,50 +311,112 @@ const Reels: React.FC = () => {
         />
       )}
 
-      {/* Navigation Menu Sidebar */}
-      <NewsFeedSidebar
-        isOpen={isLeftSidebarOpen}
-        onClose={() => setIsLeftSidebarOpen(false)}
-      />
-
-      <div className="reels-container">
-        {/* Category Sidebar */}
-        <aside className="reels-sidebar">
-          <button
-            className={`reels-sidebar__all-btn ${
-              selectedCategory === "All" ? "reels-sidebar__all-btn--active" : ""
-            }`}
-            onClick={() => setSelectedCategory("All")}
-          >
-            All
-          </button>
-          <nav className="reels-sidebar__nav">
-            <ul className="reels-sidebar__list">
-              {categories.map((category, index) => (
-                <li
-                  key={index}
-                  className={`reels-sidebar__item ${
-                    selectedCategory === category
-                      ? "reels-sidebar__item--active"
-                      : ""
-                  }`}
-                  onClick={() => setSelectedCategory(category)}
-                >
-                  {category}
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </aside>
+      {/* Container for sidebar and main content */}
+      <div className="newsfeed-container newsfeed-container--no-aside">
+        {/* Navigation Menu Sidebar */}
+        <NewsFeedSidebar
+          isOpen={isLeftSidebarOpen}
+          onClose={() => setIsLeftSidebarOpen(false)}
+        />
 
         {/* Main Content Area */}
         <main className="reels-main" ref={mainContentRef}>
-          {selectedCategory !== "All" && (
-            <div className="reels-category-header">
-              <h2>{selectedCategory} Reels</h2>
+          {/* Search and Sort Bar */}
+          <div className="reels-search-sort">
+            <div className="reels-search">
+              <Search size={18} className="reels-search__icon" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                className="reels-search__input"
+                placeholder="Search reels..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button
+                  className="reels-search__clear"
+                  onClick={() => {
+                    setSearchQuery("");
+                    if (searchInputRef.current) {
+                      searchInputRef.current.value = "";
+                    }
+                  }}
+                  aria-label="Clear search"
+                >
+                  <X size={16} />
+                </button>
+              )}
             </div>
-          )}
-          <div className="reels-grid">
+            <div className="reels-sort">
+              <ArrowUpDown size={16} />
+              <select
+                className="reels-sort__select"
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value as SortOption)}
+              >
+                <option value="recent">Most Recent</option>
+                <option value="views">Most Viewed</option>
+                <option value="trending">Trending</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Horizontal Category Filter Bar */}
+          <div className="reels-category-filter">
+            <div className="reels-category-filter__wrapper">
+              <div className="reels-category-filter__fade reels-category-filter__fade--left"></div>
+              <div className="reels-category-filter__scroll">
+                <button
+                  className={`reels-category-filter__item ${
+                    selectedCategory === "All" ? "reels-category-filter__item--active" : ""
+                  }`}
+                  onClick={() => setSelectedCategory("All")}
+                >
+                  ALL
+                  {selectedCategory === "All" && (
+                    <span className="reels-category-filter__count">
+                      ({getCategoryCount("All")})
+                    </span>
+                  )}
+                </button>
+                {categories.map((category, index) => (
+                  <button
+                    key={index}
+                    className={`reels-category-filter__item ${
+                      selectedCategory === category
+                        ? "reels-category-filter__item--active"
+                        : ""
+                    }`}
+                    onClick={() => setSelectedCategory(category)}
+                  >
+                    {category}
+                    {selectedCategory === category && (
+                      <span className="reels-category-filter__count">
+                        ({getCategoryCount(category)})
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="reels-category-filter__fade reels-category-filter__fade--right"></div>
+            </div>
+            {(selectedCategory !== "All" || searchQuery) && (
+              <button
+                className="reels-category-filter__clear"
+                onClick={handleClearFilters}
+                aria-label="Clear filters"
+              >
+                <X size={14} />
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* Scrollable Content Area */}
+          <div className="reels-content">
+            {/* Video Grid */}
+            <div className="reels-grid">
             {filteredVideos.map((video) => (
               <div
                 key={video.id}
@@ -312,19 +480,43 @@ const Reels: React.FC = () => {
             ))}
           </div>
 
-          {/* Loading indicator and infinite scroll trigger */}
-          <div ref={observerTarget} className="reels-scroll-trigger">
-            {isLoading && (
-              <div className="reels-loading">
-                <div className="reels-loading-spinner"></div>
-                <p>Loading more reels...</p>
-              </div>
-            )}
-            {!hasMore && videos.length > 4 && (
-              <div className="reels-end-message">
-                <p>You've reached the end!</p>
-              </div>
-            )}
+            {/* Loading indicator, error, and infinite scroll trigger */}
+            <div ref={observerTarget} className="reels-scroll-trigger">
+              {error && (
+                <div className="reels-error">
+                  <p>{error}</p>
+                  <button
+                    className="reels-error__retry"
+                    onClick={handleLoadMore}
+                    aria-label="Retry loading"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+              {isLoading && (
+                <div className="reels-loading">
+                  <Loader2 size={24} className="reels-loading__spinner" />
+                  <p>Loading more reels...</p>
+                </div>
+              )}
+              {!isLoading && hasMore && (
+                <div className="reels-load-more">
+                  <button
+                    className="reels-load-more__button"
+                    onClick={handleLoadMore}
+                    aria-label="Load more reels"
+                  >
+                    Load More
+                  </button>
+                </div>
+              )}
+              {!hasMore && videos.length > 4 && (
+                <div className="reels-end-message">
+                  <p>You've reached the end!</p>
+                </div>
+              )}
+            </div>
           </div>
         </main>
       </div>

@@ -1,6 +1,10 @@
 import React from "react";
 import { Briefcase, Clock } from "lucide-react";
-import { getUserAvatar, getUserInitials, getUserName } from "../utils/userUtils";
+import {
+  getUserAvatar,
+  getUserInitials,
+  getUserName,
+} from "../utils/userUtils";
 
 interface JobListingCardProps {
   job: {
@@ -12,12 +16,18 @@ interface JobListingCardProps {
   };
   onEdit?: (jobId: string) => void;
   onDelete?: (jobId: string) => void;
+  onApply?: (jobId: string) => void;
+  showApplyButton?: boolean;
+  isApplied?: boolean;
 }
 
 const JobListingCard: React.FC<JobListingCardProps> = ({
   job,
   onEdit,
   onDelete,
+  onApply,
+  showApplyButton = false,
+  isApplied = false,
 }) => {
   const avatarUrl = getUserAvatar();
   const initials = getUserInitials();
@@ -48,9 +58,7 @@ const JobListingCard: React.FC<JobListingCardProps> = ({
               className="job-listing-card__avatar-img"
             />
           ) : (
-            <div className="job-listing-card__avatar-initials">
-              {initials}
-            </div>
+            <div className="job-listing-card__avatar-initials">{initials}</div>
           )}
         </div>
         <h3 className="job-listing-card__company">
@@ -79,20 +87,35 @@ const JobListingCard: React.FC<JobListingCardProps> = ({
       </div>
 
       <div className="job-listing-card__actions">
-        <button
-          className="job-listing-card__btn job-listing-card__btn--edit"
-          onClick={() => onEdit?.(job.id)}
-          aria-label="Edit job"
-        >
-          Edit
-        </button>
-        <button
-          className="job-listing-card__btn job-listing-card__btn--delete"
-          onClick={() => onDelete?.(job.id)}
-          aria-label="Delete job"
-        >
-          Delete
-        </button>
+        {showApplyButton ? (
+          <button
+            className={`job-listing-card__btn job-listing-card__btn--apply ${
+              isApplied ? "job-listing-card__btn--applied" : ""
+            }`}
+            onClick={() => !isApplied && onApply?.(job.id)}
+            aria-label={isApplied ? "Already applied" : "Apply for job"}
+            disabled={isApplied}
+          >
+            {isApplied ? "Applied" : "Apply"}
+          </button>
+        ) : (
+          <>
+            <button
+              className="job-listing-card__btn job-listing-card__btn--edit"
+              onClick={() => onEdit?.(job.id)}
+              aria-label="Edit job"
+            >
+              Edit
+            </button>
+            <button
+              className="job-listing-card__btn job-listing-card__btn--delete"
+              onClick={() => onDelete?.(job.id)}
+              aria-label="Delete job"
+            >
+              Delete
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

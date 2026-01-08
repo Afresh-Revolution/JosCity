@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   SquarePlus,
+  UserPlus,
   MessageCircle,
   Bell,
   Search,
@@ -10,13 +11,24 @@ import {
   FileText,
   Clock,
   Users,
-  Plus,
+  Calendar,
+  Bookmark,
+  Briefcase,
+  Calendar as Events,
+  Film,
+  Newspaper,
+  MessageSquare,
+  Store,
+  Tag,
+  Briefcase as Jobs,
+  Video,
+  TrendingUp,
 } from "lucide-react";
 import primaryLogo from "../../image/primary-logo.png";
 import LazyImage from "../../components/LazyImage";
-import NewsFeedSidebar from "./NewsFeedSidebar";
 import PostCard from "./PostCard";
 import CreateScheduledPostModal from "./CreateScheduledPostModal";
+import TrendingSection from "./TrendingSection";
 import {
   getUserInitials,
   getProfileUsername,
@@ -24,6 +36,7 @@ import {
   getUserAvatar,
 } from "../../utils/userUtils";
 import "../../scss/_scheduled.scss";
+import "../../scss/_people.scss";
 
 // Post interface matching the PostCard component
 interface Post {
@@ -58,6 +71,12 @@ const Scheduled: React.FC = () => {
   const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const createMenuRef = useRef<HTMLDivElement>(null);
+
+  // Mock trending hashtags for scheduled posts
+  const trending = [
+    { hashtag: "#AfrESH", posts: 1 },
+    { hashtag: "#C", posts: 1 },
+  ];
 
   // Load scheduled posts from localStorage
   const loadScheduledPosts = useCallback(() => {
@@ -234,7 +253,7 @@ const Scheduled: React.FC = () => {
   });
 
   return (
-    <div className="newsfeed-page">
+    <div className="people-page">
       {/* Top Navigation Bar */}
       <header className="newsfeed-header">
         <div className="newsfeed-header__container">
@@ -251,7 +270,7 @@ const Scheduled: React.FC = () => {
               onClick={() => navigate("/")}
             >
               <LazyImage src={primaryLogo} alt="JOSCity Logo" />
-              <span>JosCity</span>
+              <span>JOSCity</span>
             </div>
           </div>
           <div className="newsfeed-header__actions">
@@ -294,6 +313,13 @@ const Scheduled: React.FC = () => {
             </div>
             <button
               className="newsfeed-header__icon-btn"
+              title="Add Friend"
+              onClick={() => {}}
+            >
+              <UserPlus size={20} />
+            </button>
+            <button
+              className="newsfeed-header__icon-btn"
               title="Messages"
               onClick={() => {}}
             >
@@ -307,121 +333,452 @@ const Scheduled: React.FC = () => {
               <Bell size={20} />
             </button>
             <button
+              className="newsfeed-header__icon-btn newsfeed-header__icon-btn--sidebar"
+              onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+              title="Trending & Friends"
+              aria-label="Toggle sidebar"
+            >
+              <TrendingUp size={20} />
+            </button>
+            <button
               className="newsfeed-header__join-btn"
               onClick={handleProfileClick}
+              title="View Profile"
             >
-              <span className="newsfeed-header__join-initials">
+              <div className="newsfeed-header__join-initials">
                 {getUserInitials()}
-              </span>
-              <span className="newsfeed-header__join-text">Profile</span>
+              </div>
             </button>
           </div>
         </div>
       </header>
 
-      {/* Mobile Overlay */}
-      {(isLeftSidebarOpen || isRightSidebarOpen) && (
-        <div
-          className="newsfeed-overlay"
-          onClick={() => {
-            setIsLeftSidebarOpen(false);
-            setIsRightSidebarOpen(false);
-          }}
-        />
-      )}
+      <div className="newsfeed-container">
+        {/* Mobile Overlay */}
+        {(isLeftSidebarOpen || isRightSidebarOpen) && (
+          <div
+            className="newsfeed-overlay"
+            onClick={() => {
+              setIsLeftSidebarOpen(false);
+              setIsRightSidebarOpen(false);
+            }}
+          />
+        )}
 
-      {/* Main Content */}
-      <div className="newsfeed-container newsfeed-container--no-aside">
         {/* Left Sidebar */}
-        <NewsFeedSidebar
-          isOpen={isLeftSidebarOpen}
-          onClose={() => setIsLeftSidebarOpen(false)}
-        />
-
-        <main className="newsfeed-main">
-          <div className="newsfeed-search-section">
-            <div className="newsfeed-search-section__input-wrapper">
-              <input
-                type="text"
-                className="newsfeed-search-section__input"
-                placeholder="Search scheduled posts..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <Search className="newsfeed-search-section__icon" size={20} />
-            </div>
+        <aside
+          className={`people-sidebar ${
+            isLeftSidebarOpen ? "people-sidebar--open" : ""
+          }`}
+        >
+          <div className="people-sidebar__header">
+            <h3 className="people-sidebar__title">Menu</h3>
+            {isLeftSidebarOpen && (
+              <button
+                className="people-sidebar__close"
+                onClick={() => setIsLeftSidebarOpen(false)}
+                aria-label="Close menu"
+              >
+                <X size={20} />
+              </button>
+            )}
           </div>
 
-          {/* Create Scheduled Post Button */}
-          <div className="newsfeed-posts">
-            <button
-              className="scheduled-create-btn"
-              onClick={() => setIsCreateScheduledModalOpen(true)}
-            >
-              <Plus size={20} />
-              <span>Schedule New Post</span>
-            </button>
-
-            {/* Header Post */}
-            <div className="newsfeed-post">
-              <div className="newsfeed-post__header">
-                <div className="newsfeed-post__user-info">
-                  <div className="newsfeed-post__avatar">
-                    <Clock size={24} fill="currentColor" />
-                  </div>
-                  <div className="newsfeed-post__user-details">
-                    <h3 className="newsfeed-post__user-name">
-                      Scheduled Posts
-                    </h3>
-                    <p className="newsfeed-post__action">
-                      {scheduledPosts.length}{" "}
-                      {scheduledPosts.length === 1 ? "post" : "posts"} scheduled
-                    </p>
-                  </div>
-                </div>
-              </div>
+          <nav className="people-sidebar__nav">
+            <div className="people-sidebar__section">
+              <a
+                href="/newsfeed"
+                className="people-sidebar__item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/newsfeed");
+                  setIsLeftSidebarOpen(false);
+                }}
+              >
+                <Newspaper size={20} />
+                <span>News Feed</span>
+              </a>
+              <a
+                href="/scheduled"
+                className="people-sidebar__item people-sidebar__item--active"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/scheduled");
+                  setIsLeftSidebarOpen(false);
+                }}
+              >
+                <Calendar size={20} />
+                <span>Scheduled</span>
+              </a>
+              <a
+                href="/saved"
+                className="people-sidebar__item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/saved");
+                  setIsLeftSidebarOpen(false);
+                }}
+              >
+                <Bookmark size={20} />
+                <span>Saved</span>
+              </a>
             </div>
+
+            <div className="people-sidebar__section">
+              <h3 className="people-sidebar__section-title">EXPLORE</h3>
+              <a
+                href="/business"
+                className="people-sidebar__item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/business");
+                  setIsLeftSidebarOpen(false);
+                }}
+              >
+                <Briefcase size={20} />
+                <span>Business</span>
+              </a>
+              <a
+                href="/people"
+                className="people-sidebar__item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/people");
+                  setIsLeftSidebarOpen(false);
+                }}
+              >
+                <Users size={20} />
+                <span>People</span>
+              </a>
+              <a
+                href="/events"
+                className="people-sidebar__item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/events");
+                  setIsLeftSidebarOpen(false);
+                }}
+              >
+                <Events size={20} />
+                <span>Events</span>
+              </a>
+              <a
+                href="/reels"
+                className="people-sidebar__item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/reels");
+                  setIsLeftSidebarOpen(false);
+                }}
+              >
+                <Video size={20} />
+                <span>Reels</span>
+              </a>
+              <a
+                href="/news"
+                className="people-sidebar__item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/news");
+                  setIsLeftSidebarOpen(false);
+                }}
+              >
+                <Newspaper size={20} />
+                <span>News</span>
+              </a>
+              <a
+                href="/forums"
+                className="people-sidebar__item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/forums");
+                  setIsLeftSidebarOpen(false);
+                }}
+              >
+                <MessageSquare size={20} />
+                <span>Forums</span>
+              </a>
+              <a
+                href="/marketplace"
+                className="people-sidebar__item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/marketplace");
+                  setIsLeftSidebarOpen(false);
+                }}
+              >
+                <Store size={20} />
+                <span>Marketplace</span>
+              </a>
+              <a
+                href="/offers"
+                className="people-sidebar__item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/offers");
+                  setIsLeftSidebarOpen(false);
+                }}
+              >
+                <Tag size={20} />
+                <span>Offers</span>
+              </a>
+              <a
+                href="/jobs"
+                className="people-sidebar__item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/jobs");
+                  setIsLeftSidebarOpen(false);
+                }}
+              >
+                <Jobs size={20} />
+                <span>Jobs</span>
+              </a>
+              <a
+                href="/movies"
+                className="people-sidebar__item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/movies");
+                  setIsLeftSidebarOpen(false);
+                }}
+              >
+                <Film size={20} />
+                <span>Movies</span>
+              </a>
+            </div>
+          </nav>
+        </aside>
+
+        {/* Search Bar - Full Width */}
+        <div className="people-search-section">
+          <div className="people-search-section__input-wrapper">
+            <input
+              type="text"
+              placeholder="Search"
+              className="people-search-section__input"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <Search size={20} className="people-search-section__icon" />
+          </div>
+          {/* Page Title */}
+          <div className="scheduled-page-title">
+            <h2>Scheduled Posts</h2>
+          </div>
+        </div>
+
+        {/* Main Content Area */}
+        <main className="people-main">
+          {/* Scheduled Posts Section */}
+          <div className="people-section">
 
             {/* Loading State */}
             {isLoading && (
-              <div className="newsfeed-post">
-                <div className="newsfeed-post__caption">
-                  <p>Loading scheduled posts...</p>
-                </div>
+              <div className="people-section__empty">
+                <p className="people-section__empty-text">
+                  Loading scheduled posts...
+                </p>
               </div>
             )}
 
             {/* Empty State */}
             {!isLoading && filteredPosts.length === 0 && (
-              <div className="newsfeed-post">
-                <div className="newsfeed-post__caption">
-                  <p>
-                    {searchQuery
-                      ? "No scheduled posts match your search."
-                      : scheduledPosts.length === 0
-                      ? "You haven't scheduled any posts yet. Click 'Schedule New Post' to create your first scheduled post."
-                      : "No scheduled posts match your search."}
-                  </p>
+              <div className="people-section__empty">
+                <div className="people-section__empty-illustration">
+                  <svg
+                    width="120"
+                    height="120"
+                    viewBox="0 0 120 120"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <rect
+                      x="20"
+                      y="30"
+                      width="80"
+                      height="60"
+                      rx="4"
+                      fill="#E0E0E0"
+                    />
+                    <rect
+                      x="30"
+                      y="40"
+                      width="60"
+                      height="8"
+                      rx="2"
+                      fill="#BDBDBD"
+                    />
+                    <rect
+                      x="30"
+                      y="55"
+                      width="40"
+                      height="8"
+                      rx="2"
+                      fill="#BDBDBD"
+                    />
+                    <rect
+                      x="20"
+                      y="50"
+                      width="80"
+                      height="60"
+                      rx="4"
+                      fill="#E8E8E8"
+                    />
+                    <rect
+                      x="30"
+                      y="60"
+                      width="60"
+                      height="8"
+                      rx="2"
+                      fill="#D0D0D0"
+                    />
+                    <rect
+                      x="30"
+                      y="75"
+                      width="40"
+                      height="8"
+                      rx="2"
+                      fill="#D0D0D0"
+                    />
+                    <rect
+                      x="20"
+                      y="70"
+                      width="80"
+                      height="60"
+                      rx="4"
+                      fill="#F0F0F0"
+                    />
+                    <rect
+                      x="30"
+                      y="80"
+                      width="60"
+                      height="8"
+                      rx="2"
+                      fill="#E0E0E0"
+                    />
+                    <rect
+                      x="30"
+                      y="95"
+                      width="40"
+                      height="8"
+                      rx="2"
+                      fill="#E0E0E0"
+                    />
+                    <circle cx="90" cy="40" r="12" fill="#BDBDBD" />
+                    <path
+                      d="M85 40L88 43L95 36"
+                      stroke="white"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                 </div>
+                <h3 className="people-section__empty-title">No Data Found</h3>
+                <p className="people-section__empty-text">
+                  There is no data to show you right now
+                </p>
               </div>
             )}
 
             {/* Scheduled Posts List */}
-            {!isLoading &&
-              filteredPosts.map((post) => (
-                <PostCard key={post.id} post={post} />
-              ))}
+            {!isLoading && filteredPosts.length > 0 && (
+              <div className="scheduled-posts-list">
+                {filteredPosts.map((post) => (
+                  <div key={post.id} className="scheduled-post-card">
+                    <PostCard post={post} />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-
-          {/* Create Scheduled Post Modal */}
-          <CreateScheduledPostModal
-            isOpen={isCreateScheduledModalOpen}
-            onClose={() => setIsCreateScheduledModalOpen(false)}
-            userName={getUserName()}
-            userAvatar={getUserAvatar() || undefined}
-            onSchedule={handleSchedulePost}
-          />
         </main>
+
+        {/* Right Sidebar - Trending */}
+        <aside
+          className={`newsfeed-aside ${
+            isRightSidebarOpen ? "newsfeed-aside--open" : ""
+          }`}
+        >
+          <div className="newsfeed-aside__header">
+            <h3>Trending</h3>
+            <button
+              className="newsfeed-aside__close"
+              onClick={() => setIsRightSidebarOpen(false)}
+              aria-label="Close sidebar"
+            >
+              <X size={20} />
+            </button>
+          </div>
+          <TrendingSection
+            trending={trending}
+            onHashtagClick={(hashtag) => {
+              setSearchQuery(hashtag);
+            }}
+          />
+
+          {/* Footer inside Aside */}
+          <footer className="newsfeed-footer">
+            <p>© 2025 JOSCity</p>
+            <div className="newsfeed-footer__links">
+              <a
+                href="/about"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/about");
+                }}
+              >
+                About
+              </a>
+              <a
+                href="/terms-of-service"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/terms-of-service");
+                }}
+              >
+                Terms
+              </a>
+              <a
+                href="/privacy-policy"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/privacy-policy");
+                }}
+              >
+                Privacy
+              </a>
+              <a
+                href="/contact"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/contact");
+                }}
+              >
+                Contact Us
+              </a>
+              <a
+                href="/directory"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/directory");
+                }}
+              >
+                Directory
+              </a>
+            </div>
+          </footer>
+        </aside>
+
+        {/* Create Scheduled Post Modal */}
+        <CreateScheduledPostModal
+          isOpen={isCreateScheduledModalOpen}
+          onClose={() => setIsCreateScheduledModalOpen(false)}
+          userName={getUserName()}
+          userAvatar={getUserAvatar() || undefined}
+          onSchedule={handleSchedulePost}
+        />
       </div>
     </div>
   );

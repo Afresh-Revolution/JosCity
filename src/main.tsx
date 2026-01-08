@@ -49,6 +49,7 @@ import Business from "./pages/NewsFeed/Business";
 
 // Prevent browser inspection/devtools
 // preventInspect();
+// preventInspect(); // Commented out to allow browser dev tools
 
 // Landing page component (without WelcomePage or Register)
 export function LandingPage() {

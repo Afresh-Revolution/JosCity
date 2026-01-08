@@ -48,6 +48,7 @@ import Avatar from "../../components/Avatar";
 import EmojiPicker from "../../components/EmojiPicker";
 import ProfileModal from "../../components/ProfileModal";
 import FindFriendsModal from "../../components/FindFriendsModal";
+import CreateStoryPopup from "../../components/CreateStoryPopup";
 import {
   getUserInitials,
   getProfileUsername,
@@ -69,7 +70,6 @@ import "../../scss/_profilemodal.scss";
 import "../../scss/_messagepopup.scss";
 import "../../scss/_newsfeed.scss";
 import { feedApi } from "../../services/feedApi";
-import { friendApi, type FriendRequest } from "../../services/friendApi";
 
 interface SearchResult {
   type: "person" | "hashtag" | "post";
@@ -123,16 +123,12 @@ const NewsFeed: React.FC = () => {
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
   const [isCreateStoryModalOpen, setIsCreateStoryModalOpen] = useState(false);
+  const [isStoryPopupOpen, setIsStoryPopupOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [filteredHashtag, setFilteredHashtag] = useState<string | null>(null);
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
-  const [isFriendRequestsDropdownOpen, setIsFriendRequestsDropdownOpen] =
-    useState(false);
-  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
-  const [isLoadingFriendRequests, setIsLoadingFriendRequests] = useState(false);
-  const friendRequestsDropdownRef = useRef<HTMLDivElement>(null);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [selectedChatId, setSelectedChatId] = useState<number | null>(null);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
@@ -173,12 +169,6 @@ const NewsFeed: React.FC = () => {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
-  // Upload success badge
-  const [uploadBadge, setUploadBadge] = useState<{ text: string } | null>(null);
-  const showUploadBadge = (text: string) => {
-    setUploadBadge({ text });
-    window.setTimeout(() => setUploadBadge(null), 3000);
-  };
   // Get time-based greeting with motivational messages
   const getTimeBasedGreeting = () => {
     const hour = new Date().getHours();
@@ -671,32 +661,15 @@ const NewsFeed: React.FC = () => {
 
         console.log("Created new post:", newPost);
 
-        // Add post to local state immediately for instant feedback
-        setPosts((prevPosts) => [newPost, ...prevPosts]);
-
-        // Add a small delay to ensure post is fully committed to database
-        // This helps avoid race conditions where the feed query runs before the post is visible
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        // Refetch feeds from database to ensure:
+        // Instead of adding to local state, refetch feeds from database
+        // This ensures:
         // 1. Post is properly persisted in database
         // 2. All users see the same data
         // 3. Media URLs are correctly set after backend processing
         // 4. Posts persist across browser refreshes
-        // 5. Post appears in correct position with all metadata
         await fetchFeeds();
 
         console.log("Feeds refreshed after post creation");
-        // Show success badge with type
-        const kind =
-          videos && videos.length > 0
-            ? "Video"
-            : images && images.length > 0
-            ? "Photo"
-            : caption.trim()
-            ? "Text"
-            : "Post";
-        showUploadBadge(`${kind} uploaded`);
       } else {
         console.error("Failed to create post:", response);
         alert("Failed to create post. Please try again.");
@@ -723,7 +696,6 @@ const NewsFeed: React.FC = () => {
   ) => {
     console.log("New story created:", { type, content, caption });
     // StoriesSection handles story creation internally now
-    showUploadBadge("Story uploaded");
   };
 
   // Get account type
@@ -1328,24 +1300,12 @@ const NewsFeed: React.FC = () => {
           setIsAddFriendModalOpen(false);
         }
       }
-      if (
-        isFriendRequestsDropdownOpen &&
-        friendRequestsDropdownRef.current &&
-        !friendRequestsDropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsFriendRequestsDropdownOpen(false);
-      }
     },
-    [isCreateMenuOpen, isFriendRequestsDropdownOpen]
+    [isCreateMenuOpen]
   );
 
   useEffect(() => {
-    if (
-      isCreateMenuOpen ||
-      isSearchFocused ||
-      isAddFriendModalOpen ||
-      isFriendRequestsDropdownOpen
-    ) {
+    if (isCreateMenuOpen || isSearchFocused || isAddFriendModalOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
@@ -1356,74 +1316,8 @@ const NewsFeed: React.FC = () => {
     isCreateMenuOpen,
     isSearchFocused,
     isAddFriendModalOpen,
-    isFriendRequestsDropdownOpen,
     handleClickOutside,
   ]);
-
-  // Fetch friend requests
-  const fetchFriendRequests = useCallback(async () => {
-    try {
-      setIsLoadingFriendRequests(true);
-      const response = await friendApi.getPendingRequests();
-      if (response.success && response.data) {
-        // Only show received requests (requests sent to the current user)
-        setFriendRequests(response.data.received || []);
-      }
-    } catch (error) {
-      console.error("Error fetching friend requests:", error);
-      setFriendRequests([]);
-    } finally {
-      setIsLoadingFriendRequests(false);
-    }
-  }, []);
-
-  // Handle friend requests dropdown toggle
-  const handleFriendRequestsClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const newState = !isFriendRequestsDropdownOpen;
-    setIsFriendRequestsDropdownOpen(newState);
-    setIsCreateMenuOpen(false);
-
-    // Fetch requests when opening
-    if (newState) {
-      fetchFriendRequests();
-    }
-  };
-
-  // Handle accept friend request
-  const handleAcceptFriendRequest = async (requestId: number) => {
-    try {
-      const response = await friendApi.acceptFriendRequest(requestId);
-      if (response.success) {
-        // Remove the accepted request from the list
-        setFriendRequests((prev) =>
-          prev.filter((req) => req.request_id !== requestId)
-        );
-        // Refresh feeds to show new friend's posts
-        await fetchFeeds();
-      }
-    } catch (error) {
-      console.error("Error accepting friend request:", error);
-      alert("Failed to accept friend request. Please try again.");
-    }
-  };
-
-  // Handle reject friend request
-  const handleRejectFriendRequest = async (requestId: number) => {
-    try {
-      const response = await friendApi.rejectFriendRequest(requestId);
-      if (response.success) {
-        // Remove the rejected request from the list
-        setFriendRequests((prev) =>
-          prev.filter((req) => req.request_id !== requestId)
-        );
-      }
-    } catch (error) {
-      console.error("Error rejecting friend request:", error);
-      alert("Failed to reject friend request. Please try again.");
-    }
-  };
 
   const handleCreateClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -1431,7 +1325,6 @@ const NewsFeed: React.FC = () => {
     console.log("Create button clicked, current state:", isCreateMenuOpen);
     const newState = !isCreateMenuOpen;
     setIsCreateMenuOpen(newState);
-    setIsFriendRequestsDropdownOpen(false);
     console.log("Setting menu open to:", newState);
   };
 
@@ -1442,7 +1335,14 @@ const NewsFeed: React.FC = () => {
 
   const handleCreateStory = () => {
     setIsCreateMenuOpen(false);
-    setIsCreateStoryModalOpen(true);
+    setIsStoryPopupOpen(true);
+  };
+
+  const handleStoryPublish = (message: string, image?: string, video?: string) => {
+    // Handle story publishing logic here
+    console.log("Publishing story:", { message, image, video });
+    // You can add your story publishing logic here
+    setIsStoryPopupOpen(false);
   };
 
   const handleCreateGroup = () => {
@@ -1457,12 +1357,6 @@ const NewsFeed: React.FC = () => {
 
   return (
     <div className="newsfeed-page">
-      {uploadBadge && (
-        <div className="newsfeed-upload-badge" role="status" aria-live="polite">
-          <CheckCircle size={18} />
-          <span>{uploadBadge.text}</span>
-        </div>
-      )}
       {/* Top Navigation Bar */}
       <header className="newsfeed-header">
         <div className="newsfeed-header__container">
@@ -1538,121 +1432,13 @@ const NewsFeed: React.FC = () => {
                 </div>
               )}
             </div>
-            <div
-              className="newsfeed-header__create-wrapper"
-              ref={friendRequestsDropdownRef}
+            <button
+              className="newsfeed-header__icon-btn"
+              title="Add Friend"
+              onClick={() => setIsAddFriendModalOpen(true)}
             >
-              <button
-                className="newsfeed-header__icon-btn"
-                title="Friend Requests"
-                onClick={handleFriendRequestsClick}
-                type="button"
-                aria-expanded={isFriendRequestsDropdownOpen}
-              >
-                <UserPlus size={20} />
-                {friendRequests.length > 0 && (
-                  <span className="newsfeed-header__badge">
-                    {friendRequests.length > 9 ? "9+" : friendRequests.length}
-                  </span>
-                )}
-              </button>
-              {isFriendRequestsDropdownOpen && (
-                <div
-                  className="newsfeed-header__create-dropdown newsfeed-header__friend-requests-dropdown"
-                  onClick={(e) => e.stopPropagation()}
-                  style={{
-                    display: "block",
-                    visibility: "visible",
-                    opacity: 1,
-                    zIndex: 1003,
-                  }}
-                >
-                  <div className="newsfeed-header__friend-requests-header">
-                    <h3>Friend Requests</h3>
-                  </div>
-                  {isLoadingFriendRequests ? (
-                    <div className="newsfeed-header__friend-requests-loading">
-                      Loading...
-                    </div>
-                  ) : friendRequests.length === 0 ? (
-                    <div className="newsfeed-header__friend-requests-empty">
-                      No friend requests
-                    </div>
-                  ) : (
-                    <div className="newsfeed-header__friend-requests-list">
-                      {friendRequests.map((request) => {
-                        const sender = request.sender;
-                        const senderName = sender
-                          ? `${sender.user_firstname || ""} ${
-                              sender.user_lastname || ""
-                            }`.trim() || "Unknown User"
-                          : "Unknown User";
-                        const senderAvatar = sender?.user_picture || "";
-
-                        return (
-                          <div
-                            key={request.request_id}
-                            className="newsfeed-header__friend-request-item"
-                          >
-                            <div className="newsfeed-header__friend-request-info">
-                              {senderAvatar ? (
-                                <LazyImage
-                                  src={senderAvatar}
-                                  alt={senderName}
-                                  className="newsfeed-header__friend-request-avatar"
-                                />
-                              ) : (
-                                <div className="newsfeed-header__friend-request-avatar newsfeed-header__friend-request-avatar--placeholder">
-                                  {senderName.charAt(0).toUpperCase()}
-                                </div>
-                              )}
-                              <div className="newsfeed-header__friend-request-details">
-                                <div className="newsfeed-header__friend-request-name">
-                                  {senderName}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="newsfeed-header__friend-request-actions">
-                              <button
-                                className="newsfeed-header__friend-request-btn newsfeed-header__friend-request-btn--accept"
-                                onClick={() =>
-                                  handleAcceptFriendRequest(request.request_id)
-                                }
-                                title="Accept"
-                              >
-                                <UserCheck size={16} />
-                              </button>
-                              <button
-                                className="newsfeed-header__friend-request-btn newsfeed-header__friend-request-btn--reject"
-                                onClick={() =>
-                                  handleRejectFriendRequest(request.request_id)
-                                }
-                                title="Reject"
-                              >
-                                <X size={16} />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {friendRequests.length > 0 && (
-                    <div className="newsfeed-header__friend-requests-footer">
-                      <button
-                        className="newsfeed-header__friend-requests-view-all"
-                        onClick={() => {
-                          setIsFriendRequestsDropdownOpen(false);
-                          navigate("/request");
-                        }}
-                      >
-                        View All Requests
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+              <UserPlus size={20} />
+            </button>
             <button
               className="newsfeed-header__icon-btn"
               title="Messages"
@@ -1929,55 +1715,51 @@ const NewsFeed: React.FC = () => {
             }}
           />
           <SuggestedFriends friends={[]} onFriendAdded={handleFriendAdded} />
-
-          {/* Footer inside Aside */}
-          <footer className="newsfeed-footer">
-            <p>© 2026 JOSCity</p>
-            <div className="newsfeed-footer__links">
-              <a
-                href="/about"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/about", { state: { fromNewsfeed: true } });
-                }}
-              >
-                About
-              </a>
-              <a
-                href="/terms-of-service"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/terms-of-service", {
-                    state: { fromNewsfeed: true },
-                  });
-                }}
-              >
-                Terms
-              </a>
-              <a
-                href="/privacy-policy"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/privacy-policy", {
-                    state: { fromNewsfeed: true },
-                  });
-                }}
-              >
-                Privacy
-              </a>
-              <a
-                href="/contact"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/contact", { state: { fromNewsfeed: true } });
-                }}
-              >
-                Contact Us
-              </a>
-            </div>
-          </footer>
         </aside>
       </div>
+
+      {/* Footer */}
+      <footer className="newsfeed-footer">
+        <p>© 2026 JOSCity</p>
+        <div className="newsfeed-footer__links">
+          <a
+            href="/about"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/about", { state: { fromNewsfeed: true } });
+            }}
+          >
+            About
+          </a>
+          <a
+            href="/terms-of-service"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/terms-of-service", { state: { fromNewsfeed: true } });
+            }}
+          >
+            Terms
+          </a>
+          <a
+            href="/privacy-policy"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/privacy-policy", { state: { fromNewsfeed: true } });
+            }}
+          >
+            Privacy
+          </a>
+          <a
+            href="/contact"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/contact", { state: { fromNewsfeed: true } });
+            }}
+          >
+            Contact Us
+          </a>
+        </div>
+      </footer>
 
       {/* Add Friend Modal */}
       <FindFriendsModal
@@ -2628,6 +2410,13 @@ const NewsFeed: React.FC = () => {
           onPost={handleNewPost}
         />
       )}
+
+      {/* Create Story Popup */}
+      <CreateStoryPopup
+        isOpen={isStoryPopupOpen}
+        onClose={() => setIsStoryPopupOpen(false)}
+        onPublish={handleStoryPublish}
+      />
     </div>
   );
 };

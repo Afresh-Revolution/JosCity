@@ -36,6 +36,67 @@ interface Job {
   language?: string;
 }
 
+interface CustomField {
+  id: string;
+  type: "text" | "textarea" | "select" | "date" | "number";
+  label: string;
+  placeholder?: string;
+  options?: string[];
+  required?: boolean;
+}
+
+interface JobFormData {
+  role: string;
+  jobDescription: string;
+  jobRequirements: string;
+  jobQualifications: string;
+  jobDuration: string;
+  applicationDeadline: string;
+  category?: string;
+  customFields?: CustomField[];
+  applicationFormFields?: CustomField[];
+  [key: string]: string | CustomField[] | undefined;
+}
+
+interface ApplicationData {
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  currentAddress: string;
+  educationStatus: string[];
+  role: string;
+  motivation: string;
+  attachment: File | null;
+  workRemotely: boolean;
+  customFields?: Record<string, string>;
+}
+
+interface Application {
+  id: string;
+  jobId: string;
+  jobRole: string;
+  jobCompany: string;
+  applicantName: string;
+  applicantEmail: string;
+  applicantPhone: string;
+  applicantAddress: string;
+  educationStatus: string[];
+  role: string;
+  motivation: string;
+  attachment: string | null;
+  workRemotely: boolean;
+  customFields?: Record<string, string>;
+  status: "pending" | "accepted" | "rejected";
+  appliedAt: string;
+}
+
+interface Notification {
+  id: string;
+  message: string;
+  isRead: boolean;
+  timestamp?: string;
+}
+
 interface CreatedJob {
   id: string;
   role: string;
@@ -45,8 +106,8 @@ interface CreatedJob {
   jobDuration: string;
   applicationDeadline: string;
   companyName?: string;
-  customFields?: any[];
-  applicationFormFields?: any[];
+  customFields?: CustomField[];
+  applicationFormFields?: CustomField[];
   category?: string;
   createdAt: string;
 }
@@ -69,7 +130,7 @@ const Jobs: React.FC = () => {
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false);
   const [jobToApply, setJobToApply] = useState<string | null>(null);
   const [appliedJobs, setAppliedJobs] = useState<Set<string>>(new Set());
-  const [applications, setApplications] = useState<any[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
   // Sidebar and filter states (for personal accounts only)
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -104,7 +165,7 @@ const Jobs: React.FC = () => {
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
-  const [notifications] = useState<any[]>([]); // Empty notifications for now
+  const [notifications] = useState<Notification[]>([]); // Empty notifications for now
 
   // Calculate unread notifications count
   const unreadNotificationsCount = notifications.filter(
@@ -151,6 +212,36 @@ const Jobs: React.FC = () => {
       console.error("Error loading created jobs:", error);
     }
   }, []);
+
+  // Load applications from localStorage on mount (for business accounts)
+  useEffect(() => {
+    if (isBusinessAccount) {
+      try {
+        const storedApplications = localStorage.getItem("jobApplications");
+        if (storedApplications) {
+          const parsed: Application[] = JSON.parse(storedApplications);
+          setApplications(parsed);
+        }
+      } catch (error) {
+        console.error("Error loading applications:", error);
+      }
+    }
+  }, [isBusinessAccount]);
+
+  // Load applied jobs from localStorage on mount (for personal accounts)
+  useEffect(() => {
+    if (!isBusinessAccount) {
+      try {
+        const storedAppliedJobs = localStorage.getItem("appliedJobs");
+        if (storedAppliedJobs) {
+          const parsed: string[] = JSON.parse(storedAppliedJobs);
+          setAppliedJobs(new Set(parsed));
+        }
+      } catch (error) {
+        console.error("Error loading applied jobs:", error);
+      }
+    }
+  }, [isBusinessAccount]);
 
   // API removed - no data fetching, will show empty state
   useEffect(() => {
@@ -227,7 +318,7 @@ const Jobs: React.FC = () => {
   }, [allJobs, searchQuery]);
 
   // Handle job creation
-  const handleJobSubmit = (jobData: any) => {
+  const handleJobSubmit = (jobData: JobFormData) => {
     console.log("Job created:", jobData);
     console.log("Current createdJobs:", createdJobs);
 
@@ -245,6 +336,7 @@ const Jobs: React.FC = () => {
               applicationDeadline: jobData.applicationDeadline || "",
               category: jobData.category || "Other",
               customFields: jobData.customFields || [],
+              applicationFormFields: jobData.applicationFormFields || [],
             }
           : job
       );
@@ -326,7 +418,7 @@ const Jobs: React.FC = () => {
   };
 
   // Handle application form submission
-  const handleApplicationSubmit = (applicationData: any) => {
+  const handleApplicationSubmit = (applicationData: ApplicationData) => {
     if (!jobToApply) return;
 
     try {
@@ -334,7 +426,7 @@ const Jobs: React.FC = () => {
       if (!job) return;
 
       // Create application object
-      const application = {
+      const application: Application = {
         id: `app-${Date.now()}`,
         jobId: jobToApply,
         jobRole: job.role,
@@ -354,10 +446,13 @@ const Jobs: React.FC = () => {
       };
 
       // Save application to localStorage
-      const existingApplications = JSON.parse(
+      const existingApplications: Application[] = JSON.parse(
         localStorage.getItem("jobApplications") || "[]"
       );
-      const updatedApplications = [...existingApplications, application];
+      const updatedApplications: Application[] = [
+        ...existingApplications,
+        application,
+      ];
       localStorage.setItem(
         "jobApplications",
         JSON.stringify(updatedApplications)
@@ -403,8 +498,8 @@ const Jobs: React.FC = () => {
   // Handle application accept
   const handleApplicationAccept = (applicationId: string) => {
     try {
-      const updatedApplications = applications.map((app: any) =>
-        app.id === applicationId ? { ...app, status: "accepted" } : app
+      const updatedApplications: Application[] = applications.map((app) =>
+        app.id === applicationId ? { ...app, status: "accepted" as const } : app
       );
       setApplications(updatedApplications);
       localStorage.setItem(
@@ -430,8 +525,8 @@ const Jobs: React.FC = () => {
   // Handle application reject
   const handleApplicationReject = (applicationId: string) => {
     try {
-      const updatedApplications = applications.map((app: any) =>
-        app.id === applicationId ? { ...app, status: "rejected" } : app
+      const updatedApplications: Application[] = applications.map((app) =>
+        app.id === applicationId ? { ...app, status: "rejected" as const } : app
       );
       setApplications(updatedApplications);
       localStorage.setItem(
@@ -865,6 +960,7 @@ const Jobs: React.FC = () => {
           const job = createdJobs.find((j) => j.id === jobToApply);
           const jobRole = job?.role || "";
           const isRoleFixed = !!jobRole && !isBusinessAccount;
+          const customFormFields = job?.applicationFormFields || [];
 
           return (
             <JobApplicationModal
@@ -876,6 +972,7 @@ const Jobs: React.FC = () => {
               onSubmit={handleApplicationSubmit}
               jobRole={jobRole}
               isRoleFixed={isRoleFixed}
+              customFormFields={customFormFields}
             />
           );
         })()}

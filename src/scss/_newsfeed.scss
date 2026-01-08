@@ -4917,11 +4917,10 @@
   background-color: var(--card-bg);
   border-radius: 8px;
   padding: 16px;
-  padding-bottom: 86px; // Increased height by 70px (16px original + 70px)
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   box-sizing: border-box;
   position: relative; // Default positioning
-  margin-top: -80px; // Start from top of container (negative of container padding-top)
+  margin-top: 80px; // Push aside down from top to match original position
 
   align-self: start;
   flex-grow: 0; // Don't grow beyond content
@@ -4952,11 +4951,11 @@
   // Child elements can have their own overflow handling
 
   @media (max-width: 1200px) {
-    margin-top: -76px; // Match container padding-top
+    margin-top: 76px; // Match container padding-top on medium screens
   }
 
   @media (max-width: 992px) {
-    margin-top: -72px; // Match container padding-top (only applies when not fixed)
+    margin-top: 0; // Remove margin when fixed on mobile
     position: fixed;
     top: 64px;
     right: 0;

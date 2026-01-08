@@ -3,7 +3,7 @@
 .user-profile-page {
   min-height: 100vh;
   background-color: var(--bg-secondary, #f5f5f5);
-  font-family: "Roboto", sans-serif;
+  font-family: $font-family;
   display: flex;
   flex-direction: column;
   color: var(--text-primary);

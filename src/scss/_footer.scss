@@ -160,10 +160,9 @@
     gap: 12px;
     align-items: center;
 
-    // Apply the same animation style as the mobile navbar items to the whole container
+    // Apply slide-in animation to the container
     .footer__column.fade-in & {
-      animation: slide-in-from-right 0.5s ease-out both,
-        float-infinite 3s ease-in-out infinite;
+      animation: slide-in-from-right 0.5s ease-out both;
     }
   }
 
@@ -178,6 +177,25 @@
     color: rgba(255, 255, 255, 0.8);
     text-decoration: none;
     transition: all 0.3s ease;
+
+    // Apply independent float animations to each icon with different delays
+    .footer__column.fade-in & {
+      animation: float-infinite 3s ease-in-out infinite;
+    }
+
+    // Different animation delays for each icon to create independent movement
+    &:nth-child(1) {
+      animation-delay: 0s;
+    }
+    &:nth-child(2) {
+      animation-delay: 0.6s;
+    }
+    &:nth-child(3) {
+      animation-delay: 1.2s;
+    }
+    &:nth-child(4) {
+      animation-delay: 1.8s;
+    }
 
     &:hover {
       background-color: rgba(255, 255, 255, 0.2);

@@ -16,6 +16,7 @@ import {
 import LazyImage from "../../components/LazyImage";
 import primaryLogo from "../../image/primary-logo.png";
 import { getUserInitials } from "../../utils/userUtils";
+import CreateStoryPopup from "../../components/CreateStoryPopup";
 
 interface NewsFeedHeaderProps {
   isLeftSidebarOpen: boolean;
@@ -46,6 +47,7 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
 }) => {
   const navigate = useNavigate();
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
+  const [isStoryPopupOpen, setIsStoryPopupOpen] = useState(false);
   const createMenuRef = useRef<HTMLDivElement>(null);
 
   // Close create menu when clicking outside
@@ -79,6 +81,13 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
 
   const handleCreateStory = () => {
     setIsCreateMenuOpen(false);
+    setIsStoryPopupOpen(true);
+    console.log("Create Story clicked - popup should open:", true);
+  };
+
+  const handleStoryPublish = (message: string, image?: string, video?: string) => {
+    // Handle story publishing logic here
+    console.log("Publishing story:", { message, image, video });
     onCreateClick?.();
   };
 
@@ -202,6 +211,11 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
           )}
         </div>
       </div>
+      <CreateStoryPopup
+        isOpen={isStoryPopupOpen}
+        onClose={() => setIsStoryPopupOpen(false)}
+        onPublish={handleStoryPublish}
+      />
     </header>
   );
 };

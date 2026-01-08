@@ -3,7 +3,7 @@
 .user-profile-page {
   min-height: 100vh;
   background-color: var(--bg-secondary, #f5f5f5);
-  font-family: "Roboto", sans-serif;
+  font-family: $font-family;
   display: flex;
   flex-direction: column;
   color: var(--text-primary);
@@ -228,30 +228,66 @@
     font-size: 12px;
     font-weight: 500;
     white-space: nowrap;
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: visible;
+
+    // Remove the green border glow from global badge styles
+    &::before {
+      display: none;
+    }
 
     svg {
       width: 14px;
       height: 14px;
+      // Remove icon pulse animation from global badge styles
+      animation: none;
+      filter: none;
     }
 
     &--basic {
       background-color: #6b7280;
       color: white;
+
+      &:hover {
+        background-color: #9ca3af;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);
+      }
     }
 
     &--premium {
       background-color: #f59e0b;
       color: white;
+
+      &:hover {
+        background-color: #fbbf24;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+      }
     }
 
     &--verified {
       background-color: #10b981;
       color: white;
+
+      &:hover {
+        background-color: #34d399;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+      }
     }
 
     &--business {
       background-color: #3b82f6;
       color: white;
+
+      &:hover {
+        background-color: #60a5fa;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+      }
     }
   }
 

@@ -239,7 +239,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
 
   const reactionsCount = story?.reactions?.length || 0;
 
-  if (!story) {
+  if (!story) { 
     return null;
   }
 

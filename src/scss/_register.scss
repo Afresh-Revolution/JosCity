@@ -147,36 +147,36 @@
 
   &.register-tab-personal {
     &.active {
-      color: white;
+      color: #06e115;
 
       &::after {
-        background: white;
+        background: #06e115;
       }
     }
 
     &:hover {
-      color: #004018;
+      color: #06e115;
 
       &::after {
-        background: #004018 !important;
+        background: #06e115 !important;
       }
     }
   }
 
   &.register-tab-business {
     &.active {
-      color: #004018;
+      color: #06e115;
 
       &::after {
-        background: #004018;
+        background: #06e115;
       }
     }
 
     &:hover {
-      color: #004018;
+      color: #06e115;
 
       &::after {
-        background: #004018 !important;
+        background: #06e115 !important;
       }
     }
   }

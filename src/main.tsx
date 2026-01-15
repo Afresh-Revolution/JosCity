@@ -43,6 +43,7 @@ import MarketPlace from "./pages/NewsFeed/MarketPlace";
 import Movies from "./pages/NewsFeed/Movies";
 import Offers from "./pages/NewsFeed/Offers";
 import Jobs from "./pages/NewsFeed/Jobs";
+import Courses from "./pages/NewsFeed/Courses";
 import Scheduled from "./pages/NewsFeed/Scheduled";
 import Saved from "./pages/NewsFeed/Saved";
 import Business from "./pages/NewsFeed/Business";
@@ -119,6 +120,7 @@ if (rootElement) {
                 <Route path="/movies" element={<Movies />} />
                 <Route path="/offers" element={<Offers />} />
                 <Route path="/jobs" element={<Jobs />} />
+                <Route path="/courses" element={<Courses />} />
                 <Route path="/scheduled" element={<Scheduled />} />
                 <Route path="/saved" element={<Saved />} />
                 <Route path="/business" element={<Business />} />

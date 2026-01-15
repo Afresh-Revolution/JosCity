@@ -1,196 +1,62 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  SquarePlus,
-  UserPlus,
-  MessageCircle,
-  Bell,
-  Search,
-  Menu,
-  X,
-  FileText,
-  Clock,
-  Users,
-  Calendar,
-  TrendingUp,
-} from "lucide-react";
-import primaryLogo from "../../image/primary-logo.png";
+import { Search } from "lucide-react";
 import "../../main.css";
-import LazyImage from "../../components/LazyImage";
 import NewsFeedSidebar from "./NewsFeedSidebar";
+import NewsFeedHeader from "./NewsFeedHeader";
+import { getProfileUsername } from "../../utils/userUtils";
 
 const News: React.FC = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
-  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
-  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
-  const createMenuRef = useRef<HTMLDivElement>(null);
+  
+  // Modal/Panel states
+  const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const [notifications] = useState<any[]>([]); // Empty notifications for now
 
-  // Get user's initials from localStorage
-  const getUserInitials = () => {
-    try {
-      const userData = localStorage.getItem("user");
-      if (userData) {
-        const user = JSON.parse(userData);
-        let firstName = "";
-        let lastName = "";
+  // Calculate unread notifications count
+  const unreadNotificationsCount = notifications.filter(
+    (n) => !n.isRead
+  ).length;
 
-        if (user.user_firstname) {
-          firstName = user.user_firstname.trim();
-        }
-        if (user.user_lastname) {
-          lastName = user.user_lastname.trim();
-        }
-
-        if (firstName && lastName) {
-          return (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
-        }
-        if (firstName) {
-          return firstName.substring(0, 2).toUpperCase();
-        }
-        if (user.display_name) {
-          const parts = user.display_name.trim().split(" ");
-          if (parts.length >= 2) {
-            return (
-              parts[0].charAt(0) + parts[parts.length - 1].charAt(0)
-            ).toUpperCase();
-          }
-          return user.display_name.substring(0, 2).toUpperCase();
-        }
-        if (user.name) {
-          const parts = user.name.trim().split(" ");
-          if (parts.length >= 2) {
-            return (
-              parts[0].charAt(0) + parts[parts.length - 1].charAt(0)
-            ).toUpperCase();
-          }
-          return user.name.substring(0, 2).toUpperCase();
-        }
-      }
-    } catch (error) {
-      console.error("Error parsing user data:", error);
-    }
-    return "JO"; // Default fallback
+  // Handle profile navigation
+  const handleProfileClick = () => {
+    const username = getProfileUsername();
+    navigate(`/profile/${encodeURIComponent(username)}`);
   };
 
-  // Close create menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        createMenuRef.current &&
-        !createMenuRef.current.contains(event.target as Node)
-      ) {
-        setIsCreateMenuOpen(false);
-      }
-    };
+  // Handle notification click
+  const handleNotificationClick = () => {
+    setIsNotificationPanelOpen(true);
+  };
 
-    if (isCreateMenuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
+  // Handle message click
+  const handleMessageClick = () => {
+    setIsChatPanelOpen(true);
+  };
 
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isCreateMenuOpen]);
-
-  const handleCreateClick = () => {
-    setIsCreateMenuOpen(!isCreateMenuOpen);
+  // Handle add friend click
+  const handleAddFriendClick = () => {
+    setIsAddFriendModalOpen(true);
   };
 
   return (
     <div className="news-page">
-      {/* Top Navigation Bar */}
-      <header className="newsfeed-header">
-        <div className="newsfeed-header__container">
-          <div className="newsfeed-header__left">
-            <button
-              className="newsfeed-header__menu-toggle"
-              onClick={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
-              aria-label="Toggle menu"
-            >
-              {isLeftSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-            <div className="newsfeed-header__logo" onClick={() => navigate("/")}>
-              <LazyImage src={primaryLogo} alt="JOSCity Logo" />
-              <span>JosCity</span>
-            </div>
-          </div>
-          <div className="newsfeed-header__actions">
-            <div
-              className="newsfeed-header__create-wrapper"
-              ref={createMenuRef}
-            >
-              <button
-                className="newsfeed-header__icon-btn"
-                title="Create"
-                onClick={handleCreateClick}
-              >
-                <SquarePlus size={20} />
-              </button>
-              {isCreateMenuOpen && (
-                <div className="newsfeed-header__create-dropdown">
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  >
-                    <FileText size={18} />
-                    <span>Create Post</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  >
-                    <Clock size={18} />
-                    <span>Create Story</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  >
-                    <Users size={18} />
-                    <span>Create Group</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  >
-                    <Calendar size={18} />
-                    <span>Create Event</span>
-                  </button>
-                </div>
-              )}
-            </div>
-            <button className="newsfeed-header__icon-btn" title="Add Friend">
-              <UserPlus size={20} />
-            </button>
-            <button className="newsfeed-header__icon-btn" title="Messages">
-              <MessageCircle size={20} />
-            </button>
-            <button
-              className="newsfeed-header__icon-btn newsfeed-header__icon-btn--notifications"
-              title="Notifications"
-            >
-              <Bell size={20} />
-            </button>
-            <button className="newsfeed-header__join-btn">
-              <div className="newsfeed-header__join-initials">
-                {getUserInitials()}
-              </div>
-            </button>
-            <button
-              className="newsfeed-header__sidebar-toggle"
-              onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
-              aria-label="Toggle sidebar"
-              title="Trending & Friends"
-            >
-              <TrendingUp size={20} />
-            </button>
-          </div>
-        </div>
-      </header>
+      {/* Top Navigation Bar - Using NewsFeed Header */}
+      <NewsFeedHeader
+        isLeftSidebarOpen={isLeftSidebarOpen}
+        onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
+        onProfileClick={handleProfileClick}
+        onNotificationClick={handleNotificationClick}
+        onMessageClick={handleMessageClick}
+        onAddFriendClick={handleAddFriendClick}
+        unreadNotificationsCount={unreadNotificationsCount}
+      />
 
-      {/* Overlay for mobile sidebar */}
+      {/* Mobile Overlay */}
       {isLeftSidebarOpen && (
         <div
           className="newsfeed-overlay"
@@ -198,7 +64,9 @@ const News: React.FC = () => {
         />
       )}
 
-      <div className="newsfeed-container">
+      {/* Container for sidebar and main content */}
+      <div className="newsfeed-container newsfeed-container--no-aside">
+        {/* Navigation Menu Sidebar */}
         <NewsFeedSidebar
           isOpen={isLeftSidebarOpen}
           onClose={() => setIsLeftSidebarOpen(false)}
@@ -232,8 +100,8 @@ const News: React.FC = () => {
                       {/* Folded corner */}
                       <path
                         d="M 60 0 L 60 20 L 40 0 Z"
-                        fill="#ffd700"
-                        stroke="#ffb300"
+                        fill="#ff9800"
+                        stroke="#ff6f00"
                         strokeWidth="1"
                       />
                       {/* NEWS text */}
@@ -242,7 +110,7 @@ const News: React.FC = () => {
                         y="25"
                         fontSize="16"
                         fontWeight="bold"
-                        fill="#d32f2f"
+                        fill="#ff6f00"
                         textAnchor="middle"
                         fontFamily="Arial, sans-serif"
                       >
@@ -289,19 +157,19 @@ const News: React.FC = () => {
             <div className="news-banner__right">
               <div className="news-banner__text">
                 <h1 className="news-banner__title">News</h1>
-                <p className="news-banner__subtitle">Discover events</p>
-              </div>
-              <div className="news-banner__search-wrapper">
-                <input
-                  type="text"
-                  className="news-banner__search"
-                  placeholder="Search for news"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                <Search size={20} className="news-banner__search-icon" />
+                <p className="news-banner__subtitle">Discover events.</p>
               </div>
             </div>
+          </div>
+          <div className="news-banner__search-wrapper">
+            <input
+              type="text"
+              className="news-banner__search"
+              placeholder="Search for news"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <Search size={20} className="news-banner__search-icon" />
           </div>
         </div>
 

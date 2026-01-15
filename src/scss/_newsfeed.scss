@@ -105,7 +105,9 @@
   }
 
   &__menu-toggle {
-    display: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: none;
     border: none;
     color: #333;
@@ -128,12 +130,6 @@
       color: #333;
       width: 24px;
       height: 24px;
-    }
-
-    @media (max-width: 992px) {
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
 
     @media (max-width: 768px) {
@@ -517,6 +513,16 @@
   }
 
   &__join-text {
+    color: #000;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: color 0.3s ease;
+
+    @media (max-width: 768px) {
+      font-size: 12px;
+    }
+
     @media (max-width: 480px) {
       display: none;
     }

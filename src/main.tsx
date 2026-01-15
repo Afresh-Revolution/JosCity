@@ -36,7 +36,7 @@ import SentRequest from "./components/SentRequest";
 import UserProfile from "./pages/UserProfile";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import DarkModeToggle from "./components/DarkModeToggle"; 
-import { preventInspect } from "./utils/preventInspect";
+// import { preventInspect } from "./utils/preventInspect";
 import Maintenance from "./pages/Maintenance";
 // import RoutingDisabled from "./pages/RoutingDisabled";
 import MarketPlace from "./pages/NewsFeed/MarketPlace";
@@ -49,6 +49,7 @@ import Saved from "./pages/NewsFeed/Saved";
 import Business from "./pages/NewsFeed/Business";
 
 // Prevent browser inspection/devtools
+// preventInspect();
 // preventInspect(); // Commented out to allow browser dev tools
 
 // Landing page component (without WelcomePage or Register)

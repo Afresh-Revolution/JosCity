@@ -11,7 +11,6 @@ import {
   FileText,
   Clock,
   Users,
-  Plus,
   Calendar,
   Bookmark,
   Briefcase,

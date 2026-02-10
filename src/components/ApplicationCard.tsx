@@ -1,5 +1,15 @@
-import React from "react";
-import { Mail, Phone, MapPin, Briefcase, CheckCircle, XCircle } from "lucide-react";
+import React, { useState } from "react";
+import { createPortal } from "react-dom";
+import { CheckCircle, XCircle, X, Eye } from "lucide-react";
+
+interface CustomField {
+  id: string;
+  type: "text" | "textarea" | "select" | "date" | "number";
+  label: string;
+  placeholder?: string;
+  options?: string[];
+  required?: boolean;
+}
 
 interface ApplicationCardProps {
   application: {
@@ -22,13 +32,16 @@ interface ApplicationCardProps {
   };
   onAccept: (applicationId: string) => void;
   onReject: (applicationId: string) => void;
+  applicationFormFields?: CustomField[];
 }
 
 const ApplicationCard: React.FC<ApplicationCardProps> = ({
   application,
   onAccept,
   onReject,
+  applicationFormFields = [],
 }) => {
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
   const formatDate = (dateString: string) => {
     if (!dateString) return "";
     try {
@@ -70,111 +83,135 @@ const ApplicationCard: React.FC<ApplicationCardProps> = ({
     }
   };
 
-  return (
-    <div className="application-card">
-      <div className="application-card__header">
-        <div className="application-card__header-top">
-          <h3 className="application-card__applicant-name">
-            {application.applicantName}
+  // Get applicant name from custom fields (look for "Full Name" or "Name")
+  const getApplicantName = () => {
+    if (!application.customFields || Object.keys(application.customFields).length === 0) {
+      return application.applicantName; // Fallback to default
+    }
+
+    // Find field with label "Full Name" or "Name"
+    const nameField = applicationFormFields.find(
+      (field) => 
+        field.label.toLowerCase() === "full name" || 
+        field.label.toLowerCase() === "name"
+    );
+
+    if (nameField && application.customFields[nameField.id]) {
+      return application.customFields[nameField.id];
+    }
+
+    // Fallback to default if not found
+    return application.applicantName;
+  };
+
+  const popupContent = isPopupOpen ? (
+    <div 
+      className="application-card__popup-overlay"
+      onClick={() => setIsPopupOpen(false)}
+    >
+      <div 
+        className="application-card__popup"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="application-card__popup-header">
+          <h3 className="application-card__popup-title">
+            Application Details
           </h3>
-          {getStatusBadge()}
-        </div>
-        <p className="application-card__job-info">
-          Applied for: <strong>{application.jobRole}</strong> at {application.jobCompany}
-        </p>
-        <p className="application-card__applied-date">
-          Applied on {formatDate(application.appliedAt)}
-        </p>
-      </div>
-
-      <div className="application-card__content">
-        <div className="application-card__info-item">
-          <Mail size={16} className="application-card__icon" />
-          <span>{application.applicantEmail}</span>
+          <button
+            className="application-card__popup-close"
+            onClick={() => setIsPopupOpen(false)}
+            aria-label="Close"
+          >
+            <X size={24} />
+          </button>
         </div>
 
-        <div className="application-card__info-item">
-          <Phone size={16} className="application-card__icon" />
-          <span>{application.applicantPhone}</span>
+        <div className="application-card__content">
+          {application.customFields && Object.keys(application.customFields).length > 0 ? (
+            <div className="application-card__section">
+              {Object.entries(application.customFields).map(([fieldId, value]) => {
+                // Find the field definition to get the label
+                const fieldDefinition = applicationFormFields.find((field) => field.id === fieldId);
+                const fieldLabel = fieldDefinition?.label || fieldId;
+                
+                return (
+                  <div key={fieldId} className="application-card__custom-field">
+                    <strong>{fieldLabel}:</strong> {value}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="application-card__section">
+              <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: "1rem" }}>
+                No application data available.
+              </p>
+            </div>
+          )}
         </div>
 
-        <div className="application-card__info-item">
-          <MapPin size={16} className="application-card__icon" />
-          <span>{application.applicantAddress}</span>
-        </div>
-
-        <div className="application-card__info-item">
-          <Briefcase size={16} className="application-card__icon" />
-          <span>Role: {application.role}</span>
-        </div>
-
-        {application.educationStatus.length > 0 && (
-          <div className="application-card__info-item">
-            <span>Education Status: {application.educationStatus.join(", ")}</span>
-          </div>
-        )}
-
-        {application.motivation && (
-          <div className="application-card__section">
-            <h4 className="application-card__section-title">Motivation</h4>
-            <p className="application-card__text">{application.motivation}</p>
-          </div>
-        )}
-
-        {application.customFields && Object.keys(application.customFields).length > 0 && (
-          <div className="application-card__section">
-            <h4 className="application-card__section-title">Additional Information</h4>
-            {Object.entries(application.customFields).map(([key, value]) => (
-              <div key={key} className="application-card__custom-field">
-                <strong>{key}:</strong> {value}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {application.attachment && (
-          <div className="application-card__section">
-            <h4 className="application-card__section-title">Attachment</h4>
-            <a
-              href="#"
-              className="application-card__attachment"
-              onClick={(e) => {
-                e.preventDefault();
-                // TODO: Implement file download
-                console.log("Download attachment:", application.attachment);
+        {application.status === "pending" && (
+          <div className="application-card__popup-actions">
+            <button
+              className="application-card__btn application-card__btn--accept"
+              onClick={() => {
+                onAccept(application.id);
+                setIsPopupOpen(false);
               }}
             >
-              {application.attachment}
-            </a>
-          </div>
-        )}
-
-        {application.workRemotely && (
-          <div className="application-card__badge">
-            <span>Work Remotely</span>
+              <CheckCircle size={16} />
+              Accept
+            </button>
+            <button
+              className="application-card__btn application-card__btn--reject"
+              onClick={() => {
+                onReject(application.id);
+                setIsPopupOpen(false);
+              }}
+            >
+              <XCircle size={16} />
+              Reject
+            </button>
           </div>
         )}
       </div>
+    </div>
+  ) : null;
 
-      {application.status === "pending" && (
+  return (
+    <>
+      <div className="application-card">
+        <div className="application-card__header">
+          <div className="application-card__header-top">
+            <h3 className="application-card__applicant-name">
+              {getApplicantName()}
+            </h3>
+            {getStatusBadge()}
+          </div>
+          <p className="application-card__job-info">
+            Applied for: <strong>{application.jobRole}</strong> at {application.jobCompany}
+          </p>
+          <p className="application-card__applied-date">
+            Applied on {formatDate(application.appliedAt)}
+          </p>
+        </div>
+
         <div className="application-card__actions">
           <button
-            className="application-card__btn application-card__btn--accept"
-            onClick={() => onAccept(application.id)}
+            className="application-card__btn application-card__btn--view"
+            onClick={() => setIsPopupOpen(true)}
           >
-            <CheckCircle size={16} />
-            Accept
-          </button>
-          <button
-            className="application-card__btn application-card__btn--reject"
-            onClick={() => onReject(application.id)}
-          >
-            <XCircle size={16} />
-            Reject
+            <Eye size={16} />
+            View
           </button>
         </div>
-      )}
-    </div>
+      </div>
+
+      {/* Popup Modal - Rendered via Portal outside the card */}
+      {typeof document !== "undefined" && document.body
+        ? createPortal(popupContent, document.body)
+        : popupContent}
+    </>
   );
 };
 

@@ -637,7 +637,7 @@ const EventsPage: React.FC = () => {
         <div className="eventspage-hero__container">
           <div className="eventspage-hero__content">
             <div className="eventspage-hero__illustration">
-              <Calendar size={120} fill="white" stroke="white" />
+              <Calendar size={90} fill="white" stroke="white" />
             </div>
             <div className="eventspage-hero__text">
               <h1 className="eventspage-hero__title">Events</h1>

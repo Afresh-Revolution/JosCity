@@ -39,7 +39,7 @@
 .job-application-modal__title {
   font-size: 24px;
   font-weight: 600;
-  color: #1a5d3a;
+  color: var(--text-primary, #1a5d3a);
   margin: 0;
 }
 
@@ -75,7 +75,7 @@
 .job-application-modal__section-title {
   font-size: 18px;
   font-weight: 600;
-  color: #1a5d3a;
+  color: var(--text-primary, #1a5d3a);
   margin: 0 0 16px 0;
 }
 
@@ -216,7 +216,7 @@
   background-color: #e8f5e9;
   border-radius: 8px;
   font-size: 14px;
-  color: #1a5d3a;
+  color: var(--text-primary, #1a5d3a);
   font-weight: 500;
   width: fit-content;
 }
@@ -261,28 +261,81 @@
   }
 
   .job-application-modal__title {
-    color: #34b86a;
+    color: var(--text-primary);
   }
 
   .job-application-modal__section-title {
-    color: #34b86a;
+    color: var(--text-primary);
+  }
+
+  .job-application-modal__label {
+    color: var(--text-primary);
   }
 
   .job-application-modal__input,
   .job-application-modal__select,
   .job-application-modal__textarea {
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
     border-color: var(--border-color);
     color: var(--text-primary);
+  }
+
+  .job-application-modal__input:focus,
+  .job-application-modal__select:focus,
+  .job-application-modal__textarea:focus {
+    border-color: #34b86a;
+    background-color: var(--bg-primary);
+  }
+
+  .job-application-modal__input:disabled,
+  .job-application-modal__select:disabled,
+  .job-application-modal__textarea:disabled {
+    background-color: var(--bg-tertiary);
+    color: var(--text-secondary);
+  }
+
+  .job-application-modal__input::placeholder,
+  .job-application-modal__textarea::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  .job-application-modal__select {
+    option {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+    }
+  }
+
+  .job-application-modal__role-note {
+    color: var(--text-secondary);
+  }
+
+  .job-application-modal__checkbox-label {
+    color: var(--text-primary);
+  }
+
+  .job-application-modal__working-hours {
+    p {
+      color: var(--text-primary);
+    }
   }
 
   .job-application-modal__file-label {
     border-color: var(--border-color);
     background-color: var(--bg-secondary);
+    color: var(--text-secondary);
   }
 
   .job-application-modal__remote-badge {
     background-color: rgba(52, 184, 106, 0.1);
-    color: #34b86a;
+    color: var(--text-primary);
+  }
+
+  .job-application-modal__close {
+    color: var(--text-primary);
+    
+    &:hover {
+      background-color: var(--bg-secondary);
+    }
   }
 }

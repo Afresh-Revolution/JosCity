@@ -14,7 +14,9 @@ import NewsFeedHeader from "./NewsFeedHeader";
 import FindFriendsModal from "../../components/FindFriendsModal";
 import CreateJobModal from "../../components/CreateJobModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
-import JobApplicationModal from "../../components/JobApplicationModal";
+import JobApplicationModal, {
+  type ApplicationFormData,
+} from "../../components/JobApplicationModal";
 import {
   getProfileUsername,
   getUserAccountType,
@@ -56,19 +58,6 @@ interface JobFormData {
   customFields?: CustomField[];
   applicationFormFields?: CustomField[];
   [key: string]: string | CustomField[] | undefined;
-}
-
-interface ApplicationData {
-  fullName: string;
-  email: string;
-  phoneNumber: string;
-  currentAddress: string;
-  educationStatus: string[];
-  role: string;
-  motivation: string;
-  attachment: File | null;
-  workRemotely: boolean;
-  customFields?: Record<string, string>;
 }
 
 interface Application {
@@ -418,7 +407,7 @@ const Jobs: React.FC = () => {
   };
 
   // Handle application form submission
-  const handleApplicationSubmit = (applicationData: ApplicationData) => {
+  const handleApplicationSubmit = (applicationData: ApplicationFormData) => {
     if (!jobToApply) return;
 
     try {
@@ -431,15 +420,15 @@ const Jobs: React.FC = () => {
         jobId: jobToApply,
         jobRole: job.role,
         jobCompany: job.companyName || getUserName(),
-        applicantName: applicationData.fullName,
-        applicantEmail: applicationData.email,
-        applicantPhone: applicationData.phoneNumber,
-        applicantAddress: applicationData.currentAddress,
-        educationStatus: applicationData.educationStatus,
-        role: applicationData.role,
-        motivation: applicationData.motivation,
+        applicantName: applicationData.fullName || "N/A",
+        applicantEmail: applicationData.email || "N/A",
+        applicantPhone: applicationData.phoneNumber || "N/A",
+        applicantAddress: applicationData.currentAddress || "N/A",
+        educationStatus: applicationData.educationStatus || [],
+        role: applicationData.role || job.role,
+        motivation: applicationData.motivation || "N/A",
         attachment: applicationData.attachment?.name || null,
-        workRemotely: applicationData.workRemotely,
+        workRemotely: applicationData.workRemotely || false,
         customFields: applicationData.customFields || {},
         status: "pending", // pending, accepted, rejected
         appliedAt: new Date().toISOString(),
@@ -811,14 +800,28 @@ const Jobs: React.FC = () => {
                         .filter((app) =>
                           createdJobs.some((job) => job.id === app.jobId)
                         )
-                        .map((application) => (
-                          <ApplicationCard
-                            key={application.id}
-                            application={application}
-                            onAccept={(appId) => handleApplicationAccept(appId)}
-                            onReject={(appId) => handleApplicationReject(appId)}
-                          />
-                        ))}
+                        .map((application) => {
+                          // Find the job to get its applicationFormFields
+                          const job = createdJobs.find(
+                            (j) => j.id === application.jobId
+                          );
+                          const applicationFormFields =
+                            job?.applicationFormFields || [];
+
+                          return (
+                            <ApplicationCard
+                              key={application.id}
+                              application={application}
+                              onAccept={(appId) =>
+                                handleApplicationAccept(appId)
+                              }
+                              onReject={(appId) =>
+                                handleApplicationReject(appId)
+                              }
+                              applicationFormFields={applicationFormFields}
+                            />
+                          );
+                        })}
                     </div>
                   )}
                 </div>
@@ -961,6 +964,7 @@ const Jobs: React.FC = () => {
           const jobRole = job?.role || "";
           const isRoleFixed = !!jobRole && !isBusinessAccount;
           const customFormFields = job?.applicationFormFields || [];
+          const companyName = job?.companyName || getUserName();
 
           return (
             <JobApplicationModal
@@ -973,6 +977,7 @@ const Jobs: React.FC = () => {
               jobRole={jobRole}
               isRoleFixed={isRoleFixed}
               customFormFields={customFormFields}
+              companyName={companyName}
             />
           );
         })()}

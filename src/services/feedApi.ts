@@ -404,13 +404,26 @@ export const feedApi = {
     return apiRequest(`/posts/${postId}/shares`) as any; // Type assertion needed - API response structure varies
   },
 
-  // ========== Feeds ==========
-  getFeeds: async (): Promise<{
+  // ========== Feeds (News Feed - matches backend getNewsFeed) ==========
+  getFeeds: async (params?: {
+    page?: number;
+    limit?: number;
+    type?: string;
+  }): Promise<{
     success: boolean;
     data: unknown[];
+    pagination?: { page: number; limit: number; hasMore: boolean };
   }> => {
+    const page = params?.page ?? 1;
+    const limit = params?.limit ?? 10;
+    const type = params?.type ?? "all";
+    const query = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+      type,
+    }).toString();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return apiRequest("/feed/feeds") as any; // Type assertion needed - API response structure varies
+    return apiRequest(`/feed/feeds?${query}`) as any;
   },
 
   // ========== Posts ==========
@@ -428,69 +441,35 @@ export const feedApi = {
       (data.images && data.images.length > 0) ||
       (data.videos && data.videos.length > 0);
 
-    console.log("Creating post via POST /api/feed/posts", {
+    console.log("Creating post via POST /api/feed/posts (FormData)", {
       hasCaption: !!data.caption,
       imagesCount: data.images?.length || 0,
       videosCount: data.videos?.length || 0,
-      usingFormData: hasFiles,
     });
 
     // Get authentication token from localStorage
     const token =
       localStorage.getItem("token") || localStorage.getItem("authToken");
 
-    const headers: Record<string, string> = {
-      ...(hasFiles ? {} : { "Content-Type": "application/json" }), // Only set Content-Type for JSON
-    };
-
-    // Add authorization header if token exists
+    // Always use FormData to match backend: req.body.text, req.files.photos, req.files.videos
+    // Do not set Content-Type so the browser sets multipart/form-data with boundary
+    const headers: Record<string, string> = {};
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    // Use FormData when files are present, JSON otherwise
-    // Supported post combinations:
-    // 1. Text only (JSON)
-    // 2. Text + Image(s) (FormData with text and photos)
-    // 3. Text + Video(s) (FormData with text and videos)
-    // 4. Text + Image(s) + Video(s) (FormData with text, photos, and videos)
-    // 5. Image(s) only (FormData with photos, no text)
-    // 6. Video(s) only (FormData with videos, no text)
-    // 7. Image(s) + Video(s) (FormData with photos and videos, no text)
-    let body: FormData | string;
-    if (hasFiles) {
-      const formData = new FormData();
-
-      // Backend expects 'text' instead of 'caption'
-      // Text can be included with images or videos (text + image/video posts)
-      if (data.caption) {
-        formData.append("text", data.caption);
-      }
-
-      // Backend expects 'photos' instead of 'images'
-      // Supports text + images posts
-      if (data.images && data.images.length > 0) {
-        data.images.forEach((file) => {
-          formData.append("photos", file);
-        });
-      }
-
-      // Append video files
-      // Supports text + videos posts
-      if (data.videos && data.videos.length > 0) {
-        data.videos.forEach((file) => {
-          formData.append("videos", file);
-        });
-      }
-
-      body = formData;
-    } else {
-      // Use JSON for text-only posts - backend expects 'text'
-      // Send empty string if caption is empty (backend requires at least text field)
-      body = JSON.stringify({
-        text: data.caption || "",
-      });
+    const formData = new FormData();
+    // Backend: const { text } = req.body
+    formData.append("text", data.caption ?? "");
+    // Backend: req.files?.photos, req.files?.videos
+    if (data.images && data.images.length > 0) {
+      data.images.forEach((file) => formData.append("photos", file));
     }
+    if (data.videos && data.videos.length > 0) {
+      data.videos.forEach((file) => formData.append("videos", file));
+    }
+
+    const body = formData;
 
     let response: Response;
     try {
@@ -498,7 +477,7 @@ export const feedApi = {
         method: "POST",
         headers,
         body,
-        signal: AbortSignal.timeout(hasFiles ? 45000 : 20000), // Reduced timeout - backend should respond faster
+        signal: AbortSignal.timeout(hasFiles ? 45000 : 20000),
       });
     } catch (fetchError: unknown) {
       // Handle network errors

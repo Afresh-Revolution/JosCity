@@ -3,7 +3,7 @@ import { Plus, Type, Image, Video, X } from "lucide-react";
 import LazyImage from "../../components/LazyImage";
 import CreateStoryModal from "./CreateStoryModal";
 import StoryViewer from "./StoryViewer";
-import { getUserName, isAuthenticated } from "../../utils/userUtils";
+import { getUserName, isAuthenticated, getInitialsFromName, getUserInitials } from "../../utils/userUtils";
 import { useNavigate } from "react-router-dom";
 import { feedApi } from "../../services/feedApi";
 
@@ -750,7 +750,7 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
                           </div>
                         ) : null}
                       </>
-                    ) : /* User avatar when no story preview */
+                    ) : /* User avatar or initials when no story preview */
                     userAvatar ? (
                       <div className="newsfeed-stories__avatar-overlay">
                         <LazyImage
@@ -759,7 +759,11 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
                           className="newsfeed-stories__avatar"
                         />
                       </div>
-                    ) : null}
+                    ) : (
+                      <div className="newsfeed-stories__avatar newsfeed-stories__avatar--initials">
+                        <span>{getUserInitials()}</span>
+                      </div>
+                    )}
                   </div>
                   <p className="newsfeed-stories__name">
                     {userName || currentUser || "You"}
@@ -787,7 +791,11 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
                         alt={userName || currentUser || "You"}
                         className="newsfeed-stories__avatar"
                       />
-                    ) : null}
+                    ) : (
+                      <div className="newsfeed-stories__avatar newsfeed-stories__avatar--initials">
+                        <span>{getUserInitials()}</span>
+                      </div>
+                    )}
                   </div>
                   <p className="newsfeed-stories__name">
                     {userName || currentUser || "You"}
@@ -869,7 +877,7 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
                           </div>
                         )}
                       </>
-                    ) : /* User avatar when no story preview */
+                    ) : /* User avatar or initials when no story preview */
                     !shouldShowInitials ? (
                       <div className="newsfeed-stories__avatar-overlay">
                         <LazyImage
@@ -878,7 +886,11 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
                           className="newsfeed-stories__avatar"
                         />
                       </div>
-                    ) : null}
+                    ) : (
+                      <div className="newsfeed-stories__avatar newsfeed-stories__avatar--initials">
+                        <span>{getInitialsFromName(userGroup.userName)}</span>
+                      </div>
+                    )}
                     {userGroup.hasNewStory && (
                       <div className="newsfeed-stories__new-indicator" />
                     )}
@@ -907,7 +919,11 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
                         alt={userGroup.userName}
                         className="newsfeed-stories__avatar"
                       />
-                    ) : null}
+                    ) : (
+                      <div className="newsfeed-stories__avatar newsfeed-stories__avatar--initials">
+                        <span>{getInitialsFromName(userGroup.userName)}</span>
+                      </div>
+                    )}
                     {userGroup.hasNewStory && (
                       <div className="newsfeed-stories__new-indicator" />
                     )}

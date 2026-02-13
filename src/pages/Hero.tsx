@@ -272,7 +272,7 @@ function Hero() {
                 navigate("/admin/login");
               }
             }}
-            aria-label="Go to admin panel"
+            aria-label="Go to a dmin panel"
           >
             <Lightbulb size={20} />
             <span>Powered by Cbrilliance AI tech LTD</span>

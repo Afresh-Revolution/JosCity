@@ -323,31 +323,30 @@ const NewsFeed: React.FC = () => {
           console.log("API returned empty array - no posts available");
           setPosts([]);
         } else {
-          // Transform API data to match the expected post format
+          // Transform API data to match backend getNewsFeed/formatPost shape
           try {
-            // Type guard for feed items - backend returns author, media, reactions, etc.
             interface FeedItem {
               post_id?: number;
               id?: number;
+              text?: string;
               author?: {
                 id?: number;
                 name?: string;
-                display_name?: string;
+                username?: string;
                 picture?: string;
-                profile_image_url?: string;
                 verified?: boolean;
+                type?: string;
               };
-              user?: { display_name?: string; profile_image_url?: string };
+              user?: { name?: string; picture?: string };
               user_name?: string;
               user_avatar?: string;
               action?: string;
               time_ago?: string;
               created_at?: string;
               time?: string;
-              media?: {
-                photos?: Array<{ source?: string; photo_id?: number }>;
-                videos?: Array<{ source?: string; video_id?: number }>;
-              };
+              media?: Array<{ url?: string; type?: string }>;
+              media_urls?: string[];
+              media_types?: string[];
               image_url?: string;
               image?: string;
               images?: string[];
@@ -358,15 +357,17 @@ const NewsFeed: React.FC = () => {
               reactions_count?: number;
               likes_count?: number;
               likes?: number;
-              comments_preview?: Array<unknown>;
+              user_reacted?: boolean;
+              comments_preview?: Array<{ id?: number; comment?: string; time_ago?: string; author?: { name?: string; picture?: string; verified?: boolean } }>;
               comments_count?: number;
               comments?: number;
               views_count?: number;
               views?: number;
               reviews?: number;
               caption?: string;
-              text?: string;
               hashtags?: string;
+              account_type?: string;
+              accountType?: string;
               [key: string]: unknown;
             }
 
@@ -380,61 +381,65 @@ const NewsFeed: React.FC = () => {
                 return hasId;
               })
               .map((feed): Post => {
-                // Handle author/user field mapping (backend uses 'author', frontend expects 'user')
                 const author = feed.author || feed.user;
                 const userName =
-                  author?.display_name || feed.user_name || "Unknown User";
+                  author?.name || feed.user_name || "Unknown User";
                 const userAvatar =
-                  author?.profile_image_url || feed.user_avatar || "";
+                  author?.picture ?? feed.user_avatar ?? "";
 
-                // Handle media mapping (backend uses media.photos/media.videos arrays)
-                // Supports posts with:
-                // - Text only
-                // - Text + Image(s)
-                // - Text + Video(s)
-                // - Text + Image(s) + Video(s)
-                // - Image(s) only
-                // - Video(s) only
-                // - Image(s) + Video(s)
                 let image = feed.image_url || feed.image || "";
                 let images = feed.images;
                 let video = feed.video_url || feed.video || "";
                 let videos = feed.videos;
 
-                if (feed.media) {
-                  // Extract photos from media object (supports text + images posts)
-                  if (feed.media.photos && feed.media.photos.length > 0) {
-                    image = feed.media.photos[0].source || image;
-                    images = feed.media.photos
-                      .map((p) => p.source)
-                      .filter((src): src is string => Boolean(src));
+                // Backend formatPost: media = [{ url, type }, ...]; also media_urls + media_types
+                if (feed.media && Array.isArray(feed.media) && feed.media.length > 0) {
+                  const photoUrls = feed.media
+                    .filter((m) => (m.type || "").toLowerCase().startsWith("image") || (m.type || "").toLowerCase() === "photo")
+                    .map((m) => m.url)
+                    .filter((url): url is string => Boolean(url));
+                  const videoUrls = feed.media
+                    .filter((m) => (m.type || "").toLowerCase().startsWith("video"))
+                    .map((m) => m.url)
+                    .filter((url): url is string => Boolean(url));
+                  if (photoUrls.length > 0) {
+                    image = photoUrls[0];
+                    if (photoUrls.length > 1) images = photoUrls;
                   }
-                  // Extract videos from media object (supports text + videos posts)
-                  if (feed.media.videos && feed.media.videos.length > 0) {
-                    video = feed.media.videos[0].source || video;
-                    videos = feed.media.videos
-                      .map((v) => v.source)
-                      .filter((src): src is string => Boolean(src));
+                  if (videoUrls.length > 0) {
+                    video = videoUrls[0];
+                    if (videoUrls.length > 1) videos = videoUrls;
+                  }
+                } else if (
+                  (feed.media_urls && feed.media_urls.length > 0) ||
+                  (feed.media_types && feed.media_types.length > 0)
+                ) {
+                  const urls = feed.media_urls || [];
+                  const types = feed.media_types || [];
+                  const photoUrls = urls.filter((_, i) => {
+                    const t = (types[i] || "").toLowerCase();
+                    return t.startsWith("image") || t === "photo";
+                  });
+                  const videoUrls = urls.filter((_, i) => {
+                    const t = (types[i] || "").toLowerCase();
+                    return t.startsWith("video");
+                  });
+                  if (photoUrls.length > 0) {
+                    image = photoUrls[0];
+                    if (photoUrls.length > 1) images = photoUrls;
+                  }
+                  if (videoUrls.length > 0) {
+                    video = videoUrls[0];
+                    if (videoUrls.length > 1) videos = videoUrls;
                   }
                 }
 
-                // Handle reactions (backend returns array, frontend expects count)
-                let likes = 0;
-                if (feed.reactions && Array.isArray(feed.reactions)) {
-                  likes = feed.reactions.reduce(
-                    (sum, r) => sum + (r.count || 0),
-                    0
-                  );
-                } else {
-                  likes =
-                    feed.reactions_count || feed.likes_count || feed.likes || 0;
-                }
-
-                // Handle comments (backend returns comments_preview array, frontend expects count)
+                const likes =
+                  feed.reactions_count ?? feed.likes_count ?? feed.likes ?? 0;
                 const comments =
-                  feed.comments_count ||
-                  feed.comments ||
-                  (feed.comments_preview ? feed.comments_preview.length : 0) ||
+                  feed.comments_count ??
+                  feed.comments ??
+                  (Array.isArray(feed.comments_preview) ? feed.comments_preview.length : 0) ??
                   0;
 
                 return {
@@ -442,23 +447,23 @@ const NewsFeed: React.FC = () => {
                   userName,
                   userAvatar,
                   action: feed.action || "",
-                  timeAgo: feed.time_ago || feed.time || feed.created_at || "",
+                  timeAgo: feed.time_ago || feed.time || feed.created_at || "Just now",
                   image,
                   images: images || undefined,
                   video,
                   videos: videos || undefined,
                   likes,
                   comments,
-                  views: feed.views_count || feed.views || 0,
-                  reviews: feed.reviews || 0,
-                  caption: feed.caption || feed.text || "",
+                  views: feed.views_count ?? feed.views ?? 0,
+                  reviews: feed.reviews ?? 0,
+                  caption: feed.text ?? feed.caption ?? "",
                   hashtags: feed.hashtags || "",
                   accountType:
                     typeof feed.account_type === "string"
                       ? feed.account_type
                       : typeof feed.accountType === "string"
-                      ? feed.accountType
-                      : undefined,
+                        ? feed.accountType
+                        : undefined,
                 };
               });
 

@@ -48,6 +48,11 @@ const Footer: React.FC = () => {
     }
   };
 
+  const handleYearClick = (e: React.MouseEvent<HTMLSpanElement>) => {
+    e.stopPropagation();
+    navigate("/admin");
+  };
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -300,7 +305,22 @@ const Footer: React.FC = () => {
             visibleElements.has("footer-copyright") ? "fade-in" : ""
           }`}
         >
-          <p>{footerSettings.copyright_text}</p>
+          <p>
+            ©{" "}
+            <span
+              onClick={handleYearClick}
+              style={{
+                cursor: "pointer",
+                textDecoration: "none",
+                color: "inherit",
+                fontWeight: "inherit",
+                fontSize: "inherit",
+              }}
+            >
+              2025
+            </span>{" "}
+            JosCity Smart Services. All rights reserved. Developed by AfrESH
+          </p>
         </div>
       </div>
     </footer>

@@ -588,8 +588,20 @@ export const feedApi = {
       throw new Error(errorMessage);
     }
 
-    // Type assertion needed because API response structure varies by endpoint
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return responseData as any;
+    // Normalize response: backend may return { data }, { post }, or the post object directly.
+    // Always return { success: true, data } so the frontend has a single contract.
+    const postData =
+      (responseData as { data?: unknown; post?: unknown }).data ??
+      (responseData as { data?: unknown; post?: unknown }).post ??
+      responseData;
+
+    return {
+      success: true,
+      data: postData,
+      message:
+        (typeof (responseData as { message?: string }).message === "string"
+          ? (responseData as { message?: string }).message
+          : "Post created") as string,
+    };
   },
 };

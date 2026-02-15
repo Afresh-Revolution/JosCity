@@ -549,9 +549,18 @@ const NewsFeed: React.FC = () => {
 
       console.log("Post creation response:", response);
 
-      if (response.success && response.data) {
+      // Accept success with data, or backend returning post in different shapes
+      const feed =
+        response.data ??
+        (response as { post?: unknown }).post ??
+        (response &&
+        typeof response === "object" &&
+        ("post_id" in response || "id" in response)
+          ? response
+          : null);
+
+      if (feed) {
         // Transform API response to match Post format
-        const feed = response.data;
         console.log("Transforming post data:", feed);
 
         // Handle photos - backend returns array of objects with 'source' property
@@ -1579,34 +1588,36 @@ const NewsFeed: React.FC = () => {
             forceOpenStoryModal={isCreateStoryModalOpen}
             onStoryModalClose={() => setIsCreateStoryModalOpen(false)}
           />
-          {isAuthenticated() && userName && (
-            <CreatePostInput
-              userName={userName}
-              userAvatar={getUserAvatar()}
-              onPost={handleNewPost}
-            />
-          )}
 
-          {/* Good Morning Card */}
-          {showGoodMorningCard && (
-            <div className="newsfeed-goodmorning-card">
-              <div className="newsfeed-goodmorning-card__icon">
-                {greetingData.icon}
+          {/* Create post + Good morning: kept under add story, clean block */}
+          <div className="newsfeed-feed-composer">
+            {isAuthenticated() && userName && (
+              <CreatePostInput
+                userName={userName}
+                userAvatar={getUserAvatar()}
+                onPost={handleNewPost}
+              />
+            )}
+            {showGoodMorningCard && (
+              <div className="newsfeed-goodmorning-card">
+                <div className="newsfeed-goodmorning-card__icon">
+                  {greetingData.icon}
+                </div>
+                <div className="newsfeed-goodmorning-card__content">
+                  <p>
+                    {greetingData.greeting}, {userName || "there"}! {greetingData.message}
+                  </p>
+                </div>
+                <button
+                  className="newsfeed-goodmorning-card__close"
+                  onClick={() => setShowGoodMorningCard(false)}
+                  aria-label="Close good morning card"
+                >
+                  ×
+                </button>
               </div>
-              <div className="newsfeed-goodmorning-card__content">
-                <p>
-                  {greetingData.greeting}, {userName}! {greetingData.message}
-                </p>
-              </div>
-              <button
-                className="newsfeed-goodmorning-card__close"
-                onClick={() => setShowGoodMorningCard(false)}
-                aria-label="Close good morning card"
-              >
-                ×
-              </button>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Posts */}
           <div className="newsfeed-posts">

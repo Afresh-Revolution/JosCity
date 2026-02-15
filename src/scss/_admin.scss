@@ -617,6 +617,11 @@
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 
   &__search {
     margin-bottom: 24px;
@@ -624,6 +629,8 @@
     display: flex;
     align-items: center;
     width: 100%;
+    min-width: 0;
+    flex-shrink: 0;
 
     svg {
       position: absolute;
@@ -634,6 +641,8 @@
 
     input {
       width: 100%;
+      min-width: 0;
+      max-width: 100%;
       padding: 10px 12px 10px 40px;
       border: 1px solid #e0e0e0;
       border-radius: 8px;
@@ -641,6 +650,7 @@
       outline: none;
       transition: border-color 0.3s;
       background-color: white;
+      box-sizing: border-box;
 
       &:focus {
         border-color: #0d4a1f;
@@ -661,6 +671,10 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 24px;
+    width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 12px;
 
     h1 {
       font-size: 24px;
@@ -670,6 +684,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      min-width: 0;
     }
   }
 
@@ -712,7 +727,11 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   position: relative;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 
   &__title {
     position: absolute;
@@ -756,7 +775,7 @@
     gap: 12px;
     margin-bottom: 20px;
     position: relative;
-    min-width: 600px;
+    min-width: min(100%, 600px);
   }
 
   &__y-axis {
@@ -908,6 +927,7 @@
     gap: 24px;
     flex-wrap: wrap;
     padding-top: 20px;
+    min-width: 0;
   }
 
   &__legend-item {
@@ -950,6 +970,8 @@
   grid-template-columns: repeat(6, 1fr);
   gap: 16px;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 
   + .admin-stats {
     margin-top: 16px;
@@ -1148,6 +1170,11 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s, box-shadow 0.2s;
   cursor: pointer;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 
   &:hover {
     transform: translateY(-2px);
@@ -1354,6 +1381,9 @@
     font-weight: 700;
     color: #333;
     margin-bottom: 8px;
+    line-height: 1.2;
+    word-break: break-word;
+    min-width: 0;
   }
 
   &__label {
@@ -1361,6 +1391,8 @@
     color: #666;
     margin-bottom: 12px;
     font-weight: 500;
+    min-width: 0;
+    word-break: break-word;
   }
 
   &__action {
@@ -1369,6 +1401,9 @@
     font-weight: 600;
     cursor: pointer;
     transition: color 0.2s;
+    margin-top: auto;
+    min-width: 0;
+    word-break: break-word;
 
     &:hover {
       color: #0a3a18;
@@ -1767,33 +1802,19 @@
 @media (max-width: 1400px) {
   .admin-dashboard {
     max-width: 100%;
+    padding: 0 4px;
   }
 }
 
 @media (max-width: 1200px) {
   .admin-stats {
     grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
   }
 
   .admin-stat-card {
     &--span-3 {
       grid-column: span 2;
-    }
-
-    &--span-2 {
-      grid-column: span 2;
-    }
-  }
-}
-
-@media (max-width: 992px) {
-  .admin-stats {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .admin-stat-card {
-    &--span-3 {
-      grid-column: span 3;
     }
 
     &--span-2 {
@@ -1802,11 +1823,59 @@
   }
 
   .admin-chart {
-    padding: 16px;
+    &__container {
+      min-width: min(100%, 520px);
+    }
+  }
+}
+
+@media (max-width: 992px) {
+  .admin-dashboard {
+    &__header h1 {
+      font-size: 22px;
+    }
+
+    &__search {
+      margin-bottom: 20px;
+    }
+
+    &__header {
+      margin-bottom: 20px;
+    }
+  }
+
+  .admin-stats {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+
+  .admin-stat-card {
+    padding: 18px;
+
+    &--span-3 {
+      grid-column: span 3;
+    }
+
+    &--span-2 {
+      grid-column: span 2;
+    }
+
+    &__number {
+      font-size: 28px;
+    }
+  }
+
+  .admin-chart {
+    padding: 20px;
     padding-top: 48px;
+    margin-bottom: 20px;
 
     &__container {
-      min-width: 500px;
+      min-width: min(100%, 480px);
+    }
+
+    &__legend {
+      gap: 20px;
     }
   }
 }
@@ -1897,18 +1966,29 @@
   .admin-main {
     padding: 16px;
     width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
   }
 
   .admin-stats {
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
+    min-width: 0;
   }
 
   .admin-stat-card {
     padding: 16px;
 
     &__number {
-      font-size: 28px;
+      font-size: 26px;
+    }
+
+    &__label {
+      font-size: 13px;
+    }
+
+    &__action {
+      font-size: 11px;
     }
 
     &--span-3 {
@@ -1923,20 +2003,43 @@
   .admin-chart {
     padding: 12px;
     padding-top: 48px;
+    margin-bottom: 20px;
 
     &__container {
-      min-width: 450px;
+      min-width: min(100%, 380px);
+    }
+
+    &__bars,
+    &__bar-wrapper {
+      height: 220px;
+    }
+
+    &__y-axis {
+      height: 220px;
     }
 
     &__legend {
-      gap: 16px;
+      gap: 12px;
       flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    &__legend-item {
+      font-size: 12px;
     }
   }
 
   .admin-dashboard {
-    &__header h1 {
-      font-size: 20px;
+    &__search {
+      margin-bottom: 20px;
+    }
+
+    &__header {
+      margin-bottom: 20px;
+
+      h1 {
+        font-size: 20px;
+      }
     }
 
     &__registrations-grid {
@@ -2440,7 +2543,16 @@
 @media (max-width: 400px) {
   .admin-chart {
     &__container {
-      min-width: 350px;
+      min-width: min(100%, 280px);
+    }
+
+    &__bars,
+    &__bar-wrapper {
+      height: 180px;
+    }
+
+    &__y-axis {
+      height: 180px;
     }
 
     &__bars {
@@ -2452,6 +2564,26 @@
     }
 
     &__x-label {
+      font-size: 10px;
+    }
+
+    &__y-label {
+      font-size: 10px;
+    }
+  }
+
+  .admin-stat-card {
+    padding: 12px;
+
+    &__number {
+      font-size: 22px;
+    }
+
+    &__label {
+      font-size: 12px;
+    }
+
+    &__action {
       font-size: 10px;
     }
   }
@@ -3918,6 +4050,18 @@
   gap: 8px;
   margin-bottom: 20px;
   flex-wrap: wrap;
+  width: 100%;
+  min-width: 0;
+
+  @media (max-width: 576px) {
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 400px) {
+    gap: 6px;
+    margin-bottom: 12px;
+  }
 }
 
 .admin-filter-btn {

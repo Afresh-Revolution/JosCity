@@ -224,6 +224,20 @@ function App() {
             )}
           </ul>
         </div>
+        <div className="navbar__right-section">
+          <div className="navbar__action-buttons">
+            <button
+              type="button"
+              className="navbar__signin-button"
+              onClick={() => {
+                setIsMenuOpen(false);
+                navigate("/signin");
+              }}
+            >
+              Login
+            </button>
+          </div>
+        </div>
       </nav>
     </>
   );

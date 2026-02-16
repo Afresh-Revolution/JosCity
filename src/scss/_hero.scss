@@ -139,6 +139,13 @@
     gap: 0.8rem;
   }
 
+  // Bigger screens: push content down from navbar
+  @media screen and (min-width: 1025px) {
+    &__content {
+      margin-top: 15px;
+    }
+  }
+
   &__badge {
     display: inline-flex;
     align-items: center;

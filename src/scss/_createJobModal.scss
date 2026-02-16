@@ -370,6 +370,73 @@
       background-color: var(--bg-tertiary, #3a3a3a);
     }
   }
+
+  .create-job-modal__section-title {
+    color: var(--text-primary);
+  }
+
+  .create-job-modal__section-description {
+    color: var(--text-secondary);
+  }
+
+  .create-job-modal__field-item {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+  }
+
+  .create-job-modal__field-label {
+    color: var(--text-primary);
+  }
+
+  .create-job-modal__edit-btn,
+  .create-job-modal__delete-btn {
+    color: var(--text-secondary);
+
+    &:hover {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+  }
+
+  .create-job-modal__nav-btn {
+    border-color: var(--border-color);
+    color: var(--text-primary);
+
+    &:hover {
+      background: var(--bg-secondary);
+      border-color: #34b86a;
+      color: #34b86a;
+    }
+  }
+
+  .create-job-modal__input,
+  .create-job-modal__select,
+  .create-job-modal__textarea {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+
+    &:focus {
+      border-color: #34b86a;
+    }
+
+    &::placeholder {
+      color: var(--text-tertiary);
+    }
+  }
+
+  .create-job-modal__tab {
+    color: var(--text-secondary);
+
+    &:hover {
+      color: var(--text-primary);
+    }
+
+    &--active {
+      color: #34b86a;
+      border-bottom-color: #34b86a;
+    }
+  }
 }
 
 // Animations

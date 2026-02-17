@@ -10543,6 +10543,7 @@ body {
   width: 100%;
   min-width: 0;
   max-width: 680px;
+  scrollbar-width: thin;
   margin: 0;
   margin-top: 0;
   align-self: start;

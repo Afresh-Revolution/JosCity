@@ -297,10 +297,29 @@
       outline-offset: 2px;
     }
   }
+  // Action buttons container (Login, Get started) in navbar right section
   &__action-buttons {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 1rem;
+    flex-wrap: nowrap;
+    min-width: 0;
+
+    @media screen and (max-width: 1024px) {
+      gap: 0.75rem;
+    }
+
+    @media screen and (max-width: 768px) {
+      // In header bar: centered by parent .navbar__right-section (flex: 1 + justify-content: center)
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    @media screen and (max-width: 480px) {
+      gap: 0.5rem;
+    }
   }
 
   &__signin-button {
@@ -506,12 +525,23 @@
     left: 50%;
     transform: translateX(-50%);
     border-radius: 35px;
-    column-gap: 1rem;
+    column-gap: 0;
 
+    // Equal thirds: logo | login | hamburger with equal spacing between
     &__left-section {
-      flex: 0 0 auto;
+      flex: 1;
+      display: flex;
+      justify-content: center;
       order: 1;
       margin-left: 0;
+      min-width: 0;
+    }
+
+    &__right-section {
+      flex: 1;
+      justify-content: center;
+      align-items: center;
+      order: 2;
       min-width: 0;
     }
 
@@ -535,9 +565,9 @@
 
     &__middle-section {
       flex: 1;
-      justify-content: flex-end;
+      justify-content: center;
       align-items: center;
-      order: 2;
+      order: 3;
       position: relative;
       min-width: 0;
     }

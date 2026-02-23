@@ -11,7 +11,7 @@ interface CreateStoryModalProps {
   userName: string;
   userAvatar?: string;
   storyType: "text" | "photo" | "video";
-  onStory?: (type: "text" | "photo" | "video", content: string, caption?: string) => void;
+  onStory?: (type: "text" | "photo" | "video", content: string, caption?: string, mediaFile?: File | Blob) => void;
 }
 
 const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
@@ -25,10 +25,13 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
   const navigate = useNavigate();
   const [textContent, setTextContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+  const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
   const [videoDuration, setVideoDuration] = useState(0);
   const [showTrimmer, setShowTrimmer] = useState(false);
   const [trimmedVideo, setTrimmedVideo] = useState<string | null>(null);
+  const [trimmedVideoBlob, setTrimmedVideoBlob] = useState<Blob | null>(null);
   const [caption, setCaption] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -58,10 +61,14 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
 
       // Clear video if image is selected
       setSelectedVideo(null);
+      setSelectedVideoFile(null);
+      setTrimmedVideo(null);
+      setTrimmedVideoBlob(null);
       if (videoInputRef.current) {
         videoInputRef.current.value = "";
       }
 
+      setSelectedImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setSelectedImage(reader.result as string);
@@ -100,10 +107,12 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
 
       // Clear image if video is selected
       setSelectedImage(null);
+      setSelectedImageFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
 
+      setSelectedVideoFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         const videoUrl = reader.result as string;
@@ -137,6 +146,7 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
   };
 
   const handleVideoTrimmed = (trimmedBlob: Blob) => {
+    setTrimmedVideoBlob(trimmedBlob);
     const reader = new FileReader();
     reader.onloadend = () => {
       setTrimmedVideo(reader.result as string);
@@ -148,8 +158,10 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
   const handleTrimmerCancel = () => {
     setShowTrimmer(false);
     setSelectedVideo(null);
+    setSelectedVideoFile(null);
     setVideoDuration(0);
     setTrimmedVideo(null);
+    setTrimmedVideoBlob(null);
     if (videoInputRef.current) {
       videoInputRef.current.value = "";
     }
@@ -191,18 +203,27 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
       content = videoToUse;
     }
 
-    // Call the onStory callback if provided
+    // Call the onStory callback if provided (pass media file for photo/video so backend receives multipart)
     if (onStory) {
-      onStory(storyType, content, caption.trim() || undefined);
+      const mediaFile =
+        storyType === "photo"
+          ? selectedImageFile
+          : storyType === "video"
+            ? trimmedVideoBlob ?? selectedVideoFile
+            : undefined;
+      onStory(storyType, content, caption.trim() || undefined, mediaFile ?? undefined);
     }
 
     // Reset form
     setTextContent("");
     setSelectedImage(null);
+    setSelectedImageFile(null);
     setSelectedVideo(null);
+    setSelectedVideoFile(null);
     setVideoDuration(0);
     setShowTrimmer(false);
     setTrimmedVideo(null);
+    setTrimmedVideoBlob(null);
     setCaption("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -216,10 +237,13 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
   const handleClose = () => {
     setTextContent("");
     setSelectedImage(null);
+    setSelectedImageFile(null);
     setSelectedVideo(null);
+    setSelectedVideoFile(null);
     setVideoDuration(0);
     setShowTrimmer(false);
     setTrimmedVideo(null);
+    setTrimmedVideoBlob(null);
     setCaption("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -384,7 +408,9 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
                     onError={() => {
                       alert("Error loading video preview. Please try selecting the video again.");
                       setSelectedVideo(null);
+                      setSelectedVideoFile(null);
                       setTrimmedVideo(null);
+                      setTrimmedVideoBlob(null);
                       if (videoInputRef.current) {
                         videoInputRef.current.value = "";
                       }
@@ -399,7 +425,9 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
                     className="newsfeed-modal__remove-image"
                     onClick={() => {
                       setSelectedVideo(null);
+                      setSelectedVideoFile(null);
                       setTrimmedVideo(null);
+                      setTrimmedVideoBlob(null);
                       setVideoDuration(0);
                       setShowTrimmer(false);
                       if (videoInputRef.current) {

@@ -202,22 +202,62 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
 // Feed API functions
 export const feedApi = {
   // ========== Stories ==========
+  // Backend expects: text stories as JSON (body.src); photo/video as multipart with field "media"
   createStory: async (data: {
     type: "photo" | "video" | "text";
-    src: string; // image/video URL or text content
+    src: string; // text content for text stories; ignored for photo/video (media sent as file)
     background_color?: string;
     text_color?: string;
     duration?: number; // hours until expiration (default: 24)
+    mediaFile?: File | Blob; // required for photo/video: the actual file to upload
   }): Promise<{ success: boolean; data: Story; message: string }> => {
-    console.log("Creating story via POST /api/stories", {
-      type: data.type,
-      hasSrc: !!data.src,
-    });
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("authToken");
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const isMediaStory = data.type === "photo" || data.type === "video";
+    const useFormData = isMediaStory && data.mediaFile != null;
+
+    if (useFormData && data.mediaFile) {
+      // Backend: upload.single("media") — send as multipart/form-data
+      const formData = new FormData();
+      formData.append("type", data.type);
+      formData.append("duration", String(data.duration ?? 24));
+      if (data.background_color) formData.append("background_color", data.background_color);
+      if (data.text_color) formData.append("text_color", data.text_color);
+      const file = data.mediaFile instanceof Blob ? new File([data.mediaFile], "media", { type: data.mediaFile.type }) : data.mediaFile;
+      formData.append("media", file);
+      console.log("Creating story via POST /api/stories (FormData)", { type: data.type });
+      const response = await fetch(`${API_BASE_URL}/stories`, {
+        method: "POST",
+        headers,
+        body: formData,
+        signal: AbortSignal.timeout(60000),
+      });
+      const text = await response.text();
+      const responseData = text && text.trim() ? JSON.parse(text) : {};
+      if (!response.ok) {
+        const msg = (responseData as { message?: string }).message ?? (responseData as { error?: string }).error ?? "Failed to create story";
+        throw new Error(typeof msg === "string" ? msg : "Failed to create story");
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return responseData as any;
+    }
+
+    // Text story: JSON body
+    console.log("Creating story via POST /api/stories (JSON)", { type: data.type });
     return apiRequest("/stories", {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        type: data.type,
+        src: data.src,
+        duration: data.duration ?? 24,
+        background_color: data.background_color,
+        text_color: data.text_color,
+      }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any; // Type assertion needed - API response structure varies
+    }) as any;
   },
 
   getStories: async (): Promise<{ success: boolean; data: Story[] }> => {

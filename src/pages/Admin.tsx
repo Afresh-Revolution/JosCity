@@ -72,7 +72,7 @@ import AdminPoints from "./AdminPoints";
 import AdminMarket from "./AdminMarket";
 import AdminFunding from "./AdminFunding";
 import AdminMonetization from "./AdminMonetization";
-import { getDashboard } from "../services/adminApi";
+import { getDashboard, refreshAdminToken } from "../services/adminApi";
 import { fetchPendingRegistrations } from "../utils/fetchWithTimeout";
 
 const Admin: React.FC = () => {
@@ -141,17 +141,27 @@ const Admin: React.FC = () => {
         const data = await getDashboard();
         console.log("✅ Dashboard data loaded:", data.data);
         setDashboardData(data.data);
-      } catch (error) {
-        console.error("❌ Failed to load dashboard:", error);
-        // Handle error (show error message, etc.)
+        // Renew admin token (new 7-day expiry) so it doesn’t expire while in use
+        refreshAdminToken();
+      } catch (err) {
+        console.error("❌ Failed to load dashboard:", err);
+        const status = (err as Error & { status?: number }).status;
+        const message = err instanceof Error ? err.message : String(err);
+        // 401: token missing, expired, or invalid — send to login without affecting other pages
+        if (status === 401 || /unauthorized|token|401/i.test(message)) {
+          localStorage.removeItem("adminToken");
+          localStorage.removeItem("adminData");
+          navigate("/admin/login", { replace: true });
+          return;
+        }
         setError("Failed to load dashboard data. Please try again.");
       } finally {
         setIsLoading(false);
       }
     };
-  
+
     loadDashboardData();
-  }, []); // Empty dependency array means this runs once on mount
+  }, [navigate]);
 
   // Fetch pending registrations count
   useEffect(() => {

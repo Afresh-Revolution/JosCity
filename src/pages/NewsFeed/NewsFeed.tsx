@@ -804,6 +804,45 @@ const NewsFeed: React.FC = () => {
   }
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const prevUnreadCountRef = useRef(0);
+
+  // Fetch notifications from API and poll for new ones (comment/reaction)
+  const fetchNotifications = useCallback(async () => {
+    if (!isAuthenticated()) return;
+    try {
+      const res = await feedApi.getNotifications();
+      if (res.success && Array.isArray(res.data)) {
+        const mapped: Notification[] = res.data.map((n) => ({
+          id: n.id,
+          type: n.action?.toLowerCase().includes("like") || n.action?.toLowerCase().includes("react") ? "like" : n.action?.toLowerCase().includes("comment") ? "comment" : "mention",
+          userId: n.from_user_id ?? 0,
+          userName: n.from_user?.display_name ?? "Someone",
+          userAvatar: n.from_user?.profile_image_url ?? "",
+          message: n.action ?? "",
+          timestamp: n.time ?? "",
+          isRead: !!n.is_read,
+          relatedPostId: n.node_type === "post" ? n.node_id : undefined,
+        }));
+        setNotifications((prev) => {
+          const prevUnread = prev.filter((x) => !x.isRead).length;
+          const newUnread = mapped.filter((x) => !x.isRead).length;
+          if (newUnread > prevUnread && prevUnreadCountRef.current > 0) {
+            playNotificationSound();
+          }
+          prevUnreadCountRef.current = newUnread;
+          return mapped;
+        });
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
 
   // Calculate unread notifications count
   const unreadNotificationsCount = notifications.filter(
@@ -817,6 +856,7 @@ const NewsFeed: React.FC = () => {
         notif.id === notificationId ? { ...notif, isRead: true } : notif
       )
     );
+    feedApi.markNotificationRead(notificationId).catch(() => {});
   };
 
   // Mark all notifications as read
@@ -824,6 +864,7 @@ const NewsFeed: React.FC = () => {
     setNotifications((prev) =>
       prev.map((notif) => ({ ...notif, isRead: true }))
     );
+    feedApi.markAllNotificationsRead().catch(() => {});
   };
 
   // Clear all notifications
@@ -955,38 +996,19 @@ const NewsFeed: React.FC = () => {
   //   };
   // }, [lastScrollY]);
 
+  // Navbar visibility on scroll is handled inside NewsFeedHeader
   useEffect(() => {
     const handleScroll = () => {
-
         if (isInitialMount) {
             setIsInitialMount(false);
-            return; // Skip scroll logic on initial mount
+            return;
         }
-
-
         const currentScrollPos = window.scrollY;
-
-        // Determine if scrolling up or down
-        const isScrollingDown = currentScrollPos > prevScrollPos;
-
-        // Only hide navbar after scrolling down some distance (e.g., 10px)
-        // and when not at the top of the page
-        if (isScrollingDown && currentScrollPos > 10) {
-            setVisible(false);
-            // Close menu when hiding navbar
-        } else {
-            setVisible(true);
-        }
-
-        // Update previous scroll position
         setPrevScrollPos(currentScrollPos);
     };
-
     window.addEventListener('scroll', handleScroll);
-    return () => {
-        window.removeEventListener('scroll', handleScroll);
-    };
-}, [prevScrollPos, isInitialMount]);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [prevScrollPos, isInitialMount]);
 
   // Add notification when receiving a new message
   useEffect(() => {
@@ -1614,7 +1636,31 @@ const NewsFeed: React.FC = () => {
                     return post.hashtags?.includes(filteredHashtag);
                   })
                   .map((post) => (
-                    <PostCard key={post.id} post={post} />
+                    <PostCard
+                      key={post.id}
+                      post={post}
+                      onPostDeleted={(postId) =>
+                        setPosts((prev) => prev.filter((p) => p.id !== postId))
+                      }
+                      onPostUpdated={(postId, updates) => {
+                        if (updates.caption !== undefined)
+                          setPosts((prev) =>
+                            prev.map((p) =>
+                              p.id === postId
+                                ? { ...p, caption: (updates.caption ?? p.caption) ?? "" }
+                                : p
+                            )
+                          );
+                        if (updates.pinned !== undefined)
+                          setPosts((prev) =>
+                            prev.map((p) =>
+                              p.id === postId
+                                ? { ...p, pinned: updates.pinned }
+                                : p
+                            )
+                          );
+                      }}
+                    />
                   ))}
                 {filteredHashtag &&
                   posts.filter((post) =>
@@ -1669,51 +1715,50 @@ const NewsFeed: React.FC = () => {
             }}
           />
           <SuggestedFriends friends={[]} onFriendAdded={handleFriendAdded} />
+          {/* Footer under Suggested friends */}
+          <footer className="newsfeed-footer">
+            <p>© 2026 JOSCity</p>
+            <div className="newsfeed-footer__links">
+              <a
+                href="/about"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/about", { state: { fromNewsfeed: true } });
+                }}
+              >
+                About
+              </a>
+              <a
+                href="/terms-of-service"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/terms-of-service", { state: { fromNewsfeed: true } });
+                }}
+              >
+                Terms
+              </a>
+              <a
+                href="/privacy-policy"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/privacy-policy", { state: { fromNewsfeed: true } });
+                }}
+              >
+                Privacy
+              </a>
+              <a
+                href="/contact"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/contact", { state: { fromNewsfeed: true } });
+                }}
+              >
+                Contact Us
+              </a>
+            </div>
+          </footer>
         </aside>
       </div>
-
-      {/* Footer */}
-      <footer className="newsfeed-footer">
-        <p>© 2026 JOSCity</p>
-        <div className="newsfeed-footer__links">
-          <a
-            href="/about"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/about", { state: { fromNewsfeed: true } });
-            }}
-          >
-            About
-          </a>
-          <a
-            href="/terms-of-service"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/terms-of-service", { state: { fromNewsfeed: true } });
-            }}
-          >
-            Terms
-          </a>
-          <a
-            href="/privacy-policy"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/privacy-policy", { state: { fromNewsfeed: true } });
-            }}
-          >
-            Privacy
-          </a>
-          <a
-            href="/contact"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/contact", { state: { fromNewsfeed: true } });
-            }}
-          >
-            Contact Us
-          </a>
-        </div>
-      </footer>
 
       {/* Add Friend Modal */}
       <FindFriendsModal
@@ -1744,7 +1789,17 @@ const NewsFeed: React.FC = () => {
             </div>
 
             <div className="newsfeed-chat-panel__container">
-              {/* Conversations List */}
+              {/* Chat section: Coming Soon */}
+              <div className="coming-soon-section" style={{ minHeight: "40vh", padding: "2rem" }}>
+                <div className="coming-soon-section__card">
+                  <h2 className="coming-soon-section__title">Chat — Coming Soon</h2>
+                  <p className="coming-soon-section__message">
+                    Direct messaging is under development. We're bringing you a great experience — check back soon!
+                  </p>
+                </div>
+              </div>
+              {false && (
+              <>
               <div
                 className={`newsfeed-chat-panel__conversations ${
                   selectedChatId
@@ -1850,25 +1905,25 @@ const NewsFeed: React.FC = () => {
                       <div className="newsfeed-chat-panel__chat-user-info">
                         <div className="newsfeed-chat-panel__chat-avatar-wrapper">
                           <Avatar
-                            src={selectedChat.userAvatar}
-                            alt={selectedChat.userName}
-                            name={selectedChat.userName}
+                            src={selectedChat?.userAvatar}
+                            alt={selectedChat?.userName}
+                            name={selectedChat?.userName}
                             size={40}
                             className="newsfeed-chat-panel__chat-avatar"
                           />
-                          {selectedChat.isOnline && (
+                          {selectedChat?.isOnline && (
                             <span className="newsfeed-chat-panel__online-indicator"></span>
                           )}
                         </div>
                         <div className="newsfeed-chat-panel__chat-user-details">
                           <p className="newsfeed-chat-panel__chat-user-name">
-                            {selectedChat.userName}
+                            {selectedChat?.userName}
                           </p>
                           <span className="newsfeed-chat-panel__chat-status-separator">
                             •
                           </span>
                           <p className="newsfeed-chat-panel__chat-status">
-                            {selectedChat.isOnline ? "Online" : "Offline"}
+                            {selectedChat?.isOnline ? "Online" : "Offline"}
                           </p>
                         </div>
                       </div>
@@ -1891,7 +1946,7 @@ const NewsFeed: React.FC = () => {
                               onClick={() => {
                                 setIsChatMenuOpen(false);
                                 if (selectedChat) {
-                                  setSelectedProfileUserId(selectedChat.userId);
+                                  setSelectedProfileUserId(selectedChat?.userId);
                                   setIsProfileModalOpen(true);
                                 }
                               }}
@@ -1946,7 +2001,7 @@ const NewsFeed: React.FC = () => {
                     </div>
 
                     <div className="newsfeed-chat-panel__messages">
-                      {selectedChat.messages.map((message) => {
+                      {selectedChat?.messages.map((message) => {
                         const isCurrentUser = message.senderId === 0;
                         return (
                           <div
@@ -1959,9 +2014,9 @@ const NewsFeed: React.FC = () => {
                           >
                             {!isCurrentUser && (
                               <Avatar
-                                src={selectedChat.userAvatar}
-                                alt={selectedChat.userName}
-                                name={selectedChat.userName}
+                                src={selectedChat?.userAvatar}
+                                alt={selectedChat?.userName}
+                                name={selectedChat?.userName}
                                 size={32}
                                 className="newsfeed-chat-panel__message-avatar"
                               />
@@ -2045,17 +2100,17 @@ const NewsFeed: React.FC = () => {
                       {messageAttachment && (
                         <div className="newsfeed-chat-panel__attachment-preview">
                           <div className="newsfeed-chat-panel__attachment-preview-content">
-                            {messageAttachment.type === "image" && (
+                            {messageAttachment?.type === "image" && (
                               <Image size={16} />
                             )}
-                            {messageAttachment.type === "video" && (
+                            {messageAttachment?.type === "video" && (
                               <Video size={16} />
                             )}
-                            {messageAttachment.type === "file" && (
+                            {messageAttachment?.type === "file" && (
                               <Paperclip size={16} />
                             )}
                             <span className="newsfeed-chat-panel__attachment-preview-name">
-                              {messageAttachment.fileName || "Attachment"}
+                              {messageAttachment?.fileName || "Attachment"}
                             </span>
                           </div>
                           <button
@@ -2180,6 +2235,8 @@ const NewsFeed: React.FC = () => {
                   </div>
                 )}
               </div>
+              </>
+              )}
             </div>
           </div>
         </div>

@@ -29,19 +29,50 @@ const adminApiRequest = async (
 
   if (!response.ok) {
     const contentType = response.headers.get("content-type");
-    let errorData: any = {};
-    
+    let errorData: Record<string, unknown> = {};
+
     if (contentType && contentType.includes("application/json")) {
-      errorData = await response.json();
+      try {
+        errorData = (await response.json()) as Record<string, unknown>;
+      } catch {
+        errorData = {};
+      }
     } else {
       const text = await response.text();
-      errorData = { error: text || response.statusText };
+      errorData = { message: text || response.statusText };
     }
 
-    throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    // Prefer message (string); backend often sends { error: true, message: "..." }
+    const message =
+      typeof errorData.message === "string"
+        ? errorData.message
+        : typeof errorData.error === "string"
+          ? errorData.error
+          : `HTTP ${response.status}: ${response.statusText}`;
+    const err = new Error(message) as Error & { status?: number };
+    err.status = response.status;
+    throw err;
   }
 
   return response;
+};
+
+/** Refresh admin token (get new 7-day token). Call when dashboard loads to keep token renewed. */
+export const refreshAdminToken = async (): Promise<boolean> => {
+  try {
+    const response = await adminApiRequest("/refresh", { method: "POST" });
+    const data = (await response.json()) as { token?: string; admin?: unknown };
+    if (data.token) {
+      localStorage.setItem("adminToken", data.token);
+      if (data.admin) {
+        localStorage.setItem("adminData", JSON.stringify(data.admin));
+      }
+      return true;
+    }
+  } catch {
+    // ignore; token stays as-is
+  }
+  return false;
 };
 
 // ==================== DASHBOARD ====================

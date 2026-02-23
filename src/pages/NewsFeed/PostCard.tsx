@@ -33,6 +33,7 @@ interface Comment {
 
 interface Post {
   id: number;
+  userId?: number; // author user_id - only they can edit/delete/pin
   userName: string;
   userAvatar: string;
   action: string;
@@ -86,6 +87,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
   const MAX_CAPTION_LENGTH = 150;
+
+  // Only post author can edit, delete, or pin
+  const user = getUserData();
+  const currentUserId = (user?.user_id as number) ?? ((user as { id?: number })?.id as number) ?? null;
+  const isOwnPost = post.userId != null && currentUserId != null && post.userId === currentUserId;
 
   // Fixed caption handling with null checks
   const caption = post.caption || "";
@@ -484,40 +490,42 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
             <span className="newsfeed-post__time">{post.timeAgo}</span>
           </div>
         </div>
-        <div className="newsfeed-post__menu-wrapper" ref={menuRef}>
-          <button
-            className="newsfeed-post__menu-btn"
-            onClick={() => setShowMenu(!showMenu)}
-            aria-label="Post options"
-            title="More options"
-          >
-            <MoreVertical size={20} />
-          </button>
-          {showMenu && (
-            <div className="newsfeed-post__menu-dropdown">
-              <button className="newsfeed-post__menu-item" onClick={handleEdit}>
-                <Edit size={18} />
-                <span>Edit Post</span>
-              </button>
-              <button
-                className="newsfeed-post__menu-item"
-                onClick={handleDelete}
-              >
-                <Trash2 size={18} />
-                <span>Delete Post</span>
-              </button>
-              <button
-                className={`newsfeed-post__menu-item ${
-                  isPinned ? "newsfeed-post__menu-item--active" : ""
-                }`}
-                onClick={handlePin}
-              >
-                <Pin size={18} />
-                <span>{isPinned ? "Unpin Post" : "Pin Post"}</span>
-              </button>
-            </div>
-          )}
-        </div>
+        {isOwnPost && (
+          <div className="newsfeed-post__menu-wrapper" ref={menuRef}>
+            <button
+              className="newsfeed-post__menu-btn"
+              onClick={() => setShowMenu(!showMenu)}
+              aria-label="Post options"
+              title="More options"
+            >
+              <MoreVertical size={20} />
+            </button>
+            {showMenu && (
+              <div className="newsfeed-post__menu-dropdown">
+                <button className="newsfeed-post__menu-item" onClick={handleEdit}>
+                  <Edit size={18} />
+                  <span>Edit Post</span>
+                </button>
+                <button
+                  className="newsfeed-post__menu-item"
+                  onClick={handleDelete}
+                >
+                  <Trash2 size={18} />
+                  <span>Delete Post</span>
+                </button>
+                <button
+                  className={`newsfeed-post__menu-item ${
+                    isPinned ? "newsfeed-post__menu-item--active" : ""
+                  }`}
+                  onClick={handlePin}
+                >
+                  <Pin size={18} />
+                  <span>{isPinned ? "Unpin Post" : "Pin Post"}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {caption && (

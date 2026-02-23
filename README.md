@@ -12,6 +12,10 @@ A comprehensive digital ecosystem platform connecting residents, businesses, and
 - **Admin Panel**: Dashboard for user management, post moderation, and platform settings
 - **Email Notifications**: Automated emails for account approvals and password resets
 
+### Cross-Platform & Multi-Device
+- **Same account, any device**: Log in on another device with the same account; your data (posts, notifications, profile) is synced via the API so it behaves as one experience across devices.
+- **Per-device sessions**: Each device keeps its own session (token). The backend identifies you by user id, so the same account on phone, tablet, or desktop sees the same content.
+
 ### Platform Capabilities
 - **JosCity Wallet & Points System**: Digital wallet and rewards points
 - **Digital Membership ID**: Unique membership identification

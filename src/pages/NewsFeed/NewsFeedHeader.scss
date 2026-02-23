@@ -607,18 +607,18 @@
   }
 }
 
-// Light theme: make all buttons and divs in newsfeed-header__actions black
-:not([data-theme="dark"]) .newsfeed-header__actions {
+// Header actions: icons and text white for contrast on header
+.newsfeed-header__actions {
   button,
   div {
-    color: #000;
+    color: #fff;
 
     svg {
-      color: #000;
+      color: #fff;
     }
 
     span {
-      color: #000;
+      color: #fff;
     }
   }
 }

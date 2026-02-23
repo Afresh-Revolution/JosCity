@@ -2,6 +2,29 @@
 @use "./variables" as *;
 @use "./mixins" as *;
 
+// Wrapper when NavBar is above events content (move content below navbar)
+.events-page-wrapper {
+  .navbar {
+    .navbar__nav-item,
+    .navbar__nav-item a,
+    .navbar__logo span,
+    .navbar__menu-toggle span {
+      color: #fff !important;
+    }
+    .navbar__menu-toggle:hover span,
+    .navbar__nav-item:hover {
+      color: rgba(255, 255, 255, 0.9) !important;
+    }
+  }
+}
+
+.eventspage--below-navbar {
+  padding-top: 100px; // Space for fixed navbar above
+  @media (max-width: 768px) {
+    padding-top: 90px;
+  }
+}
+
 // Page Wrapper
 .eventspage {
   min-height: 100vh;

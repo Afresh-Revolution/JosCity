@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import NavBar from "../NavBar";
 import {
   SquarePlus,
   MessageCircle,
@@ -554,8 +555,10 @@ const EventsPage: React.FC = () => {
   };
 
   return (
-    <div className="eventspage">
-      {/* Top Navigation Bar */}
+    <div className="events-page-wrapper">
+      <NavBar />
+      <div className="eventspage eventspage--below-navbar">
+      {/* Page header (below main site navbar) */}
       <header className="newsfeed-header">
         <div className="newsfeed-header__container">
           <div className="newsfeed-header__left">
@@ -1323,6 +1326,7 @@ const EventsPage: React.FC = () => {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 };

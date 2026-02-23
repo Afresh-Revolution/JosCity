@@ -74,6 +74,7 @@ interface SearchResult {
 
 interface Post {
   id: number;
+  userId?: number; // author user_id - for edit/delete/pin (own posts only)
   userName: string;
   userAvatar: string;
   action: string;
@@ -440,8 +441,10 @@ const NewsFeed: React.FC = () => {
                   (Array.isArray(feed.comments_preview) ? feed.comments_preview.length : 0) ??
                   0;
 
+                const authorId = (author as { id?: number })?.id ?? (feed as { user_id?: number }).user_id;
                 return {
                   id: feed.post_id ?? feed.id ?? 0,
+                  userId: authorId !== undefined && authorId !== null ? Number(authorId) : undefined,
                   userName,
                   userAvatar,
                   action: feed.action || "",

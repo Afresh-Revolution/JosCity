@@ -36,6 +36,7 @@ import DarkModeToggle from "./components/DarkModeToggle";
 import Maintenance from "./pages/Maintenance";
 // import RoutingDisabled from "./pages/RoutingDisabled";
 import ComingSoonSection from "./pages/NewsFeed/ComingSoonSection";
+import PWAProvider from "./components/PWAProvider";
 
 // Prevent browser inspection/devtools
 // preventInspect();
@@ -61,10 +62,11 @@ export function LandingPage() {
 const isMaintenanceMode = import.meta.env.VITE_MAINTENANCE_MODE === "true";
 
 const rootElement = document.getElementById("root");
-if (rootElement) {
+  if (rootElement) {
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
       <ThemeProvider>
+        <PWAProvider>
         <BrowserRouter>
           {isMaintenanceMode ? (
             // Show maintenance page for all routes when maintenance mode is enabled
@@ -117,6 +119,7 @@ if (rootElement) {
             </>
           )}
         </BrowserRouter>
+        </PWAProvider>
       </ThemeProvider>
     </React.StrictMode>
   );

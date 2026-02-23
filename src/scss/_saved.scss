@@ -87,7 +87,7 @@
   box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.05),
     0 0 0 1px rgba(13, 74, 31, 0.1) inset;
   padding: 12px 0;
-  position: sticky;
+  position: fixed;
   top: 0;
   z-index: 1000;
   width: 100%;
@@ -836,12 +836,12 @@
 // Main Container - 2-column layout for Saved page
 .newsfeed-container {
   max-width: 1260px;
-  margin: 0 auto;
+  margin: 6% auto;
   padding: 20px 24px;
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr) 300px; // Default 3-column
   gap: 24px;
-  position: relative;
+  position: fixed;
   width: 100%;
   max-width: 100vw;
   box-sizing: border-box;

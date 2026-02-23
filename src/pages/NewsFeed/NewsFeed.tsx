@@ -7,17 +7,7 @@ import React, {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  SquarePlus,
-  UserPlus,
-  MessageCircle,
-  Bell,
-  Menu,
   X,
-  TrendingUp,
-  FileText,
-  Clock,
-  Users,
-  Calendar,
   Search,
   Hash,
   User,
@@ -33,24 +23,26 @@ import {
   Trash2,
   Image,
   Video,
+  Bell,
+  MessageCircle,
+  Calendar,
+  FileText,
 } from "lucide-react";
 import NewsFeedSidebar from "./NewsFeedSidebar";
+import NewsFeedHeader from "./NewsFeedHeader";
 import StoriesSection from "./StoriesSection";
 import CreatePostInput from "./CreatePostInput";
 import CreatePostModal from "./CreatePostModal";
 import PostCard from "./PostCard";
 import TrendingSection from "./TrendingSection";
 import SuggestedFriends from "./SuggestedFriends";
-import primaryLogo from "../../image/primary-logo.png";
 import "../../main.css";
-import LazyImage from "../../components/LazyImage";
 import Avatar from "../../components/Avatar";
 import EmojiPicker from "../../components/EmojiPicker";
 import ProfileModal from "../../components/ProfileModal";
 import FindFriendsModal from "../../components/FindFriendsModal";
 import CreateStoryPopup from "../../components/CreateStoryPopup";
 import {
-  getUserInitials,
   getProfileUsername,
   isAuthenticated,
   getUserAvatar as getUserAvatarUtil,
@@ -120,7 +112,6 @@ const NewsFeed: React.FC = () => {
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [showGoodMorningCard, setShowGoodMorningCard] = useState(true);
-  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
   const [isCreateStoryModalOpen, setIsCreateStoryModalOpen] = useState(false);
   const [isStoryPopupOpen, setIsStoryPopupOpen] = useState(false);
@@ -155,7 +146,13 @@ const NewsFeed: React.FC = () => {
     timestamp: string;
     chatId: number;
   } | null>(null);
-  const createMenuRef = useRef<HTMLDivElement>(null);
+  // const [isNavbarVisible, setIsNavbarVisible] = useState(true);
+  // const [lastScrollY, setLastScrollY] = useState(0);
+
+
+  const [prevScrollPos, setPrevScrollPos] = useState(0);
+    const [isInitialMount, setIsInitialMount] = useState(true);
+
   const searchRef = useRef<HTMLDivElement>(null);
   const addFriendModalRef = useRef<HTMLDivElement>(null);
   const chatPanelRef = useRef<HTMLDivElement>(null);
@@ -168,6 +165,7 @@ const NewsFeed: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const mainContentRef = useRef<HTMLElement>(null);
 
   // Get time-based greeting with motivational messages
   const getTimeBasedGreeting = () => {
@@ -912,6 +910,84 @@ const NewsFeed: React.FC = () => {
     requestNotificationPermission();
   }, []);
 
+  // Handle navbar visibility on scroll
+  // useEffect(() => {
+  //   const handleScroll = () => {
+  //     // Check both window scroll and main content scroll
+  //     const windowScrollY = window.scrollY;
+  //     const mainContent = mainContentRef.current;
+  //     const contentScrollY = mainContent ? mainContent.scrollTop : 0;
+      
+  //     // Use the larger of the two scroll positions
+  //     const currentScrollY = Math.max(windowScrollY, contentScrollY);
+      
+  //     // Show navbar when scrolling up, hide when scrolling down
+  //     if (currentScrollY > lastScrollY && currentScrollY > 100) {
+  //       // Scrolling down and past 100px - hide navbar
+  //       setIsNavbarVisible(false);
+  //     } else if (currentScrollY < lastScrollY) {
+  //       // Scrolling up - show navbar
+  //       setIsNavbarVisible(true);
+  //     }
+      
+  //     // Always show navbar at the top
+  //     if (currentScrollY < 10) {
+  //       setIsNavbarVisible(true);
+  //     }
+      
+  //     setLastScrollY(currentScrollY);
+  //   };
+
+  //   // Listen to window scroll
+  //   window.addEventListener("scroll", handleScroll, { passive: true });
+    
+  //   // Listen to main content scroll
+  //   const mainContent = mainContentRef.current;
+  //   if (mainContent) {
+  //     mainContent.addEventListener("scroll", handleScroll, { passive: true });
+  //   }
+    
+  //   return () => {
+  //     window.removeEventListener("scroll", handleScroll);
+  //     if (mainContent) {
+  //       mainContent.removeEventListener("scroll", handleScroll);
+  //     }
+  //   };
+  // }, [lastScrollY]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+
+        if (isInitialMount) {
+            setIsInitialMount(false);
+            return; // Skip scroll logic on initial mount
+        }
+
+
+        const currentScrollPos = window.scrollY;
+
+        // Determine if scrolling up or down
+        const isScrollingDown = currentScrollPos > prevScrollPos;
+
+        // Only hide navbar after scrolling down some distance (e.g., 10px)
+        // and when not at the top of the page
+        if (isScrollingDown && currentScrollPos > 10) {
+            setVisible(false);
+            // Close menu when hiding navbar
+        } else {
+            setVisible(true);
+        }
+
+        // Update previous scroll position
+        setPrevScrollPos(currentScrollPos);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+        window.removeEventListener('scroll', handleScroll);
+    };
+}, [prevScrollPos, isInitialMount]);
+
   // Add notification when receiving a new message
   useEffect(() => {
     chatConversations.forEach((chat) => {
@@ -1290,14 +1366,6 @@ const NewsFeed: React.FC = () => {
   // Close dropdown when clicking outside
   const handleClickOutside = useCallback(
     (event: MouseEvent) => {
-      // Only close if menu is open and click is outside the wrapper
-      if (
-        isCreateMenuOpen &&
-        createMenuRef.current &&
-        !createMenuRef.current.contains(event.target as Node)
-      ) {
-        setIsCreateMenuOpen(false);
-      }
       if (
         searchRef.current &&
         !searchRef.current.contains(event.target as Node)
@@ -1315,11 +1383,11 @@ const NewsFeed: React.FC = () => {
         }
       }
     },
-    [isCreateMenuOpen]
+    []
   );
 
   useEffect(() => {
-    if (isCreateMenuOpen || isSearchFocused || isAddFriendModalOpen) {
+    if (isSearchFocused || isAddFriendModalOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
@@ -1327,28 +1395,16 @@ const NewsFeed: React.FC = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [
-    isCreateMenuOpen,
     isSearchFocused,
     isAddFriendModalOpen,
     handleClickOutside,
   ]);
 
-  const handleCreateClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log("Create button clicked, current state:", isCreateMenuOpen);
-    const newState = !isCreateMenuOpen;
-    setIsCreateMenuOpen(newState);
-    console.log("Setting menu open to:", newState);
-  };
-
   const handleCreatePost = () => {
-    setIsCreateMenuOpen(false);
     setIsCreatePostModalOpen(true);
   };
 
   const handleCreateStory = () => {
-    setIsCreateMenuOpen(false);
     setIsStoryPopupOpen(true);
   };
 
@@ -1359,141 +1415,23 @@ const NewsFeed: React.FC = () => {
     setIsStoryPopupOpen(false);
   };
 
-  const handleCreateGroup = () => {
-    setIsCreateMenuOpen(false);
-    navigate("/forums");
-  };
-
-  const handleCreateEvent = () => {
-    setIsCreateMenuOpen(false);
-    navigate("/events");
-  };
-
   return (
     <div className="newsfeed-page">
       {/* Top Navigation Bar */}
-      <header className="newsfeed-header">
-        <div className="newsfeed-header__container">
-          <div className="newsfeed-header__left">
-            <button
-              className="newsfeed-header__menu-toggle"
-              onClick={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
-              aria-label="Toggle menu"
-            >
-              {isLeftSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-            <div
-              className="newsfeed-header__logo"
-              onClick={() => navigate("/")}
-            >
-              <LazyImage src={primaryLogo} alt="JOSCity Logo" />
-              <span>JosCity</span>
-            </div>
-          </div>
-          <div className="newsfeed-header__actions">
-            <div
-              className="newsfeed-header__create-wrapper"
-              ref={createMenuRef}
-            >
-              <button
-                className="newsfeed-header__icon-btn"
-                title="Create"
-                onClick={handleCreateClick}
-                type="button"
-                aria-expanded={isCreateMenuOpen}
-              >
-                <SquarePlus size={20} />
-              </button>
-              {isCreateMenuOpen && (
-                <div
-                  className="newsfeed-header__create-dropdown"
-                  onClick={(e) => e.stopPropagation()}
-                  style={{
-                    display: "block",
-                    visibility: "visible",
-                    opacity: 1,
-                    zIndex: 1003,
-                  }}
-                >
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={handleCreatePost}
-                  >
-                    <FileText size={18} />
-                    <span>Create Post</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={handleCreateStory}
-                  >
-                    <Clock size={18} />
-                    <span>Create Story</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={handleCreateGroup}
-                  >
-                    <Users size={18} />
-                    <span>Create Forum</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={handleCreateEvent}
-                  >
-                    <Calendar size={18} />
-                    <span>Create Event</span>
-                  </button>
-                </div>
-              )}
-            </div>
-            <button
-              className="newsfeed-header__icon-btn"
-              title="Add Friend"
-              onClick={() => setIsAddFriendModalOpen(true)}
-            >
-              <UserPlus size={20} />
-            </button>
-            <button
-              className="newsfeed-header__icon-btn"
-              title="Messages"
-              onClick={() => setIsChatPanelOpen(true)}
-            >
-              <MessageCircle size={20} />
-            </button>
-            <button
-              className="newsfeed-header__icon-btn newsfeed-header__icon-btn--notifications"
-              title="Notifications"
-              onClick={() => setIsNotificationPanelOpen(true)}
-            >
-              <Bell size={20} />
-              {unreadNotificationsCount > 0 && (
-                <span className="newsfeed-header__badge">
-                  {unreadNotificationsCount > 9
-                    ? "9+"
-                    : unreadNotificationsCount}
-                </span>
-              )}
-            </button>
-            <button
-              className="newsfeed-header__join-btn"
-              onClick={handleProfileClick}
-              title="View Profile"
-            >
-              <div className="newsfeed-header__join-initials">
-                {getUserInitials()}
-              </div>
-            </button>
-            <button
-              className="newsfeed-header__sidebar-toggle"
-              onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
-              aria-label="Toggle sidebar"
-              title="Trending & Friends"
-            >
-              <TrendingUp size={20} />
-            </button>
-          </div>
-        </div>
-      </header>
+      <NewsFeedHeader
+        isLeftSidebarOpen={isLeftSidebarOpen}
+        onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
+        isRightSidebarOpen={isRightSidebarOpen}
+        onToggleRightSidebar={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+        onCreatePost={handleCreatePost}
+        onCreateStory={handleCreateStory}
+        onAddFriend={() => setIsAddFriendModalOpen(true)}
+        onOpenChat={() => setIsChatPanelOpen(true)}
+        onOpenNotifications={() => setIsNotificationPanelOpen(true)}
+        onProfileClick={handleProfileClick}
+        unreadNotificationsCount={unreadNotificationsCount}
+        mainContentRef={mainContentRef}
+      />
 
       <div className="newsfeed-container">
         {/* Mobile Overlay */}
@@ -1514,7 +1452,7 @@ const NewsFeed: React.FC = () => {
         />
 
         {/* Main Content Area */}
-        <main className="newsfeed-main">
+        <main className="newsfeed-main" ref={mainContentRef}>
           {/* Search Section */}
           <div className="newsfeed-search-section" ref={searchRef}>
             <div className="newsfeed-search-section__input-wrapper">

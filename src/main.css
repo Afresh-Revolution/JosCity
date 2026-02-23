@@ -10205,7 +10205,7 @@ body {
 }
 .newsfeed-container {
   max-width: 1260px;
-  margin: 0 auto;
+  margin: 6.5% auto;
   padding: 20px 24px;
   padding-top: 100px;
   display: grid !important;
@@ -10463,6 +10463,7 @@ body {
   width: 100%;
   min-width: 0;
   max-width: 680px;
+  scrollbar-width: thin;
   margin: 0;
   align-self: start;
   box-sizing: border-box;

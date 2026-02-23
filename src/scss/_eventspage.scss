@@ -19,9 +19,9 @@
 }
 
 .eventspage--below-navbar {
-  padding-top: 115px; // Space for fixed navbar (100px + 15px PWA lower)
+  padding-top: 129px; // Space for fixed navbar (PWA 22px lower)
   @media (max-width: 768px) {
-    padding-top: 105px; // 90px + 15px
+    padding-top: 119px;
   }
 }
 

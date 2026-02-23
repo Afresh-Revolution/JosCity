@@ -494,3 +494,60 @@ export const getUserProfile = async (): Promise<ApiResponse<UserProfile>> => {
     };
   }
 };
+
+/** Response from profile picture upload (Cloudinary) */
+export interface UploadProfilePictureResponse {
+  success: boolean;
+  user_picture?: string;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Upload profile picture to backend (Cloudinary). Uses multipart/form-data with field "picture".
+ */
+export const uploadProfilePicture = async (
+  file: File
+): Promise<UploadProfilePictureResponse> => {
+  const token =
+    localStorage.getItem("token") || localStorage.getItem("authToken");
+  if (!token) {
+    return { success: false, message: "Authentication required. Please sign in." };
+  }
+
+  const formData = new FormData();
+  formData.append("picture", file);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/profile/picture`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        // Do not set Content-Type; browser sets multipart/form-data with boundary
+      },
+      body: formData,
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      return {
+        success: false,
+        message: data.message || "Failed to upload profile picture",
+        error: data.error,
+      };
+    }
+
+    return {
+      success: true,
+      user_picture: data.user_picture,
+      message: data.message || "Profile picture updated successfully",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Network error occurred",
+    };
+  }
+};

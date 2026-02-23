@@ -42,7 +42,7 @@
   max-width: 1120px; // reduced max width by 80px
   height: 80px;
   position: fixed;
-  top: calc(1rem + 15px); // PWA: 15px lower on all pages
+  top: calc(1rem + 22px); // PWA: 22px lower on all pages
   left: 50%;
   transform: translateX(-50%);
   border-radius: 50px;
@@ -462,7 +462,7 @@
     height: 70px;
     width: 95%;
     position: fixed;
-    top: calc(1rem + 15px); // PWA: 15px lower
+    top: calc(1rem + 22px); // PWA: 22px lower
     left: 50%;
     transform: translateX(-50%);
     border-radius: 50px;
@@ -521,7 +521,7 @@
     width: calc(100% - 2rem);
     max-width: 100%;
     position: fixed;
-    top: calc(0.75rem + 15px); // PWA: 15px lower
+    top: calc(0.75rem + 22px); // PWA: 22px lower
     left: 50%;
     transform: translateX(-50%);
     border-radius: 35px;
@@ -786,7 +786,7 @@
     min-height: 56px;
     width: calc(100% - 1.5rem);
     position: fixed;
-    top: calc(0.5rem + 15px); // PWA: 15px lower
+    top: calc(0.5rem + 22px); // PWA: 22px lower
     left: 50%;
     transform: translateX(-50%);
     border-radius: 28px;
@@ -1048,7 +1048,7 @@
       box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1),
         0 0 0 1px rgba(255, 255, 255, 0.05) inset;
       width: 95%;
-      top: calc(1rem + 15px); // PWA: 15px lower
+      top: calc(1rem + 22px); // PWA: 22px lower
       left: 50%;
       transform: translateX(-50%);
       border-radius: 50px;
@@ -1063,7 +1063,7 @@
       box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1),
         0 0 0 1px rgba(255, 255, 255, 0.05) inset;
       width: calc(100% - 2rem);
-      top: calc(0.75rem + 15px); // PWA: 15px lower
+      top: calc(0.75rem + 22px); // PWA: 22px lower
       left: 50%;
       transform: translateX(-50%);
       border-radius: 35px;
@@ -1120,7 +1120,7 @@
       box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1),
         0 0 0 1px rgba(255, 255, 255, 0.05) inset;
       width: calc(100% - 1.5rem);
-      top: calc(0.5rem + 15px); // PWA: 15px lower
+      top: calc(0.5rem + 22px); // PWA: 22px lower
       left: 50%;
       transform: translateX(-50%);
       border-radius: 28px;

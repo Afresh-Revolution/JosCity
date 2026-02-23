@@ -686,7 +686,7 @@
   max-width: 1260px;
   margin: 0 auto;
   padding: 20px 24px;
-  padding-top: 115px; // PWA: 100px + 15px (navbar 15px lower)
+  padding-top: 129px; // PWA: always under navbar (22px offset + header height)
   display: grid !important;
   grid-template-columns: 280px minmax(0, 1fr) 300px; // 3-column layout: sidebar, main, aside
   gap: 24px; // Consistent gap
@@ -709,27 +709,27 @@
 
     gap: 20px;
     padding: 16px 20px;
-    padding-top: 105px; // 90px + 15px (PWA navbar lower)
+    padding-top: 119px; // PWA: under navbar
   }
 
   @media (max-width: 992px) {
     grid-template-columns: 1fr; // Single column on tablets
     padding: 16px;
-    padding-top: 95px; // 80px + 15px (PWA navbar lower)
+    padding-top: 102px; // PWA: under navbar
     gap: 16px;
     max-width: 100vw;
   }
 
   @media (max-width: 768px) {
     padding: 12px;
-    padding-top: 91px; // 76px + 15px (PWA navbar lower)
+    padding-top: 98px; // PWA: under navbar
     gap: 12px;
     max-width: 100vw;
   }
 
   @media (max-width: 480px) {
     padding: 8px;
-    padding-top: 87px; // 72px + 15px (PWA navbar lower)
+    padding-top: 94px; // PWA: under navbar
     gap: 10px;
     max-width: 100vw;
   }
@@ -925,7 +925,7 @@
     }
 
     &:hover {
-      background-color: var(--color-primary);
+      background-color: #0d4a1f;
       color: #fff;
 
       svg {
@@ -934,7 +934,7 @@
     }
 
     &--active {
-      background-color: var(--color-primary);
+      background-color: #0d4a1f;
       color: #fff;
       font-weight: 600;
 
@@ -943,7 +943,7 @@
       }
 
       &:hover {
-        background-color: var(--color-primary-hover);
+        background-color: #0a3a18;
         color: #fff;
 
         svg {
@@ -1278,7 +1278,7 @@
     align-items: center;
     justify-content: center;
     border: 2px solid var(--card-bg);
-    z-index: 2;
+    z-index: 10; // Always above avatar/story preview on the card
     box-shadow: 0 2px 4px var(--shadow-light);
     cursor: pointer;
     transition: all 0.2s;
@@ -1302,6 +1302,7 @@
     overflow: hidden;
     position: relative;
     flex-shrink: 0;
+    z-index: 0; // Below add-icon so add icon stays visible
   }
 
   &__new-indicator {
@@ -4656,6 +4657,24 @@
   word-wrap: break-word; // Legacy support
   min-height: 0; // Allow shrinking below content size
 
+  // Big screen: move aside content down; border wraps content only (via ::before)
+  @media (min-width: 993px) {
+    padding-top: 70px;
+    // Border/background box starts here so it matches the aside content
+    &::before {
+      content: "";
+      position: absolute;
+      top: 70px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 8px;
+      pointer-events: none;
+      border: 1px solid transparent; // light theme: no border; dark theme overrides
+      background: transparent;
+    }
+  }
+
   @media (max-width: 992px) {
     position: fixed;
     top: 200px; // Below navbar (matches .newsfeed-container padding-top)
@@ -6557,7 +6576,18 @@
   .newsfeed-aside {
     background-color: var(--card-bg);
     color: var(--text-primary);
-    border: 1px solid var(--border-color);
+    // Border moved to ::before on desktop so it starts with content (see base .newsfeed-aside)
+    border: none;
+
+    @media (min-width: 993px) {
+      &::before {
+        border-color: var(--border-color);
+        background-color: var(--card-bg);
+      }
+    }
+    @media (max-width: 992px) {
+      border: 1px solid var(--border-color);
+    }
 
     .newsfeed-trending {
       background-color: var(--color-primary);

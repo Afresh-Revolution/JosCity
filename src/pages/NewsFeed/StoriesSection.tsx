@@ -279,7 +279,8 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
   const handleStoryCreated = async (
     type: "text" | "photo" | "video",
     content: string,
-    caption?: string
+    caption?: string,
+    mediaFile?: File | Blob
   ) => {
     // Check if user is authenticated
     if (!isAuthenticated()) {
@@ -289,18 +290,22 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
     }
 
     try {
-      // Prepare story data for API
+      // Prepare story data for API (photo/video: backend expects multipart with "media" file)
       const storyData: {
         type: "photo" | "video" | "text";
         src: string;
         background_color?: string;
         text_color?: string;
         duration?: number;
+        mediaFile?: File | Blob;
       } = {
         type: type,
         src: content,
         duration: 24, // 24 hours
       };
+      if (mediaFile != null) {
+        storyData.mediaFile = mediaFile;
+      }
 
       // Call API to create story
       const response = await feedApi.createStory(storyData);

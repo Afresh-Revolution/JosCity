@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   SquarePlus,
@@ -21,22 +21,29 @@ import "./NewsFeedHeader.scss";
 interface NewsFeedHeaderProps {
   isLeftSidebarOpen: boolean;
   onToggleLeftSidebar: () => void;
-  isRightSidebarOpen: boolean;
-  onToggleRightSidebar: () => void;
-  onCreatePost: () => void;
-  onCreateStory: () => void;
-  onAddFriend: () => void;
-  onOpenChat: () => void;
-  onOpenNotifications: () => void;
-  onProfileClick: () => void;
-  unreadNotificationsCount: number;
+  isRightSidebarOpen?: boolean;
+  onToggleRightSidebar?: () => void;
+  onCreatePost?: () => void;
+  onCreateStory?: () => void;
+  onAddFriend?: () => void;
+  onOpenChat?: () => void;
+  onOpenNotifications?: () => void;
+  onProfileClick?: () => void;
+  unreadNotificationsCount?: number;
   mainContentRef?: React.RefObject<HTMLElement>;
+  /** Alternate prop names used by some pages */
+  showCreateMenu?: boolean;
+  showRightSidebarToggle?: boolean;
+  onNotificationClick?: () => void;
+  onCreateClick?: () => void;
+  onMessageClick?: () => void;
+  onAddFriendClick?: () => void;
 }
 
 const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
   isLeftSidebarOpen,
   onToggleLeftSidebar,
-  isRightSidebarOpen,
+  isRightSidebarOpen: _isRightSidebarOpen = false,
   onToggleRightSidebar,
   onCreatePost,
   onCreateStory,
@@ -44,9 +51,18 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
   onOpenChat,
   onOpenNotifications,
   onProfileClick,
-  unreadNotificationsCount,
+  unreadNotificationsCount = 0,
   mainContentRef,
+  showCreateMenu = true,
+  showRightSidebarToggle = true,
+  onNotificationClick,
+  onCreateClick,
+  onMessageClick,
+  onAddFriendClick,
 }) => {
+  const handleOpenNotifications = onOpenNotifications ?? onNotificationClick ?? (() => {});
+  const handleOpenChat = onOpenChat ?? onMessageClick ?? (() => {});
+  const handleAddFriend = onAddFriend ?? onAddFriendClick ?? (() => {});
   const navigate = useNavigate();
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [isNavbarVisible, setIsNavbarVisible] = useState(true);
@@ -126,12 +142,12 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
 
   const handleCreatePost = () => {
     setIsCreateMenuOpen(false);
-    onCreatePost();
+    (onCreatePost ?? onCreateClick)?.();
   };
 
   const handleCreateStory = () => {
     setIsCreateMenuOpen(false);
-    onCreateStory();
+    (onCreateStory ?? onCreateClick)?.();
   };
 
   const handleCreateGroup = () => {
@@ -168,6 +184,7 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
           </div>
         </div>
         <div className="newsfeed-header__actions">
+          {showCreateMenu && (
           <div
             className="newsfeed-header__create-wrapper"
             ref={createMenuRef}
@@ -223,24 +240,25 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
               </div>
             )}
           </div>
+          )}
           <button
             className="newsfeed-header__icon-btn"
             title="Add Friend"
-            onClick={onAddFriend}
+            onClick={handleAddFriend}
           >
             <UserPlus size={20} />
           </button>
           <button
             className="newsfeed-header__icon-btn"
             title="Messages"
-            onClick={onOpenChat}
+            onClick={handleOpenChat}
           >
             <MessageCircle size={20} />
           </button>
           <button
             className="newsfeed-header__icon-btn newsfeed-header__icon-btn--notifications"
             title="Notifications"
-            onClick={onOpenNotifications}
+            onClick={handleOpenNotifications}
           >
             <Bell size={20} />
             {unreadNotificationsCount > 0 && (
@@ -253,13 +271,14 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
           </button>
           <button
             className="newsfeed-header__join-btn"
-            onClick={onProfileClick}
+            onClick={onProfileClick ?? (() => {})}
             title="View Profile"
           >
             <div className="newsfeed-header__join-initials">
               {getUserInitials()}
             </div>
           </button>
+          {showRightSidebarToggle && onToggleRightSidebar && (
           <button
             className="newsfeed-header__sidebar-toggle"
             onClick={onToggleRightSidebar}
@@ -268,6 +287,7 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
           >
             <TrendingUp size={20} />
           </button>
+          )}
         </div>
       </div>
     </header>

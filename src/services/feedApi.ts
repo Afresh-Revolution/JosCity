@@ -427,6 +427,38 @@ export const feedApi = {
     }) as any; // Type assertion needed - API response structure varies
   },
 
+  // ========== Post actions (delete, edit, pin) ==========
+  deletePost: async (
+    postId: number
+  ): Promise<{ success: boolean; message: string }> => {
+    return apiRequest(`/feed/posts/${postId}`, {
+      method: "DELETE",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any;
+  },
+
+  updatePost: async (
+    postId: number,
+    data: { text?: string }
+  ): Promise<{ success: boolean; data?: unknown; message: string }> => {
+    return apiRequest(`/feed/posts/${postId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any;
+  },
+
+  pinPost: async (
+    postId: number,
+    pinned: boolean
+  ): Promise<{ success: boolean; data?: unknown; message: string }> => {
+    return apiRequest(`/feed/posts/${postId}/pin`, {
+      method: "PATCH",
+      body: JSON.stringify({ pinned }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any;
+  },
+
   // ========== Shares ==========
   sharePost: async (
     postId: number
@@ -643,5 +675,112 @@ export const feedApi = {
           ? (responseData as { message?: string }).message
           : "Post created") as string,
     };
+  },
+
+  // ========== Notifications ==========
+  getNotifications: async (): Promise<{
+    success: boolean;
+    data: Array<{
+      id: number;
+      from_user_id?: number;
+      action: string;
+      node_type?: string;
+      node_id?: number;
+      time: string;
+      is_read?: boolean;
+      from_user?: { display_name?: string; profile_image_url?: string };
+    }>;
+  }> => {
+    return apiRequest("/notifications") as Promise<{
+      success: boolean;
+      data: Array<{
+        id: number;
+        from_user_id?: number;
+        action: string;
+        node_type?: string;
+        node_id?: number;
+        time: string;
+        is_read?: boolean;
+        from_user?: { display_name?: string; profile_image_url?: string };
+      }>;
+    }>;
+  },
+
+  markNotificationRead: async (
+    notificationId: number
+  ): Promise<{ success: boolean }> => {
+    return apiRequest(`/notifications/${notificationId}/read`, {
+      method: "PATCH",
+    }) as Promise<{ success: boolean }>;
+  },
+
+  markAllNotificationsRead: async (): Promise<{ success: boolean }> => {
+    return apiRequest("/notifications/read-all", {
+      method: "PATCH",
+    }) as Promise<{ success: boolean }>;
+  },
+
+  // ========== Friends ==========
+  getMyFriends: async (): Promise<{
+    success: boolean;
+    data: Array<{
+      user_id: number;
+      user_firstname?: string;
+      user_lastname?: string;
+      user_picture?: string;
+      friendship_id?: number;
+      created_at?: string;
+    }>;
+  }> => {
+    return apiRequest("/friends/my") as any;
+  },
+
+  getFriendRequests: async (): Promise<{
+    success: boolean;
+    data: { sent?: unknown[]; received?: unknown[] };
+  }> => {
+    return apiRequest("/friends/requests") as any;
+  },
+
+  sendFriendRequest: async (
+    userId: number
+  ): Promise<{ success: boolean; data?: unknown; message: string }> => {
+    return apiRequest("/friends/request", {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId }),
+    }) as any;
+  },
+
+  acceptFriendRequest: async (
+    requestId: number
+  ): Promise<{ success: boolean; data?: unknown; message: string }> => {
+    return apiRequest(`/friends/request/${requestId}/accept`, {
+      method: "POST",
+    }) as any;
+  },
+
+  rejectFriendRequest: async (
+    requestId: number
+  ): Promise<{ success: boolean; message: string }> => {
+    return apiRequest(`/friends/request/${requestId}/reject`, {
+      method: "POST",
+    }) as any;
+  },
+
+  removeFriend: async (
+    userId: number
+  ): Promise<{ success: boolean; message: string }> => {
+    return apiRequest(`/friends/${userId}`, {
+      method: "DELETE",
+    }) as any;
+  },
+
+  checkFriendship: async (
+    userId: number
+  ): Promise<{
+    success: boolean;
+    data: { are_friends?: boolean; request_status?: string };
+  }> => {
+    return apiRequest(`/friends/check/${userId}`) as any;
   },
 };

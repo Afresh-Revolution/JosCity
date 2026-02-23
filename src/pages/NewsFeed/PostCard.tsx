@@ -47,13 +47,16 @@ interface Post {
   reviews: number;
   hashtags?: string;
   caption?: string;
+  pinned?: boolean;
 }
 
 interface PostCardProps {
   post: Post;
+  onPostDeleted?: (postId: number) => void;
+  onPostUpdated?: (postId: number, updates: { caption?: string; pinned?: boolean }) => void;
 }
 
-const PostCard: React.FC<PostCardProps> = ({ post }) => {
+const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated }) => {
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
@@ -75,7 +78,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [showMenu, setShowMenu] = useState(false);
-  const [isPinned, setIsPinned] = useState(false);
+  const [isPinned, setIsPinned] = useState(!!post.pinned);
   const [isLoading, setIsLoading] = useState(false);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -300,7 +303,19 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
   const handleEdit = () => {
     setShowMenu(false);
-    console.log("Edit post:", post.id);
+    const newText = window.prompt("Edit post caption:", caption);
+    if (newText === null) return;
+    setIsLoading(true);
+    feedApi
+      .updatePost(post.id, { text: newText })
+      .then(() => {
+        onPostUpdated?.(post.id, { caption: newText });
+      })
+      .catch((err) => {
+        console.error("Error updating post:", err);
+        alert(err instanceof Error ? err.message : "Failed to update post.");
+      })
+      .finally(() => setIsLoading(false));
   };
 
   const handleDelete = () => {
@@ -311,11 +326,12 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const handleConfirmDelete = async () => {
     setIsDeleting(true);
     try {
-      // Call delete API here when available
-      console.log("Delete post:", post.id);
+      await feedApi.deletePost(post.id);
       setShowDeleteConfirm(false);
+      onPostDeleted?.(post.id);
     } catch (error) {
       console.error("Error deleting post:", error);
+      alert(error instanceof Error ? error.message : "Failed to delete post.");
     } finally {
       setIsDeleting(false);
     }
@@ -323,8 +339,19 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
   const handlePin = () => {
     setShowMenu(false);
-    setIsPinned(!isPinned);
-    console.log("Pin post:", post.id, !isPinned);
+    const newPinned = !isPinned;
+    setIsLoading(true);
+    feedApi
+      .pinPost(post.id, newPinned)
+      .then(() => {
+        setIsPinned(newPinned);
+        onPostUpdated?.(post.id, { pinned: newPinned });
+      })
+      .catch((err) => {
+        console.error("Error pinning post:", err);
+        alert(err instanceof Error ? err.message : "Failed to update pin.");
+      })
+      .finally(() => setIsLoading(false));
   };
 
   useEffect(() => {

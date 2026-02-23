@@ -27,10 +27,6 @@ import CookiePolicy from "./pages/CookiePolicy";
 import Accessibility from "./pages/Accessibility";
 import About from "./pages/About";
 import ContactPage from "./pages/ContactPage";
-import People from "./components/People";
-import Forums from "./pages/NewsFeed/Forums";
-import News from "./pages/NewsFeed/News";
-import Reels from "./pages/NewsFeed/Reels";
 import Request from "./components/Request";
 import SentRequest from "./components/SentRequest";
 import UserProfile from "./pages/UserProfile";
@@ -39,13 +35,7 @@ import DarkModeToggle from "./components/DarkModeToggle";
 // import { preventInspect } from "./utils/preventInspect";
 import Maintenance from "./pages/Maintenance";
 // import RoutingDisabled from "./pages/RoutingDisabled";
-import MarketPlace from "./pages/NewsFeed/MarketPlace";
-import Movies from "./pages/NewsFeed/Movies";
-import Offers from "./pages/NewsFeed/Offers";
-import Jobs from "./pages/NewsFeed/Jobs";
-import Scheduled from "./pages/NewsFeed/Scheduled";
-import Saved from "./pages/NewsFeed/Saved";
-import Business from "./pages/NewsFeed/Business";
+import ComingSoonSection from "./pages/NewsFeed/ComingSoonSection";
 
 // Prevent browser inspection/devtools
 // preventInspect();
@@ -107,22 +97,22 @@ if (rootElement) {
                 <Route path="/accessibility" element={<Accessibility />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<ContactPage />} />
-                <Route path="/people" element={<People />} />
-                <Route path="/forums" element={<Forums />} />
-                <Route path="/news" element={<News />} />
-                <Route path="/reels" element={<Reels />} />
+                <Route path="/people" element={<ComingSoonSection />} />
+                <Route path="/forums" element={<ComingSoonSection />} />
+                <Route path="/news" element={<ComingSoonSection />} />
+                <Route path="/reels" element={<ComingSoonSection />} />
                 <Route path="/events" element={<EventsPage />} />
                 <Route path="/events-old" element={<Events />} />
                 <Route path="/request" element={<Request />} />
                 <Route path="/sent-requests" element={<SentRequest />} />
                 <Route path="/profile/:username" element={<UserProfile />} />
-                <Route path="/marketplace" element={<MarketPlace />} />
-                <Route path="/movies" element={<Movies />} />
-                <Route path="/offers" element={<Offers />} />
-                <Route path="/jobs" element={<Jobs />} />
-                <Route path="/scheduled" element={<Scheduled />} />
-                <Route path="/saved" element={<Saved />} />
-                <Route path="/business" element={<Business />} />
+                <Route path="/marketplace" element={<ComingSoonSection />} />
+                <Route path="/movies" element={<ComingSoonSection />} />
+                <Route path="/offers" element={<ComingSoonSection />} />
+                <Route path="/jobs" element={<ComingSoonSection />} />
+                <Route path="/scheduled" element={<ComingSoonSection />} />
+                <Route path="/saved" element={<ComingSoonSection />} />
+                <Route path="/business" element={<ComingSoonSection />} />
               </Routes>
             </>
           )}

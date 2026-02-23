@@ -145,6 +145,7 @@ const PersonalFormFields: React.FC<PersonalFormFieldsProps> = ({
             type={showPassword ? "text" : "password"}
             id="user_password"
             name="user_password"
+            autoComplete="new-password"
             value={formData.user_password}
             onChange={onInputChange}
             placeholder="Password"

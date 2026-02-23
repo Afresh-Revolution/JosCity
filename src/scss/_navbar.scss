@@ -38,8 +38,8 @@
   box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.05),
     0 0 0 1px rgba(255, 255, 255, 0.1) inset;
   padding: 1rem 6rem;
-  width: calc(90% - 80px); // reduced width by 80px (desktop)
-  max-width: 1120px; // reduced max width by 80px
+  width: calc(90% - 80px - 56px); // leave space for theme toggle (44px + 12px gap) on right
+  max-width: calc(1120px - 56px);
   height: 80px;
   position: fixed;
   top: calc(1rem + 22px); // PWA: 22px lower on all pages
@@ -204,6 +204,7 @@
     flex: 0 1 auto;
     margin-left: 16px; // Increased gap between logo and nav list
   }
+
   &__nav-item {
     font-family: "Lucida Sans", "Lucida Sans Regular", "Lucida Grande",
       "Lucida Sans Unicode", Geneva, Verdana, sans-serif;
@@ -297,6 +298,12 @@
       outline-offset: 2px;
     }
   }
+
+  // Theme toggle in hamburger: hidden on desktop, shown only in mobile menu (must override &__nav-item display)
+  &__nav-item--theme-toggle {
+    display: none;
+  }
+
   // Action buttons container (Login, Get started) in navbar right section
   &__action-buttons {
     display: flex;
@@ -460,7 +467,7 @@
       0 0 0 1px rgba(255, 255, 255, 0.1) inset;
     padding: 1rem 3rem;
     height: 70px;
-    width: 95%;
+    width: calc(95% - 52px); // leave space for theme toggle (40px + 12px)
     position: fixed;
     top: calc(1rem + 22px); // PWA: 22px lower
     left: 50%;
@@ -741,6 +748,52 @@
     }
     &__nav-list.active &__nav-item:nth-child(6) {
       animation-delay: 0.35s;
+    }
+
+    // Theme toggle: show only in mobile menu (icon only)
+    &__nav-item--theme-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      margin-top: 0.5rem;
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    &__theme-toggle-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: rgba(13, 74, 31, 0.12);
+      color: #1a1a1a;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.2s ease;
+      -webkit-tap-highlight-color: transparent;
+
+      &:hover {
+        background: rgba(13, 74, 31, 0.2);
+        transform: scale(1.05);
+      }
+
+      &:active {
+        transform: scale(0.98);
+      }
+
+      &:focus {
+        outline: 2px solid $color-primary;
+        outline-offset: 2px;
+      }
+
+      svg {
+        flex-shrink: 0;
+      }
     }
 
     &__action-buttons {
@@ -1097,6 +1150,19 @@
 
         &:active {
           background: rgba(13, 74, 31, 0.3);
+        }
+      }
+
+      &__nav-item--theme-toggle {
+        border-top-color: rgba(255, 255, 255, 0.1);
+      }
+
+      &__theme-toggle-btn {
+        background: rgba(13, 74, 31, 0.25);
+        color: #e0e0e0;
+
+        &:hover {
+          background: rgba(13, 74, 31, 0.35);
         }
       }
 

@@ -213,7 +213,7 @@ function AdminLogin() {
                   value={formData.email}
                   onChange={handleInputChange}
                   placeholder="Enter your email"
-                  autoComplete="off"
+                  autoComplete="email"
                   disabled={isLoading}
                   required
                 />
@@ -231,7 +231,7 @@ function AdminLogin() {
                   value={formData.password}
                   onChange={handleInputChange}
                   placeholder="Enter your password"
-                  autoComplete="off"
+                  autoComplete="current-password"
                   disabled={isLoading}
                   required
                 />

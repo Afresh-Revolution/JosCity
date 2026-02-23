@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import NavBar from "./pages/NavBar";
 import Services from "./pages/Services";
 import Events from "./pages/Events";
@@ -31,7 +31,7 @@ import Request from "./components/Request";
 import SentRequest from "./components/SentRequest";
 import UserProfile from "./pages/UserProfile";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import DarkModeToggle from "./components/DarkModeToggle"; 
+import NavbarThemeToggle from "./components/NavbarThemeToggle";
 // import { preventInspect } from "./utils/preventInspect";
 import Maintenance from "./pages/Maintenance";
 // import RoutingDisabled from "./pages/RoutingDisabled";
@@ -58,6 +58,27 @@ export function LandingPage() {
   );
 }
 
+// Theme toggle only on landing (/) and user profile (/profile/:username).
+// On landing + small screens: toggle is inside hamburger; don't show fixed icon.
+// On landing + big screens, and on profile: show fixed icon in current position.
+function ThemeToggleGate() {
+  const location = useLocation();
+  const [isSmallScreen, setIsSmallScreen] = React.useState(
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 768px)").matches : false
+  );
+  React.useEffect(() => {
+    const m = window.matchMedia("(max-width: 768px)");
+    const listener = () => setIsSmallScreen(m.matches);
+    m.addEventListener("change", listener);
+    return () => m.removeEventListener("change", listener);
+  }, []);
+  const isLanding = location.pathname === "/";
+  const isUserProfile = /^\/profile\/[^/]+$/.test(location.pathname);
+  if (!isLanding && !isUserProfile) return null;
+  if (isLanding && isSmallScreen) return null; // landing mobile: toggle in hamburger
+  return <NavbarThemeToggle />;
+}
+
 // Check if maintenance mode is enabled
 const isMaintenanceMode = import.meta.env.VITE_MAINTENANCE_MODE === "true";
 
@@ -76,7 +97,7 @@ const rootElement = document.getElementById("root");
           ) : (
             // Normal app routes when maintenance mode is disabled
             <>
-              <DarkModeToggle />
+              <ThemeToggleGate />
               <Routes>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/welcome" element={<WelcomePage />} />

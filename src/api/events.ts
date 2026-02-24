@@ -18,6 +18,10 @@ export interface Event {
   capacity?: number;
   event_capacity?: number;
   user_picture?: string;
+  /** External source e.g. "gatewav" for Ticketing platform */
+  source?: string;
+  /** URL to buy tickets on external site (e.g. gatewav) */
+  ticket_url?: string | null;
 }
 
 export interface EventsResponse {

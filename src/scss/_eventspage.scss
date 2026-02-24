@@ -401,6 +401,14 @@
       justify-content: center;
       padding: 14px 24px;
     }
+
+    &--disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      &:hover {
+        background-color: var(--color-primary);
+      }
+    }
   }
 }
 
@@ -1191,6 +1199,19 @@
     }
   }
 
+  &__source-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background-color: rgba(13, 74, 31, 0.12);
+    color: var(--color-primary);
+    margin-bottom: 4px;
+  }
+
   &__actions {
     display: flex;
     gap: 8px;
@@ -1262,6 +1283,19 @@
       transition: color 0.3s ease;
       width: 16px;
       height: 16px;
+    }
+
+    &--primary {
+      background-color: var(--color-primary);
+      color: white;
+      border-color: var(--color-primary);
+      text-decoration: none;
+
+      &:hover {
+        background-color: var(--color-primary-hover, #0d4a1f);
+        color: white;
+        border-color: var(--color-primary-hover, #0d4a1f);
+      }
     }
 
     span {

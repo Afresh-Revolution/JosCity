@@ -14,7 +14,8 @@ import {
   Calendar,
 } from "lucide-react";
 import LazyImage from "../../components/LazyImage";
-import { getUserInitials } from "../../utils/userUtils";
+import Avatar from "../../components/Avatar";
+import { getUserName } from "../../utils/userUtils";
 import primaryLogo from "../../image/primary-logo.png";
 import "./NewsFeedHeader.scss";
 
@@ -275,7 +276,11 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
             title="View Profile"
           >
             <div className="newsfeed-header__join-initials">
-              {getUserInitials()}
+              <Avatar
+                name={getUserName()}
+                size={32}
+                className="newsfeed-header__join-avatar"
+              />
             </div>
           </button>
           {showRightSidebarToggle && onToggleRightSidebar && (

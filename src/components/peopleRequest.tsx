@@ -16,7 +16,8 @@ import {
 import primaryLogo from "../image/primary-logo.png";
 import headerAvatar from "../image/newsfeed/blessing.jpg";
 import LazyImage from "./LazyImage";
-import { getUserInitials, getProfileUsername } from "../utils/userUtils";
+import Avatar from "./Avatar";
+import { getProfileUsername, getUserName } from "../utils/userUtils";
 import "../main.css";
 
 const PeopleRequest: React.FC = () => {
@@ -73,7 +74,11 @@ const PeopleRequest: React.FC = () => {
               title="View Profile"
             >
               <div className="newsfeed-header__join-initials">
-                {getUserInitials()}
+                <Avatar
+                  name={getUserName()}
+                  size={32}
+                  className="newsfeed-header__join-avatar"
+                />
               </div>
             </button>
           </div>

@@ -37,8 +37,8 @@ import NewsFeedSidebar from "./NewsFeedSidebar";
 import PostCard from "./PostCard";
 import SuggestedBusinesses from "./SuggestedBusinesses";
 import {
-  getUserInitials,
   getProfileUsername,
+  getUserName,
 } from "../../utils/userUtils";
 import { addFriend } from "../../utils/friendUtils";
 import { friendApi } from "../../services/friendApi";
@@ -938,9 +938,13 @@ const Business: React.FC = () => {
               className="newsfeed-header__join-btn"
               onClick={handleProfileClick}
             >
-              <span className="newsfeed-header__join-initials">
-                {getUserInitials()}
-              </span>
+              <div className="newsfeed-header__join-initials">
+                <Avatar
+                  name={getUserName()}
+                  size={32}
+                  className="newsfeed-header__join-avatar"
+                />
+              </div>
               <span className="newsfeed-header__join-text">Profile</span>
             </button>
           </div>

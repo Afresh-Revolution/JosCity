@@ -17,6 +17,8 @@ export interface Event {
   event_cover?: string;
   capacity?: number;
   event_capacity?: number;
+  /** For ticketing (gatewav) events: number of tickets sold from Ticketing API */
+  tickets_sold?: number;
   user_picture?: string;
   /** External source e.g. "gatewav" for Ticketing platform */
   source?: string;

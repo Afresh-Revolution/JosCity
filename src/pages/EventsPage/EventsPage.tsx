@@ -25,7 +25,8 @@ import {
 import primaryLogo from "../../image/primary-logo.png";
 import LazyImage from "../../components/LazyImage";
 import SearchBar from "../../components/SearchBar";
-import { getUserInitials, getProfileUsername, getUserData } from "../../utils/userUtils";
+import Avatar from "../../components/Avatar";
+import { getProfileUsername, getUserData, getUserName } from "../../utils/userUtils";
 import { createEvent, updateEvent, deleteEvent, getEvents, type Event } from "../../api/events";
 import "../../scss/_eventspage.scss";
 import "../../scss/_searchbar.scss";
@@ -49,6 +50,7 @@ const normalizeEvent = (event: Event): Event => {
     event_cover: event.event_cover || event.image,
     capacity: event.event_capacity ?? event.capacity,
     event_capacity: event.event_capacity ?? event.capacity,
+    tickets_sold: event.tickets_sold,
     user_picture: event.user_picture,
     source: event.source,
     ticket_url: event.ticket_url ?? null,
@@ -637,9 +639,13 @@ const EventsPage: React.FC = () => {
               className="newsfeed-header__join-btn"
               onClick={handleProfileClick}
             >
-              <span className="newsfeed-header__join-initials">
-                {getUserInitials()}
-              </span>
+              <div className="newsfeed-header__join-initials">
+                <Avatar
+                  name={getUserName()}
+                  size={32}
+                  className="newsfeed-header__join-avatar"
+                />
+              </div>
               <span className="newsfeed-header__join-text">Profile</span>
             </button>
           </div>
@@ -897,14 +903,18 @@ const EventsPage: React.FC = () => {
                             {event.category}
                           </span>
                         </div>
-                        {/* Capacity/Attendee Info - hide for external (ticket capacity shown on Ticketing site) */}
-                        {event.capacity && !isExternalEvent(event) && (
+                        {/* Capacity/Attendee Info - JOSCITY: going count; Gatewav: tickets sold from Ticketing API */}
+                        {event.capacity && (
                           <div className="eventspage-event-card__capacity">
                             <Users size={14} />
                             <span>
-                              {getGoingCount(event.id)} / {event.capacity} going
+                              {isExternalEvent(event)
+                                ? `${event.tickets_sold ?? 0} / ${event.capacity} tickets`
+                                : `${getGoingCount(event.id)} / ${event.capacity} going`}
                             </span>
-                            {getGoingCount(event.id) >= event.capacity && (
+                            {(isExternalEvent(event)
+                              ? (event.tickets_sold ?? 0) >= event.capacity
+                              : getGoingCount(event.id) >= event.capacity) && (
                               <span className="eventspage-event-card__capacity-full">
                                 Full
                               </span>

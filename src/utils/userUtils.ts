@@ -159,10 +159,13 @@ export const getUserAvatar = (): string | null => {
       return storedPicture;
     }
 
-    // Also check if there's a profile_image_url in user data
+    // Also check if there's a profile_image_url or user_picture in user data
     const user = getUserData();
     if (user && typeof user.profile_image_url === "string") {
       return user.profile_image_url;
+    }
+    if (user && typeof user.user_picture === "string") {
+      return user.user_picture;
     }
     if (user && typeof user.user_avatar === "string") {
       return user.user_avatar;

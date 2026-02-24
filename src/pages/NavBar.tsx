@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../contexts/ThemeContext";
+import { isAuthenticated } from "../utils/userUtils";
 import "../main.css";
 import primaryLogo from "../image/primary-logo.png";
 
@@ -237,16 +238,29 @@ function App() {
         </div>
         <div className="navbar__right-section">
           <div className="navbar__action-buttons">
-            <button
-              type="button"
-              className="navbar__signin-button"
-              onClick={() => {
-                setIsMenuOpen(false);
-                navigate("/signin");
-              }}
-            >
-              Login
-            </button>
+            {isAuthenticated() ? (
+              <button
+                type="button"
+                className="navbar__signin-button"
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  navigate("/newsfeed");
+                }}
+              >
+                Feeds
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="navbar__signin-button"
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  navigate("/signin");
+                }}
+              >
+                Login
+              </button>
+            )}
           </div>
         </div>
       </nav>

@@ -17,6 +17,8 @@ import {
 import primaryLogo from "../../image/primary-logo.png";
 import "../../main.css";
 import LazyImage from "../../components/LazyImage";
+import Avatar from "../../components/Avatar";
+import { getUserName } from "../../utils/userUtils";
 import NewsFeedSidebar from "./NewsFeedSidebar";
 
 const News: React.FC = () => {
@@ -26,53 +28,6 @@ const News: React.FC = () => {
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const createMenuRef = useRef<HTMLDivElement>(null);
-
-  // Get user's initials from localStorage
-  const getUserInitials = () => {
-    try {
-      const userData = localStorage.getItem("user");
-      if (userData) {
-        const user = JSON.parse(userData);
-        let firstName = "";
-        let lastName = "";
-
-        if (user.user_firstname) {
-          firstName = user.user_firstname.trim();
-        }
-        if (user.user_lastname) {
-          lastName = user.user_lastname.trim();
-        }
-
-        if (firstName && lastName) {
-          return (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
-        }
-        if (firstName) {
-          return firstName.substring(0, 2).toUpperCase();
-        }
-        if (user.display_name) {
-          const parts = user.display_name.trim().split(" ");
-          if (parts.length >= 2) {
-            return (
-              parts[0].charAt(0) + parts[parts.length - 1].charAt(0)
-            ).toUpperCase();
-          }
-          return user.display_name.substring(0, 2).toUpperCase();
-        }
-        if (user.name) {
-          const parts = user.name.trim().split(" ");
-          if (parts.length >= 2) {
-            return (
-              parts[0].charAt(0) + parts[parts.length - 1].charAt(0)
-            ).toUpperCase();
-          }
-          return user.name.substring(0, 2).toUpperCase();
-        }
-      }
-    } catch (error) {
-      console.error("Error parsing user data:", error);
-    }
-    return "JO"; // Default fallback
-  };
 
   // Close create menu when clicking outside
   useEffect(() => {
@@ -175,7 +130,11 @@ const News: React.FC = () => {
             </button>
             <button className="newsfeed-header__join-btn">
               <div className="newsfeed-header__join-initials">
-                {getUserInitials()}
+                <Avatar
+                  name={getUserName()}
+                  size={32}
+                  className="newsfeed-header__join-avatar"
+                />
               </div>
             </button>
             <button

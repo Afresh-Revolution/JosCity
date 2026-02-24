@@ -29,8 +29,8 @@ import LazyImage from "../../components/LazyImage";
 import PostCard from "./PostCard";
 import CreateScheduledPostModal from "./CreateScheduledPostModal";
 import TrendingSection from "./TrendingSection";
+import Avatar from "../../components/Avatar";
 import {
-  getUserInitials,
   getProfileUsername,
   getUserName,
   getUserAvatar,
@@ -346,7 +346,11 @@ const Scheduled: React.FC = () => {
               title="View Profile"
             >
               <div className="newsfeed-header__join-initials">
-                {getUserInitials()}
+                <Avatar
+                  name={getUserName()}
+                  size={32}
+                  className="newsfeed-header__join-avatar"
+                />
               </div>
             </button>
           </div>

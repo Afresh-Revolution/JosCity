@@ -37,6 +37,7 @@ import Maintenance from "./pages/Maintenance";
 // import RoutingDisabled from "./pages/RoutingDisabled";
 import ComingSoonSection from "./pages/NewsFeed/ComingSoonSection";
 import PWAProvider from "./components/PWAProvider";
+import Business from "./pages/NewsFeed/Business";
 
 // Prevent browser inspection/devtools
 // preventInspect();
@@ -83,63 +84,63 @@ function ThemeToggleGate() {
 const isMaintenanceMode = import.meta.env.VITE_MAINTENANCE_MODE === "true";
 
 const rootElement = document.getElementById("root");
-  if (rootElement) {
+if (rootElement) {
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
       <ThemeProvider>
         <PWAProvider>
-        <BrowserRouter>
-          {isMaintenanceMode ? (
-            // Show maintenance page for all routes when maintenance mode is enabled
-            <Routes>
-              <Route path="*" element={<Maintenance />} />
-            </Routes>
-          ) : (
-            // Normal app routes when maintenance mode is disabled
-            <>
-              <ThemeToggleGate />
+          <BrowserRouter>
+            {isMaintenanceMode ? (
+              // Show maintenance page for all routes when maintenance mode is enabled
               <Routes>
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/welcome" element={<WelcomePage />} />
-                <Route path="/registernow" element={<Register />} />
-                <Route path="/business-form" element={<Register />} />
-                <Route path="/signin" element={<SignIn />} />
-                <Route path="/coming-soon" element={<ComingSoon />} />
-                <Route
-                  path="/services-coming-soon"
-                  element={<ServicesComingSoon />}
-                />
-                <Route path="/success" element={<Success />} />
-                <Route path="/newsfeed" element={<NewsFeed />} />
-                <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/admin" element={<Admin />} />
-                <Route path="/admin/profile" element={<AdminProfile />} />
-                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-                <Route path="/terms-of-service" element={<TermsOfService />} />
-                <Route path="/cookie-policy" element={<CookiePolicy />} />
-                <Route path="/accessibility" element={<Accessibility />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/contact" element={<ContactPage />} />
-                <Route path="/people" element={<ComingSoonSection />} />
-                <Route path="/forums" element={<ComingSoonSection />} />
-                <Route path="/news" element={<ComingSoonSection />} />
-                <Route path="/reels" element={<ComingSoonSection />} />
-                <Route path="/events" element={<EventsPage />} />
-                <Route path="/events-old" element={<Events />} />
-                <Route path="/request" element={<Request />} />
-                <Route path="/sent-requests" element={<SentRequest />} />
-                <Route path="/profile/:username" element={<UserProfile />} />
-                <Route path="/marketplace" element={<ComingSoonSection />} />
-                <Route path="/movies" element={<ComingSoonSection />} />
-                <Route path="/offers" element={<ComingSoonSection />} />
-                <Route path="/jobs" element={<ComingSoonSection />} />
-                <Route path="/scheduled" element={<ComingSoonSection />} />
-                <Route path="/saved" element={<ComingSoonSection />} />
-                <Route path="/business" element={<ComingSoonSection />} />
+                <Route path="*" element={<Maintenance />} />
               </Routes>
-            </>
-          )}
-        </BrowserRouter>
+            ) : (
+              // Normal app routes when maintenance mode is disabled
+              <>
+                <ThemeToggleGate />
+                <Routes>
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/welcome" element={<WelcomePage />} />
+                  <Route path="/registernow" element={<Register />} />
+                  <Route path="/business-form" element={<Register />} />
+                  <Route path="/signin" element={<SignIn />} />
+                  <Route path="/coming-soon" element={<ComingSoon />} />
+                  <Route
+                    path="/services-coming-soon"
+                    element={<ServicesComingSoon />}
+                  />
+                  <Route path="/success" element={<Success />} />
+                  <Route path="/newsfeed" element={<NewsFeed />} />
+                  <Route path="/admin/login" element={<AdminLogin />} />
+                  <Route path="/admin" element={<Admin />} />
+                  <Route path="/admin/profile" element={<AdminProfile />} />
+                  <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                  <Route path="/terms-of-service" element={<TermsOfService />} />
+                  <Route path="/cookie-policy" element={<CookiePolicy />} />
+                  <Route path="/accessibility" element={<Accessibility />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/contact" element={<ContactPage />} />
+                  <Route path="/people" element={<ComingSoonSection />} />
+                  <Route path="/forums" element={<ComingSoonSection />} />
+                  <Route path="/news" element={<ComingSoonSection />} />
+                  <Route path="/reels" element={<ComingSoonSection />} />
+                  <Route path="/events" element={<EventsPage />} />
+                  <Route path="/events-old" element={<Events />} />
+                  <Route path="/request" element={<Request />} />
+                  <Route path="/sent-requests" element={<SentRequest />} />
+                  <Route path="/profile/:username" element={<UserProfile />} />
+                  <Route path="/marketplace" element={<ComingSoonSection />} />
+                  <Route path="/movies" element={<ComingSoonSection />} />
+                  <Route path="/offers" element={<ComingSoonSection />} />
+                  <Route path="/jobs" element={<ComingSoonSection />} />
+                  <Route path="/scheduled" element={<ComingSoonSection />} />
+                  <Route path="/saved" element={<ComingSoonSection />} />
+                  <Route path="/business" element={<Business />} />
+                </Routes>
+              </>
+            )}
+          </BrowserRouter>
         </PWAProvider>
       </ThemeProvider>
     </React.StrictMode>

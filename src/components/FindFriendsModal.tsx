@@ -45,7 +45,7 @@ const FindFriendsModal: React.FC<FindFriendsModalProps> = ({
       fetchNearbyUsers();
       checkFriendStatuses();
     }
-  }, [isOpen]);
+  }, [isOpen, currentUserId]);
 
   const fetchNearbyUsers = async () => {
     setLoading(true);

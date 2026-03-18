@@ -90,6 +90,7 @@ interface Post {
   caption: string;
   hashtags?: string;
   accountType?: string;
+  userReacted?: boolean;
 }
 
 const NewsFeed: React.FC = () => {
@@ -465,6 +466,7 @@ const NewsFeed: React.FC = () => {
                       : typeof feed.accountType === "string"
                         ? feed.accountType
                         : undefined,
+                  userReacted: Boolean(feed.user_reacted),
                 };
               });
 

@@ -10,6 +10,10 @@ export type ReactionType =
   | "sad"
   | "angry";
 
+const POST_REACTION_IDS: Partial<Record<ReactionType, number>> = {
+  like: 1,
+};
+
 export interface Story {
   story_id: number;
   user_id: number;
@@ -37,6 +41,21 @@ export interface Reaction {
     display_name: string;
     profile_image_url?: string;
   };
+}
+
+export interface PostReactionStat {
+  reaction_id: number;
+  reaction_class: string;
+  reaction_text: string;
+  reaction_image?: string | null;
+  count: number | string;
+}
+
+export interface UserPostReaction {
+  reaction_id: number;
+  reaction_class: string;
+  reaction_text: string;
+  reaction_image?: string | null;
 }
 
 export interface Comment {
@@ -364,17 +383,42 @@ export const feedApi = {
   reactToPost: async (
     postId: number,
     reaction: ReactionType
-  ): Promise<{ success: boolean; data: Reaction; message: string }> => {
+  ): Promise<{
+    success: boolean;
+    data: {
+      reactions: PostReactionStat[];
+      user_reaction: UserPostReaction | null;
+    };
+    message: string;
+  }> => {
+    const reactionId = POST_REACTION_IDS[reaction];
+
+    if (!reactionId) {
+      throw new Error(
+        `Unsupported post reaction "${reaction}" for the current backend.`
+      );
+    }
+
     return apiRequest(`/posts/${postId}/react`, {
       method: "POST",
-      body: JSON.stringify({ reaction }),
+      body: JSON.stringify({
+        reaction_id: reactionId,
+        reaction,
+      }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any; // Type assertion needed - API response structure varies
   },
 
   removeReaction: async (
     postId: number
-  ): Promise<{ success: boolean; message: string }> => {
+  ): Promise<{
+    success: boolean;
+    data: {
+      reactions: PostReactionStat[];
+      user_reaction: null;
+    };
+    message: string;
+  }> => {
     return apiRequest(`/posts/${postId}/react`, {
       method: "DELETE",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

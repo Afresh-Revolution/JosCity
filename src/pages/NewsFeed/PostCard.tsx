@@ -17,7 +17,11 @@ import {
 import LazyImage from "../../components/LazyImage";
 import Avatar from "../../components/Avatar";
 import ConfirmationModal from "../../components/ConfirmationModal";
-import { feedApi, type Comment as ApiComment } from "../../services/feedApi";
+import {
+  feedApi,
+  type Comment as ApiComment,
+  type PostReactionStat,
+} from "../../services/feedApi";
 import { isAuthenticated, getUserData, getUserName } from "../../utils/userUtils";
 import { useNavigate } from "react-router-dom";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -49,6 +53,7 @@ interface Post {
   hashtags?: string;
   caption?: string;
   pinned?: boolean;
+  userReacted?: boolean;
 }
 
 interface PostCardProps {
@@ -60,7 +65,7 @@ interface PostCardProps {
 const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated }) => {
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
+  const [isLiked, setIsLiked] = useState(Boolean(post.userReacted));
   const [likeCount, setLikeCount] = useState(post.likes);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -102,6 +107,24 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
       ? `${caption.substring(0, MAX_CAPTION_LENGTH)}...`
       : caption;
 
+  useEffect(() => {
+    setIsLiked(Boolean(post.userReacted));
+    setLikeCount(post.likes);
+  }, [post.id, post.likes, post.userReacted]);
+
+  const getTotalReactionCount = (
+    reactions: PostReactionStat[] | undefined,
+    fallbackCount: number
+  ) => {
+    if (!Array.isArray(reactions)) return fallbackCount;
+
+    return reactions.reduce(
+      (total, currentReaction) =>
+        total + Number(currentReaction.count || 0),
+      0
+    );
+  };
+
   const handleLike = async () => {
     if (isLoading) return;
     
@@ -115,20 +138,28 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
     setIsLoading(true);
     try {
       if (isLiked) {
-        await feedApi.removeReaction(post.id);
+        const response = await feedApi.removeReaction(post.id);
         setIsLiked(false);
-        setLikeCount((prev) => prev - 1);
+        setLikeCount(
+          getTotalReactionCount(
+            response.data?.reactions,
+            Math.max(likeCount - 1, 0)
+          )
+        );
       } else {
         const response = await feedApi.reactToPost(post.id, "like");
-        setIsLiked(true);
-        setLikeCount((prev) => prev + 1);
+        const hasUserReaction = Boolean(response.data?.user_reaction);
+        setIsLiked(hasUserReaction);
+        setLikeCount(
+          getTotalReactionCount(response.data?.reactions, likeCount + 1)
+        );
         
         // Dispatch event for notification system
         const user = getUserData();
         const currentUserId = (user?.user_id as number) || ((user as { id?: number })?.id as number) || null;
         const currentUserName = getUserName();
         
-        if (response && response.data) {
+        if (response && response.data && hasUserReaction) {
           const likeEvent = new CustomEvent("postLiked", {
             detail: {
               postId: post.id,
@@ -144,8 +175,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
       }
     } catch (error) {
       console.error("Error reacting to post:", error);
-      // Revert on error
-      setIsLiked(!isLiked);
+      alert(
+        error instanceof Error ? error.message : "Failed to update reaction."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -776,11 +808,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
               isLiked ? "newsfeed-post__action-btn--active" : ""
             }`}
             onClick={handleLike}
-            title="Like"
+            title={isLiked ? "Liked" : "Like"}
             aria-pressed={isLiked}
           >
             <ThumbsUp size={20} />
-            <span>Like</span>
+            <span>{isLiked ? "Liked" : "Like"}</span>
           </button>
           <button
             className="newsfeed-post__action-btn"

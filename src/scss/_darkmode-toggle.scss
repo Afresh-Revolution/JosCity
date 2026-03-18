@@ -1,0 +1,135 @@
+@use "./variables" as *;
+
+// Theme toggle outside navbar: fixed to the right, vertically centered with navbar (crescent = dark, sun = light)
+// Navbar: desktop top 1rem+22px height 80px; tablet 70px; mobile 0.75rem+22px min-height 60px
+.navbar-theme-toggle {
+  position: fixed;
+  // Vertically center with navbar: navbar_center - toggle_height/2 (navbar 80px → center at 40px)
+  top: calc(1rem + 22px + 40px - 22px); // 1rem + 22px + 18px
+  right: 0.75rem;
+  z-index: 9999;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+  &:hover {
+    background: var(--bg-secondary);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  }
+
+  svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  // Tablet: navbar height 70px, top 1rem+22px → center at 35px
+  @media (max-width: 992px) {
+    top: calc(1rem + 22px + 35px - 20px);
+    right: 0.6rem;
+    width: 40px;
+    height: 40px;
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  // Mobile: navbar min-height 60px, top 0.75rem+22px → center at 30px
+  @media (max-width: 768px) {
+    top: calc(0.75rem + 22px + 30px - 18px);
+    right: 0.5rem;
+    width: 36px;
+    height: 36px;
+    svg {
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  // Small phones
+  @media (max-width: 480px) {
+    top: calc(0.75rem + 22px + 30px - 16px);
+    right: 0.4rem;
+    width: 32px;
+    height: 32px;
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+}
+
+.dark-mode-toggle {
+  position: fixed;
+  z-index: 99999;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 2px solid var(--color-primary);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  &:hover {
+    box-shadow: 0 6px 20px rgba(13, 74, 31, 0.4);
+    border-color: var(--color-primary);
+    background-color: var(--bg-secondary);
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.3s ease;
+  }
+
+  &:hover svg {
+    transform: rotate(15deg);
+  }
+
+  @media (max-width: 768px) {
+    width: 45px;
+    height: 45px;
+
+    svg {
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    width: 40px;
+    height: 40px;
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+}

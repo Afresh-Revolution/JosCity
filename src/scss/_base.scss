@@ -1,0 +1,174 @@
+@use "./variables" as *;
+
+// CSS Variables for Light Theme (default) - Generated from SCSS variables
+:root {
+  --bg-primary: #{$bg-primary-light};
+  --bg-secondary: #{$bg-secondary-light};
+  --bg-tertiary: #{$bg-tertiary-light};
+  --bg-overlay: #{$bg-overlay-light};
+  --text-primary: #{$text-primary-light};
+  --text-secondary: #{$text-secondary-light};
+  --text-tertiary: #{$text-tertiary-light};
+  --text-muted: #{$text-muted-light};
+  --color-primary: #{$color-primary};
+  --color-primary-hover: #{$color-primary-hover};
+  --color-primary-rgb: #{$color-primary-rgb};
+  --border-color: #{$border-color-light};
+  --border-color-strong: #{$border-color-strong-light};
+  --shadow-light: #{$shadow-light-light};
+  --shadow-medium: #{$shadow-medium-light};
+  --shadow-dark: #{$shadow-dark-light};
+  --card-bg: #{$card-bg-light};
+  --navbar-bg: #{$navbar-bg-light};
+  --footer-bg: #{$footer-bg-light};
+  --hero-overlay: #{$hero-overlay-light};
+}
+
+// CSS Variables for Dark Theme - Generated from SCSS variables
+[data-theme="dark"] {
+  --bg-primary: #{$bg-primary-dark};
+  --bg-secondary: #{$bg-secondary-dark};
+  --bg-tertiary: #{$bg-tertiary-dark};
+  --bg-overlay: #{$bg-overlay-dark};
+  --text-primary: #{$text-primary-dark};
+  --text-secondary: #{$text-secondary-dark};
+  --text-tertiary: #{$text-tertiary-dark};
+  --text-muted: #{$text-muted-dark};
+  --color-primary: #{$color-primary};
+  --color-primary-hover: #{$color-primary-hover};
+  --color-primary-rgb: #{$color-primary-rgb};
+  --border-color: #{$border-color-dark};
+  --border-color-strong: #{$border-color-strong-dark};
+  --shadow-light: #{$shadow-light-dark};
+  --shadow-medium: #{$shadow-medium-dark};
+  --shadow-dark: #{$shadow-dark-dark};
+  --card-bg: #{$card-bg-dark};
+  --navbar-bg: #{$navbar-bg-dark};
+  --footer-bg: #{$footer-bg-dark};
+  --hero-overlay: #{$hero-overlay-dark};
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: $font-family;
+  color: var(--text-primary);
+  background-color: var(--bg-secondary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+// ============================================
+// Global Badge Animations and Effects
+// Apply consistent animation and hover effects to all badges
+// Matches common BEM-style badge elements and a generic .badge class
+// ============================================
+
+// Badge float + pulse animation (translateY + scale combined transform)
+@keyframes badge-float-pulse {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-6px) scale(1.03);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+// Border glow animation
+@keyframes border-glow {
+  0%,
+  100% {
+    opacity: 0.5;
+    filter: blur(5px);
+  }
+  50% {
+    opacity: 1;
+    filter: blur(10px);
+  }
+}
+
+// Icon pulse animation
+@keyframes icon-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 5px rgba(52, 184, 106, 0.8));
+  }
+  50% {
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 15px rgba(52, 184, 106, 1));
+  }
+}
+
+// Global badge styles - apply hero badge animation and effects
+.badge,
+[class*="__badge"] {
+  position: relative;
+  overflow: hidden;
+  transition: background 0.3s ease, box-shadow 0.3s ease, transform 0.25s ease;
+  will-change: transform;
+  
+  // Float up/down + subtle pulse infinitely (same as hero badge)
+  animation: badge-float-pulse 3.2s ease-in-out infinite;
+  
+  // Animated border glow (same as hero badge)
+  &::before {
+    content: "";
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(
+      45deg,
+      $color-primary,
+      transparent,
+      $color-primary
+    );
+    border-radius: inherit;
+    z-index: -1;
+    opacity: 1;
+    animation: border-glow 2s ease-in-out infinite;
+    transition: opacity 0.3s ease;
+  }
+  
+  // Icon pulse animation for SVG elements inside badges
+  svg {
+    animation: icon-pulse 2s ease-in-out infinite;
+    
+    // Lighter green glow in dark mode
+    [data-theme="dark"] & {
+      filter: drop-shadow(0 0 5px rgba(52, 184, 106, 1));
+    }
+  }
+}
+
+// Hover effect (same as hero badge)
+.badge:hover,
+[class*="__badge"]:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.06),
+    rgba(255, 255, 255, 0.12)
+  );
+  transform: translateY(0) scale(1.08) rotate(-0.75deg);
+  box-shadow: 0 8px 28px rgba(52, 184, 106, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.25) inset;
+  
+  // Slightly faster border glow on hover
+  &::before {
+    animation: border-glow 1.6s ease-in-out infinite;
+  }
+}
+
+// Active state
+.badge:active,
+[class*="__badge"]:active {
+  transform: translateY(0) scale(0.98);
+}

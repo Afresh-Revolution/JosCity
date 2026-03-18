@@ -1,0 +1,108 @@
+// ----------------------------------------------------------------------------
+// Typography
+// ----------------------------------------------------------------------------
+$font-family: 'Arimo', sans-serif;
+$font-size: 16px;
+
+// ----------------------------------------------------------------------------
+// Colors - Light Theme (default)
+// ----------------------------------------------------------------------------
+// Background Colors
+$bg-primary-light: #ffffff;
+$bg-secondary-light: #f5f5f5;
+$bg-tertiary-light: #f7f7f7;
+$bg-overlay-light: rgba(255, 255, 255, 0.85);
+$card-bg-light: #ffffff;
+$navbar-bg-light: rgba(255, 255, 255, 0.85);
+$footer-bg-light: #2d7a4a;
+$hero-overlay-light: rgba(0, 0, 0, 0.7);
+
+// Text Colors
+$text-primary-light: #1a1a1a;
+$text-secondary-light: #333;
+$text-tertiary-light: #666;
+$text-muted-light: #999;
+$text-white: #ffffff;
+
+// Primary Colors
+$color-primary: #34b86a;
+$color-primary-hover: #3abf75;
+$color-primary-rgb: 52, 184, 106;
+$color-secondary: #f7f7f7;
+
+// Border Colors
+$border-color-light: rgba(0, 0, 0, 0.05);
+$border-color-strong-light: rgba(0, 0, 0, 0.1);
+$border-gray: #99a1af;
+
+// Shadow Colors
+$shadow-light-light: rgba(0, 0, 0, 0.08);
+$shadow-medium-light: rgba(0, 0, 0, 0.12);
+$shadow-dark-light: rgba(0, 0, 0, 0.2);
+$shadow-light: rgba(0, 0, 0, 0.1);
+$shadow-dark: rgba(0, 0, 0, 0.3);
+
+// ----------------------------------------------------------------------------
+// Colors - Dark Theme
+// ----------------------------------------------------------------------------
+// Background Colors
+$bg-primary-dark: #1a1a1a;
+$bg-secondary-dark: #2a2a2a;
+$bg-tertiary-dark: #333333;
+$bg-overlay-dark: rgba(26, 26, 26, 0.85);
+$card-bg-dark: #2a2a2a;
+$navbar-bg-dark: rgba(26, 26, 26, 0.85);
+$footer-bg-dark: #0a3d1a;
+$hero-overlay-dark: rgba(0, 0, 0, 0.8);
+
+// Text Colors
+$text-primary-dark: #ffffff;
+$text-secondary-dark: #e0e0e0;
+$text-tertiary-dark: #b0b0b0;
+$text-muted-dark: #888;
+
+// Border Colors
+$border-color-dark: rgba(255, 255, 255, 0.1);
+$border-color-strong-dark: rgba(255, 255, 255, 0.2);
+
+// Shadow Colors
+$shadow-light-dark: rgba(0, 0, 0, 0.3);
+$shadow-medium-dark: rgba(0, 0, 0, 0.5);
+$shadow-dark-dark: rgba(0, 0, 0, 0.7);
+
+// ----------------------------------------------------------------------------
+// Legacy/Additional Colors
+// ----------------------------------------------------------------------------
+$color-text: #333;
+$color-background: #fff;
+$panel-border-color: rgba(21, 252, 37, 0.6);
+$panel-bg-color: rgba(13, 74, 31, 0.2);
+$footer-color: #0d4a1f;
+$footer-color-dark: #004018;
+
+// ----------------------------------------------------------------------------
+// Layout & Spacing
+// ----------------------------------------------------------------------------
+$spacing-xs: 0.5rem;
+$spacing-sm: 1rem;
+$spacing-md: 1.5rem;
+$spacing-lg: 2rem;
+$spacing-xl: 2.5rem;
+$spacing-xxl: 4rem;
+
+// ----------------------------------------------------------------------------
+// Welcome Page Specific
+// ----------------------------------------------------------------------------
+$panel-border-radius: 15px;
+$panel-max-width: 750px;
+$glass-blur: 20px;
+$glass-saturate: 180%;
+
+// ----------------------------------------------------------------------------
+// Breakpoints
+// ----------------------------------------------------------------------------
+$breakpoint-xs: 575.98px;
+$breakpoint-sm: 767.98px;
+$breakpoint-md: 991.98px;
+$breakpoint-lg: 1199.98px;
+$breakpoint-xl: 1200px;

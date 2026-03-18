@@ -1,0 +1,94 @@
+// Primary Logo Animation
+// Glow and spin animation that starts after 5 seconds
+// First spin happens, then waits 5 seconds before next spin
+
+@keyframes logo-glow-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  // Spin happens in first 66.67% of animation (10s out of 15s total cycle)
+  66.67% {
+    transform: rotate(360deg);
+  }
+  // Hold at 360deg for remaining 33.33% (5s pause after spin)
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes logo-glow-pulse {
+  0% {
+    opacity: 0.8;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  66.67% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  100% {
+    opacity: 0.8;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+}
+
+// Apply animation to all primary logo images
+// Animation: 15s total cycle (10s spin + 5s pause), 5s initial delay, infinite loop
+.primary-logo-animated,
+.register-logo,
+.success-logo,
+.signin-logo,
+.coming-soon-logo,
+.footer__logo-image,
+.navbar__logo-image,
+.logo-image,
+.admin-header__logo img,
+.newsfeed-header__logo img {
+  position: relative;
+  display: block;
+  border-radius: 50%;
+  object-fit: contain;
+  animation: logo-glow-spin 15s ease-in-out 5s infinite;
+  will-change: transform;
+
+  // Circular glow effect using pseudo-element
+  &::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    transform-origin: center center;
+    width: 150%;
+    height: 150%;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      rgba(13, 74, 31, 1) 0%,
+      rgba(13, 74, 31, 0.8) 20%,
+      rgba(13, 74, 31, 0.6) 40%,
+      rgba(13, 74, 31, 0.4) 60%,
+      rgba(13, 74, 31, 0.2) 80%,
+      transparent 95%
+    );
+    animation: logo-glow-pulse 15s ease-in-out 5s infinite;
+    z-index: -1;
+    pointer-events: none;
+  }
+}
+
+// Enhanced glow on hover while maintaining animation
+.navbar__logo-image:hover {
+  &::before {
+    background: radial-gradient(
+      circle,
+      rgba(13, 74, 31, 1) 0%,
+      rgba(13, 74, 31, 0.9) 20%,
+      rgba(13, 74, 31, 0.7) 40%,
+      rgba(13, 74, 31, 0.5) 60%,
+      rgba(13, 74, 31, 0.3) 80%,
+      transparent 95%
+    );
+    filter: blur(15px);
+    box-shadow: 0 0 40px rgba(13, 74, 31, 0.8), 0 0 80px rgba(13, 74, 31, 0.6);
+  }
+}

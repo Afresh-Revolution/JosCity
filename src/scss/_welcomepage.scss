@@ -1,0 +1,868 @@
+@use "./variables" as *;
+@use "./mixins" as *;
+
+// ============================================================================
+// Welcome Page Styles
+// ============================================================================
+// Comprehensive styles for the welcome/registration page with responsive
+// design, accessibility features, and performance optimizations.
+
+// ----------------------------------------------------------------------------
+// Main Container
+// ----------------------------------------------------------------------------
+.welcome-page {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: $spacing-lg;
+  padding-bottom: 0;
+  overflow-x: hidden;
+}
+
+// ----------------------------------------------------------------------------
+// Background
+// ----------------------------------------------------------------------------
+.welcome-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+
+  .sky-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    will-change: transform;
+  }
+
+  .welcome-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    will-change: transform;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Registration Panel
+// ----------------------------------------------------------------------------
+.registration-panel {
+  position: relative;
+  z-index: 1;
+  width: 90%;
+  max-width: $panel-max-width;
+  padding: 6rem $spacing-xl calc(10rem + 50px) $spacing-xl;
+  border-radius: $panel-border-radius;
+  border: 2px solid $panel-border-color;
+  @include center-content;
+  margin-top: $spacing-xxl;
+  margin-bottom: 0;
+  flex-shrink: 0;
+  flex-grow: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: $spacing-lg;
+  background: $panel-bg-color;
+  @include glassmorphism($glass-blur, $glass-saturate);
+  box-shadow: 0 8px 32px 0 $shadow-light,
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+  overflow: visible;
+  box-sizing: border-box;
+  min-height: fit-content;
+
+  // Liquid glass effect with subtle animation
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: $panel-border-radius;
+    padding: 2px;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.05) 50%,
+      rgba(13, 74, 31, 0.1) 100%
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    z-index: -1;
+    animation: shimmer 3s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  // Focus state for accessibility
+  &:focus-within {
+    border-color: $color-primary;
+    box-shadow: 0 8px 32px 0 $shadow-light, 0 0 0 3px rgba(13, 74, 31, 0.2);
+  }
+
+  // Ensure ScrollAnimate wrappers don't add extra spacing
+  > .scroll-animate {
+    width: 100%;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-sizing: border-box;
+    margin: 0;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Animations
+// ----------------------------------------------------------------------------
+@keyframes shimmer {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Logo Container
+// ----------------------------------------------------------------------------
+.logo-container {
+  position: relative;
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0;
+  margin-top: 0;
+  gap: $spacing-sm;
+  flex-shrink: 0;
+  box-sizing: border-box;
+
+  .logo-image {
+    width: 67px;
+    height: 67px;
+    margin-bottom: 0;
+    object-fit: contain;
+    @include smooth-transition(transform);
+    
+    // Remove white background and box-shadow from lazy loading wrapper
+    &.lazy-image-wrapper {
+      background-color: transparent !important;
+      box-shadow: none !important;
+    }
+  }
+
+  .logo-text {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: $text-white;
+    text-shadow: 0 2px 8px $shadow-dark;
+    letter-spacing: 2px;
+    font-family: $font-family;
+    line-height: 1.2;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Registration Heading
+// ----------------------------------------------------------------------------
+.register-heading {
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: $text-white;
+  text-shadow: 0 2px 8px $shadow-dark;
+  font-family: $font-family;
+  line-height: 1.4;
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+// ----------------------------------------------------------------------------
+// Registration Buttons Container
+// ----------------------------------------------------------------------------
+.registration-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  max-width: 300px;
+  width: 100%;
+  margin: 0 auto;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+// ----------------------------------------------------------------------------
+// Registration Buttons
+// ----------------------------------------------------------------------------
+.reg-button {
+  flex: 1;
+  width: 100%;
+  padding: 0.7rem $spacing-sm;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  @include smooth-transition;
+  font-family: $font-family;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: relative;
+  overflow: hidden;
+  min-height: 44px; // WCAG touch target minimum
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+
+  // Shimmer effect
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    transition: left 0.5s ease;
+    pointer-events: none;
+  }
+
+  &:hover::before {
+    left: 100%;
+  }
+
+  // Focus states for accessibility
+  &:focus-visible {
+    @include focus-visible;
+  }
+
+  // Personal button - active state
+  &.personal-button.active {
+    background: $color-primary;
+    color: $text-white;
+    box-shadow: 0 4px 16px rgba(2, 180, 73, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+
+  // Personal button - inactive state
+  &.personal-button:not(.active) {
+    background: #004018;
+    color: white;
+    border: 2px solid $color-primary;
+    box-shadow: 0 4px 16px rgba(13, 74, 31, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  // Business button - active state
+  &.business-button.active {
+    background-color: #014922 !important;
+    color: $text-white !important;
+    border: 2px solid $color-primary;
+    box-shadow: 0 4px 16px rgba(13, 74, 31, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  // Business button - inactive state
+  &.business-button:not(.active) {
+    background: rgba(89, 248, 153, 0.2);
+    color: $footer-color-dark;
+    border: 2px solid $color-primary;
+    box-shadow: 0 4px 16px rgba(13, 74, 31, 0.2),
+      inset 0 1px 0 rgba(0, 64, 24, 0.3);
+  }
+
+  // Hover states - unified for both button types
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    transform: scale(1.02);
+    border: none !important;
+    box-shadow: 0 4px 16px rgba(1, 73, 34, 0.4),
+      inset 0 1px 0 rgba(0, 0, 0, 0.2) !important;
+  }
+
+  // Active/pressed state
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .registration-panel {
+    width: 95%;
+    padding: 2rem 1.5rem calc(2rem + 50px) 1.5rem;
+    border-radius: 15px;
+    margin: 0 auto;
+    gap: $spacing-md;
+    overflow: visible;
+    box-sizing: border-box;
+    min-height: fit-content;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+    .logo-container {
+      margin-top: 0;
+      margin-bottom: 0;
+      order: -1;
+      align-self: center;
+      width: 100%;
+      max-width: 100%;
+      flex-direction: column;
+      gap: 0.75rem;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-sizing: border-box;
+
+    .logo-image {
+      width: 45px;
+      height: 45px;
+      flex-shrink: 0;
+    }
+
+    .logo-text {
+      font-size: 2rem;
+    }
+
+    .register-heading {
+      font-size: 1.25rem;
+      margin: 0;
+      text-align: center;
+    }
+  }
+
+  .register-heading {
+    font-size: 1.25rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    
+    // When inside logo-container on mobile, override with inline styles
+    .logo-container & {
+      font-size: 1.25rem;
+      margin-bottom: 0;
+      text-align: center;
+    }
+  }
+
+  .registration-buttons {
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+  }
+
+  .reg-button {
+    width: 100%;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.85rem;
+  }
+
+  .register-footer-content {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .register-footer-links {
+    justify-content: center;
+  }
+}
+
+.signin-link-container {
+  text-align: center;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+
+  .signin-link-text {
+    color: white;
+    font-size: 0.95rem;
+    font-family: $font-family;
+    margin: 0;
+  }
+
+  .signin-link-button {
+    background: none;
+    border: none;
+    color: #0d4a1f;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: $font-family;
+    font-size: 0.95rem;
+    text-decoration: underline;
+    transition: color 0.3s ease;
+    padding: 0;
+    margin-left: 0.25rem;
+
+    &:hover {
+      color: white;
+    }
+  }
+}
+
+.register-footer {
+  position: relative;
+  top: 10rem;
+  z-index: 1;
+  width: 100%;
+  margin-top: 13rem;
+  margin-bottom: 0;
+  border-top: 0.4px solid $border-gray;
+  box-shadow: 0 -1px 0 0 rgba(255, 255, 255, 0.2);
+
+  &-content {
+    max-width: 1200px;
+    @include center-content;
+    padding: $spacing-md $spacing-lg;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+  }
+
+  &-copyright {
+    color: $footer-color-dark;
+    font-size: 0.875rem;
+    font-family: $font-family;
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  &-links {
+    display: flex;
+    gap: $spacing-md;
+    flex-wrap: wrap;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    a {
+      color: $footer-color-dark;
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-family: $font-family;
+      @include smooth-transition(color);
+      position: relative;
+
+      // Underline on hover
+      &::after {
+        content: "";
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background-color: $footer-color-dark;
+        @include smooth-transition(width);
+      }
+
+      &:hover {
+        color: $border-gray;
+
+        &::after {
+          width: 100%;
+        }
+      }
+
+      &:focus-visible {
+        @include focus-visible;
+      }
+    }
+  }
+}
+
+// ============================================================================
+// Responsive Design - Mobile First Approach
+// ============================================================================
+
+// ----------------------------------------------------------------------------
+// Extra Small Devices (phones, less than 576px)
+// ----------------------------------------------------------------------------
+@media (max-width: $breakpoint-xs) {
+  .welcome-page {
+    padding-top: 13rem;
+    padding-left: $spacing-xs;
+    padding-right: $spacing-xs;
+  }
+
+  .registration-panel {
+    width: 100%;
+    max-width: 100%;
+    padding: $spacing-md $spacing-sm calc(3rem + 50px) $spacing-sm;
+    @include center-content;
+    margin-top: $spacing-lg;
+    margin-bottom: $spacing-sm;
+    border-radius: 12px;
+    gap: $spacing-md;
+    overflow: visible;
+    box-sizing: border-box;
+    min-height: fit-content;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+    .logo-container {
+      margin-top: 0;
+      margin-bottom: 0;
+      order: -1;
+      align-self: center;
+      width: 100%;
+      max-width: 100%;
+      flex-direction: column;
+      gap: 0.5rem;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-sizing: border-box;
+
+    .logo-image {
+      width: 48px;
+      height: 48px;
+      flex-shrink: 0;
+    }
+
+    .logo-text {
+      font-size: 1.5rem;
+      letter-spacing: 1px;
+    }
+
+    .register-heading {
+      font-size: 1.1rem;
+      margin: 0;
+      text-align: center;
+    }
+  }
+
+  .register-heading {
+    font-size: 1.25rem;
+    margin-bottom: $spacing-md;
+    padding: 0 $spacing-xs;
+  }
+
+  .registration-buttons {
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+  }
+
+  .reg-button {
+    width: 100%;
+    padding: 0.75rem $spacing-sm;
+    font-size: 0.8rem;
+  }
+
+  .register-footer-content {
+    flex-direction: column;
+    text-align: center;
+    padding: $spacing-sm;
+    gap: 0.75rem;
+  }
+
+  .register-footer-copyright {
+    font-size: 0.75rem;
+  }
+
+  .register-footer-links {
+    justify-content: center;
+    gap: $spacing-sm;
+    flex-wrap: wrap;
+
+    a {
+      font-size: 0.75rem;
+    }
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Small Devices (landscape phones, 576px and up)
+// ----------------------------------------------------------------------------
+@media (min-width: 576px) and (max-width: $breakpoint-sm) {
+  .welcome-page {
+    padding-top: $spacing-md;
+    padding-left: $spacing-sm;
+    padding-right: $spacing-sm;
+  }
+
+  .registration-panel {
+    width: 95%;
+    max-width: 600px;
+    padding: 3rem $spacing-lg calc(6rem + 50px) $spacing-lg;
+    @include center-content;
+    margin-top: 3rem;
+    margin-bottom: $spacing-lg;
+    gap: $spacing-lg;
+    overflow: visible;
+    box-sizing: border-box;
+    min-height: fit-content;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .logo-container {
+    margin-top: 0;
+    margin-bottom: 0;
+
+    .logo-image {
+      width: 53px;
+      height: 53px;
+    }
+
+    .logo-text {
+      font-size: 2.25rem;
+    }
+  }
+
+  .register-heading {
+    font-size: 1.4rem;
+    margin-bottom: $spacing-lg;
+  }
+
+  .registration-buttons {
+    flex-direction: column;
+    gap: $spacing-sm;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .reg-button {
+    padding: 0.65rem $spacing-sm;
+    font-size: 0.9rem;
+  }
+
+  .register-footer-content {
+    padding: 1.25rem $spacing-md;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Medium Devices (tablets, 768px and up)
+// ----------------------------------------------------------------------------
+@media (min-width: 768px) and (max-width: $breakpoint-md) {
+  .welcome-page {
+    padding-top: $spacing-lg;
+  }
+
+  .registration-panel {
+    width: 90%;
+    max-width: 700px;
+    padding: 5rem $spacing-xl calc(8rem + 50px) $spacing-xl;
+    @include center-content;
+    margin-top: 3.5rem;
+    margin-bottom: $spacing-lg;
+    gap: $spacing-lg;
+    overflow: visible;
+    box-sizing: border-box;
+    min-height: fit-content;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .logo-container {
+    margin-top: 0;
+
+    .logo-image {
+      width: 63px;
+      height: 63px;
+    }
+
+    .logo-text {
+      font-size: 2.4rem;
+    }
+  }
+
+  .register-heading {
+    font-size: 1.5rem;
+  }
+
+  .registration-buttons {
+    max-width: 350px;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .reg-button {
+    padding: 0.7rem 1.2rem;
+    font-size: 0.95rem;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Large Devices (desktops, 992px and up)
+// ----------------------------------------------------------------------------
+@media (min-width: 992px) and (max-width: $breakpoint-lg) {
+  .registration-panel {
+    width: 85%;
+    max-width: $panel-max-width;
+    padding: 6rem $spacing-xl calc(10rem + 50px) $spacing-xl;
+    @include center-content;
+    gap: $spacing-lg;
+    overflow: visible;
+    box-sizing: border-box;
+    min-height: fit-content;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .register-footer-content {
+    max-width: 1100px;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Extra Large Devices (large desktops, 1200px and up)
+// ----------------------------------------------------------------------------
+@media (min-width: $breakpoint-xl) {
+  .registration-panel {
+    width: 90%;
+    max-width: $panel-max-width;
+    @include center-content;
+    gap: $spacing-lg;
+    overflow: visible;
+    box-sizing: border-box;
+    min-height: fit-content;
+    padding: 6rem $spacing-xl calc(10rem + 50px) $spacing-xl;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .register-footer-content {
+    max-width: 1200px;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Landscape Orientation Adjustments
+// ----------------------------------------------------------------------------
+@media (orientation: landscape) and (max-height: 600px) {
+  .welcome-page {
+    padding-top: $spacing-sm;
+    min-height: 0;
+  }
+
+  .registration-panel {
+    padding: $spacing-lg $spacing-xl calc(3rem + 50px) $spacing-xl;
+    @include center-content;
+    margin-top: $spacing-sm;
+    margin-bottom: $spacing-sm;
+    gap: $spacing-md;
+    overflow: visible;
+    box-sizing: border-box;
+    min-height: fit-content;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .logo-container {
+    margin-top: 0;
+    margin-bottom: 0;
+
+    .logo-image {
+      width: 46px;
+      height: 46px;
+    }
+
+    .logo-text {
+      font-size: 1.75rem;
+    }
+  }
+
+  .register-heading {
+    font-size: 1.25rem;
+    margin-bottom: $spacing-sm;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// High DPI / Retina Displays
+// ----------------------------------------------------------------------------
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .logo-image {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Reduced Motion (Accessibility)
+// ----------------------------------------------------------------------------
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .registration-panel::before {
+    animation: none;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Print Styles
+// ----------------------------------------------------------------------------
+@media print {
+  .welcome-background {
+    display: none;
+  }
+
+  .registration-panel {
+    background: $text-white;
+    border: 1px solid #000;
+    box-shadow: none;
+  }
+
+  .reg-button {
+    border: 1px solid #000;
+  }
+}

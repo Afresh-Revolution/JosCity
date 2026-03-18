@@ -1,0 +1,205 @@
+@use "./variables" as *;
+
+.message-popup {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  animation: slideInRight 0.3s ease-out;
+  max-width: 400px;
+  width: calc(100% - 40px);
+
+  @media (max-width: 480px) {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    width: calc(100% - 20px);
+    max-width: none;
+  }
+
+  &__content {
+    background-color: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 16px;
+    position: relative;
+    border: 1px solid var(--border-color);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+
+    @media (max-width: 480px) {
+      padding: 12px;
+    }
+  }
+
+  &__close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+
+    @media (max-width: 480px) {
+      top: 8px;
+      right: 8px;
+    }
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding-right: 24px;
+
+    @media (max-width: 480px) {
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+  }
+
+  &__avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    overflow: hidden;
+
+    @media (max-width: 480px) {
+      width: 36px;
+      height: 36px;
+    }
+  }
+
+  &__info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 2px 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: color 0.3s ease;
+
+    @media (max-width: 480px) {
+      font-size: 13px;
+    }
+  }
+
+  &__timestamp {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin: 0;
+    transition: color 0.3s ease;
+
+    @media (max-width: 480px) {
+      font-size: 11px;
+    }
+  }
+
+  &__body {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+
+    @media (max-width: 480px) {
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+  }
+
+  &__icon {
+    color: #0d4a1f;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  &__message {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.5;
+    flex: 1;
+    word-wrap: break-word;
+    transition: color 0.3s ease;
+
+    @media (max-width: 480px) {
+      font-size: 13px;
+    }
+  }
+
+  &__action {
+    width: 100%;
+    padding: 8px 16px;
+    background-color: #0d4a1f;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      background-color: #0a3a18;
+    }
+
+    @media (max-width: 480px) {
+      padding: 10px 16px;
+      font-size: 12px;
+    }
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+// Dark mode support
+[data-theme="dark"] {
+  .message-popup {
+    &__content {
+      background-color: var(--card-bg);
+      border-color: var(--border-color);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    &__name {
+      color: var(--text-primary);
+    }
+
+    &__timestamp {
+      color: var(--text-tertiary);
+    }
+
+    &__message {
+      color: var(--text-secondary);
+    }
+  }
+}
+

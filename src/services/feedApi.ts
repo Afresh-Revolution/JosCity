@@ -81,6 +81,9 @@ export interface Share {
   post_id: number;
   user_id: number;
   created_at: string;
+  time_ago?: string;
+  shares_count?: number;
+  already_shared?: boolean;
   user?: {
     user_id: number;
     display_name: string;
@@ -506,7 +509,11 @@ export const feedApi = {
   // ========== Shares ==========
   sharePost: async (
     postId: number
-  ): Promise<{ success: boolean; data: Share; message: string }> => {
+  ): Promise<{
+    success: boolean;
+    data: Share | Record<string, unknown>;
+    message: string;
+  }> => {
     return apiRequest(`/posts/${postId}/share`, {
       method: "POST",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

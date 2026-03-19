@@ -35,6 +35,20 @@ interface Comment {
   timeAgo: string;
 }
 
+interface EmbeddedPost {
+  id: number;
+  userId?: number;
+  userName: string;
+  userAvatar: string;
+  timeAgo: string;
+  caption?: string;
+  image?: string;
+  images?: string[];
+  video?: string;
+  videos?: string[];
+  unavailable?: boolean;
+}
+
 interface Post {
   id: number;
   userId?: number; // author user_id - only they can edit/delete/pin
@@ -54,6 +68,8 @@ interface Post {
   caption?: string;
   pinned?: boolean;
   userReacted?: boolean;
+  userShared?: boolean;
+  originalPost?: EmbeddedPost;
 }
 
 interface PostCardProps {
@@ -66,6 +82,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLiked, setIsLiked] = useState(Boolean(post.userReacted));
+  const [hasShared, setHasShared] = useState(Boolean(post.userShared));
   const [likeCount, setLikeCount] = useState(post.likes);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -107,10 +124,102 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
       ? `${caption.substring(0, MAX_CAPTION_LENGTH)}...`
       : caption;
 
+  const getImageSources = useCallback(
+    (postItem: { images?: string[]; image?: string }) => {
+      const imageArray: string[] = [];
+      if (postItem.images && postItem.images.length > 0) {
+        imageArray.push(...postItem.images.filter((img) => img && img.trim()));
+      } else if (postItem.image && postItem.image.trim()) {
+        imageArray.push(postItem.image);
+      }
+      return imageArray;
+    },
+    []
+  );
+
+  const getVideoSources = useCallback(
+    (postItem: { videos?: string[]; video?: string }) => {
+      const videoArray: string[] = [];
+      if (postItem.videos && postItem.videos.length > 0) {
+        videoArray.push(...postItem.videos.filter((vid) => vid && vid.trim()));
+      } else if (postItem.video && postItem.video.trim()) {
+        videoArray.push(postItem.video);
+      }
+      return videoArray;
+    },
+    []
+  );
+
+  const renderSharedOriginalPost = (originalPost: EmbeddedPost) => {
+    if (originalPost.unavailable) {
+      return (
+        <div className="newsfeed-post__shared-card newsfeed-post__shared-card--unavailable">
+          <p>Original post is no longer available.</p>
+        </div>
+      );
+    }
+
+    const originalImages = getImageSources(originalPost);
+    const originalVideos = getVideoSources(originalPost);
+
+    return (
+      <div className="newsfeed-post__shared-card">
+        <div className="newsfeed-post__shared-header">
+          <Avatar
+            src={originalPost.userAvatar}
+            name={originalPost.userName}
+            size={36}
+            className="newsfeed-post__shared-avatar"
+          />
+          <div className="newsfeed-post__shared-details">
+            <h4 className="newsfeed-post__shared-name">{originalPost.userName}</h4>
+            <span className="newsfeed-post__shared-time">
+              {originalPost.timeAgo}
+            </span>
+          </div>
+        </div>
+
+        {originalPost.caption && (
+          <div className="newsfeed-post__shared-caption">
+            <p>{originalPost.caption}</p>
+          </div>
+        )}
+
+        {originalImages.length > 0 && (
+          <div className="newsfeed-post__shared-media">
+            {originalImages.map((imageSrc, index) => (
+              <LazyImage
+                key={`${originalPost.id}-image-${index}`}
+                src={imageSrc}
+                alt={`${originalPost.userName}'s post image ${index + 1}`}
+                className="newsfeed-post__image"
+              />
+            ))}
+          </div>
+        )}
+
+        {originalVideos.length > 0 && (
+          <div className="newsfeed-post__shared-media">
+            {originalVideos.map((videoSrc, index) => (
+              <video
+                key={`${originalPost.id}-video-${index}`}
+                src={videoSrc}
+                controls
+                className="newsfeed-post__image"
+                style={{ width: "100%", height: "auto", display: "block" }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   useEffect(() => {
     setIsLiked(Boolean(post.userReacted));
     setLikeCount(post.likes);
-  }, [post.id, post.likes, post.userReacted]);
+    setHasShared(Boolean(post.userShared));
+  }, [post.id, post.likes, post.userReacted, post.userShared]);
 
   const getTotalReactionCount = (
     reactions: PostReactionStat[] | undefined,
@@ -308,32 +417,22 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
 
     setIsLoading(true);
     try {
-      // Share to feed
-      await feedApi.sharePost(post.id);
-      
-      // Also use native share if available
-      if (navigator.share) {
-        await navigator.share({
-          title: `${post.userName}'s post`,
-          text: caption || post.hashtags || "",
-          url: window.location.href,
-        });
-      } else {
-        await navigator.clipboard.writeText(window.location.href);
-        console.log("Link copied to clipboard");
+      const response = await feedApi.sharePost(post.id);
+      if (response.success) {
+        setHasShared(true);
+        window.dispatchEvent(
+          new CustomEvent("feedPostShared", {
+            detail: response.data,
+          })
+        );
       }
     } catch (error) {
-      // User cancelled share or error occurred
-      if ((error as Error).name !== "AbortError") {
-        console.error("Error sharing:", error);
-      }
-      // Fallback to clipboard
-      try {
-        await navigator.clipboard.writeText(window.location.href);
-        console.log("Link copied to clipboard");
-      } catch (clipboardError) {
-        console.error("Clipboard error:", clipboardError);
-      }
+      console.error("Error sharing:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to share this post into the feed."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -409,25 +508,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
   }, [showMenu]);
 
   // Get all images and videos
-  const getAllImages = useCallback(() => {
-    const imageArray: string[] = [];
-    if (post.images && post.images.length > 0) {
-      imageArray.push(...post.images.filter(img => img && img.trim()));
-    } else if (post.image && post.image.trim()) {
-      imageArray.push(post.image);
-    }
-    return imageArray;
-  }, [post.images, post.image]);
+  const getAllImages = useCallback(() => getImageSources(post), [getImageSources, post]);
 
-  const getAllVideos = useCallback(() => {
-    const videoArray: string[] = [];
-    if (post.videos && post.videos.length > 0) {
-      videoArray.push(...post.videos.filter(vid => vid && vid.trim()));
-    } else if (post.video && post.video.trim()) {
-      videoArray.push(post.video);
-    }
-    return videoArray;
-  }, [post.videos, post.video]);
+  const getAllVideos = useCallback(() => getVideoSources(post), [getVideoSources, post]);
 
   const handleOpenImageViewer = (index: number) => {
     setCurrentImageIndex(index);
@@ -576,6 +659,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
           </p>
         </div>
       )}
+
+      {post.originalPost && renderSharedOriginalPost(post.originalPost)}
 
       {(() => {
         // Get all images - support both single image and images array
@@ -824,12 +909,14 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
             <span>Comment</span>
           </button>
           <button
-            className="newsfeed-post__action-btn"
+            className={`newsfeed-post__action-btn ${
+              hasShared ? "newsfeed-post__action-btn--active" : ""
+            }`}
             onClick={handleShare}
-            title="Share"
+            title={hasShared ? "Shared" : "Share"}
           >
             <Share2 size={20} />
-            <span>Share</span>
+            <span>{hasShared ? "Shared" : "Share"}</span>
           </button>
           <button
             className={`newsfeed-post__action-btn newsfeed-post__action-btn--save ${

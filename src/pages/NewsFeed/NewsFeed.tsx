@@ -72,6 +72,20 @@ interface SearchResult {
   postCount?: number;
 }
 
+interface EmbeddedPost {
+  id: number;
+  userId?: number;
+  userName: string;
+  userAvatar: string;
+  timeAgo: string;
+  caption?: string;
+  image?: string;
+  images?: string[];
+  video?: string;
+  videos?: string[];
+  unavailable?: boolean;
+}
+
 interface Post {
   id: number;
   userId?: number; // author user_id - for edit/delete/pin (own posts only)
@@ -91,6 +105,8 @@ interface Post {
   hashtags?: string;
   accountType?: string;
   userReacted?: boolean;
+  userShared?: boolean;
+  originalPost?: EmbeddedPost;
 }
 
 const NewsFeed: React.FC = () => {
@@ -358,6 +374,22 @@ const NewsFeed: React.FC = () => {
               likes_count?: number;
               likes?: number;
               user_reacted?: boolean;
+              user_shared?: boolean;
+              original_post?: {
+                id?: number;
+                text?: string;
+                caption?: string;
+                time_ago?: string;
+                unavailable?: boolean;
+                author?: {
+                  id?: number;
+                  name?: string;
+                  picture?: string;
+                };
+                media?: Array<{ url?: string; type?: string }>;
+                media_urls?: string[];
+                media_types?: string[];
+              };
               comments_preview?: Array<{ id?: number; comment?: string; time_ago?: string; author?: { name?: string; picture?: string; verified?: boolean } }>;
               comments_count?: number;
               comments?: number;
@@ -391,6 +423,7 @@ const NewsFeed: React.FC = () => {
                 let images = feed.images;
                 let video = feed.video_url || feed.video || "";
                 let videos = feed.videos;
+                let originalPost: EmbeddedPost | undefined;
 
                 // Backend formatPost: media = [{ url, type }, ...]; also media_urls + media_types
                 if (feed.media && Array.isArray(feed.media) && feed.media.length > 0) {
@@ -434,6 +467,96 @@ const NewsFeed: React.FC = () => {
                   }
                 }
 
+                if (feed.original_post && typeof feed.original_post === "object") {
+                  const originalMedia = Array.isArray(feed.original_post.media)
+                    ? feed.original_post.media
+                    : [];
+                  let originalImage = "";
+                  let originalImages: string[] | undefined;
+                  let originalVideo = "";
+                  let originalVideos: string[] | undefined;
+
+                  if (originalMedia.length > 0) {
+                    const originalPhotoUrls = originalMedia
+                      .filter(
+                        (item) =>
+                          (item.type || "").toLowerCase().startsWith("image") ||
+                          (item.type || "").toLowerCase() === "photo"
+                      )
+                      .map((item) => item.url)
+                      .filter((url): url is string => Boolean(url));
+                    const originalVideoUrls = originalMedia
+                      .filter((item) =>
+                        (item.type || "").toLowerCase().startsWith("video")
+                      )
+                      .map((item) => item.url)
+                      .filter((url): url is string => Boolean(url));
+
+                    if (originalPhotoUrls.length > 0) {
+                      originalImage = originalPhotoUrls[0];
+                      if (originalPhotoUrls.length > 1) {
+                        originalImages = originalPhotoUrls;
+                      }
+                    }
+
+                    if (originalVideoUrls.length > 0) {
+                      originalVideo = originalVideoUrls[0];
+                      if (originalVideoUrls.length > 1) {
+                        originalVideos = originalVideoUrls;
+                      }
+                    }
+                  } else if (
+                    (feed.original_post.media_urls &&
+                      feed.original_post.media_urls.length > 0) ||
+                    (feed.original_post.media_types &&
+                      feed.original_post.media_types.length > 0)
+                  ) {
+                    const originalUrls = feed.original_post.media_urls || [];
+                    const originalTypes = feed.original_post.media_types || [];
+                    const originalPhotoUrls = originalUrls.filter((_, index) => {
+                      const mediaType = (originalTypes[index] || "").toLowerCase();
+                      return (
+                        mediaType.startsWith("image") || mediaType === "photo"
+                      );
+                    });
+                    const originalVideoUrls = originalUrls.filter((_, index) => {
+                      const mediaType = (originalTypes[index] || "").toLowerCase();
+                      return mediaType.startsWith("video");
+                    });
+
+                    if (originalPhotoUrls.length > 0) {
+                      originalImage = originalPhotoUrls[0];
+                      if (originalPhotoUrls.length > 1) {
+                        originalImages = originalPhotoUrls;
+                      }
+                    }
+
+                    if (originalVideoUrls.length > 0) {
+                      originalVideo = originalVideoUrls[0];
+                      if (originalVideoUrls.length > 1) {
+                        originalVideos = originalVideoUrls;
+                      }
+                    }
+                  }
+
+                  originalPost = {
+                    id: feed.original_post.id ?? 0,
+                    userId: feed.original_post.author?.id,
+                    userName: feed.original_post.author?.name || "Unknown User",
+                    userAvatar: feed.original_post.author?.picture || "",
+                    timeAgo: feed.original_post.time_ago || "Just now",
+                    caption:
+                      feed.original_post.text ||
+                      feed.original_post.caption ||
+                      "",
+                    image: originalImage,
+                    images: originalImages,
+                    video: originalVideo,
+                    videos: originalVideos,
+                    unavailable: Boolean(feed.original_post.unavailable),
+                  };
+                }
+
                 const likes =
                   feed.reactions_count ?? feed.likes_count ?? feed.likes ?? 0;
                 const comments =
@@ -467,6 +590,8 @@ const NewsFeed: React.FC = () => {
                         ? feed.accountType
                         : undefined,
                   userReacted: Boolean(feed.user_reacted),
+                  userShared: Boolean(feed.user_shared),
+                  originalPost,
                 };
               });
 
@@ -506,6 +631,17 @@ const NewsFeed: React.FC = () => {
   // Fetch feeds on component mount
   useEffect(() => {
     fetchFeeds();
+  }, [fetchFeeds]);
+
+  useEffect(() => {
+    const handleFeedPostShared = () => {
+      void fetchFeeds();
+    };
+
+    window.addEventListener("feedPostShared", handleFeedPostShared);
+    return () => {
+      window.removeEventListener("feedPostShared", handleFeedPostShared);
+    };
   }, [fetchFeeds]);
 
   // Helper function to normalize media URLs (handle relative paths)
@@ -819,7 +955,14 @@ const NewsFeed: React.FC = () => {
       if (res.success && Array.isArray(res.data)) {
         const mapped: Notification[] = res.data.map((n) => ({
           id: n.id,
-          type: n.action?.toLowerCase().includes("like") || n.action?.toLowerCase().includes("react") ? "like" : n.action?.toLowerCase().includes("comment") ? "comment" : "mention",
+          type: n.action?.toLowerCase().includes("like") ||
+            n.action?.toLowerCase().includes("react")
+              ? "like"
+              : n.action?.toLowerCase().includes("comment")
+                ? "comment"
+                : n.action?.toLowerCase().includes("share")
+                  ? "share"
+                  : "mention",
           userId: n.from_user_id ?? 0,
           userName: n.from_user?.display_name ?? "Someone",
           userAvatar: n.from_user?.profile_image_url ?? "",

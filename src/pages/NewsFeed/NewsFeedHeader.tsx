@@ -31,6 +31,7 @@ interface NewsFeedHeaderProps {
   onOpenNotifications?: () => void;
   onProfileClick?: () => void;
   unreadNotificationsCount?: number;
+  unreadMessagesCount?: number;
   mainContentRef?: React.RefObject<HTMLElement>;
   /** Alternate prop names used by some pages */
   showCreateMenu?: boolean;
@@ -53,6 +54,7 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
   onOpenNotifications,
   onProfileClick,
   unreadNotificationsCount = 0,
+  unreadMessagesCount = 0,
   mainContentRef,
   showCreateMenu = true,
   showRightSidebarToggle = true,
@@ -250,11 +252,16 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
             <UserPlus size={20} />
           </button>
           <button
-            className="newsfeed-header__icon-btn"
+            className="newsfeed-header__icon-btn newsfeed-header__icon-btn--messages"
             title="Messages"
             onClick={handleOpenChat}
           >
             <MessageCircle size={20} />
+            {unreadMessagesCount > 0 && (
+              <span className="newsfeed-header__badge">
+                {unreadMessagesCount > 9 ? "9+" : unreadMessagesCount}
+              </span>
+            )}
           </button>
           <button
             className="newsfeed-header__icon-btn newsfeed-header__icon-btn--notifications"

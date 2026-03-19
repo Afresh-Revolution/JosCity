@@ -345,6 +345,7 @@
       flex-shrink: 0;
     }
 
+    &--messages,
     &--notifications {
       position: relative;
       overflow: visible;

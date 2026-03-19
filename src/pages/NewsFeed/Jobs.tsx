@@ -12,6 +12,7 @@ import JobListingCard from "../../components/JobListingCard";
 import ApplicationCard from "../../components/ApplicationCard";
 import NewsFeedHeader from "./NewsFeedHeader";
 import FindFriendsModal from "../../components/FindFriendsModal";
+import ChatPanel from "../../components/ChatPanel";
 import CreateJobModal from "../../components/CreateJobModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import JobApplicationModal, {
@@ -152,6 +153,7 @@ const Jobs: React.FC = () => {
   // Modal/Panel states
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
   const [notifications] = useState<Notification[]>([]); // Empty notifications for now
@@ -606,6 +608,7 @@ const Jobs: React.FC = () => {
         onMessageClick={handleMessageClick}
         onAddFriendClick={handleAddFriendClick}
         unreadNotificationsCount={unreadNotificationsCount}
+        unreadMessagesCount={unreadMessagesCount}
       />
 
       <div className="jobs-container">
@@ -982,34 +985,11 @@ const Jobs: React.FC = () => {
           );
         })()}
 
-      {/* Chat Panel */}
-      {isChatPanelOpen && (
-        <div
-          className="newsfeed-chat-panel-overlay"
-          onClick={() => setIsChatPanelOpen(false)}
-        >
-          <div
-            className="newsfeed-chat-panel"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="newsfeed-chat-panel__header">
-              <h3>Messages</h3>
-              <button
-                className="newsfeed-chat-panel__close"
-                onClick={() => setIsChatPanelOpen(false)}
-                aria-label="Close panel"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="newsfeed-chat-panel__content">
-              <div className="newsfeed-chat-panel__empty">
-                <p>No messages yet</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ChatPanel
+        isOpen={isChatPanelOpen}
+        onClose={() => setIsChatPanelOpen(false)}
+        onUnreadCountChange={setUnreadMessagesCount}
+      />
 
       {/* Notification Panel */}
       {isNotificationPanelOpen && (

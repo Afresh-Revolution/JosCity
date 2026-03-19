@@ -5,7 +5,7 @@ import "../main.css";
 import "../scss/_events.scss";
 import multipleLaugh from "../image/multiple-laugh.png";
 import smile from "../image/smile.png";
-
+import ChatPanel from "../components/ChatPanel";
 import NewsFeedHeader from "./NewsFeed/NewsFeedHeader";
 import NewsFeedSidebar from "./NewsFeed/NewsFeedSidebar";
 
@@ -13,6 +13,8 @@ const Events: React.FC = () => {
   const location = useLocation();
   const isStandalonePage = location.pathname === "/events";
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [visibleElements, setVisibleElements] = useState<Set<string>>(
     new Set()
@@ -160,9 +162,10 @@ const Events: React.FC = () => {
           showCreateMenu={true}
           showRightSidebarToggle={false}
           unreadNotificationsCount={0}
+          unreadMessagesCount={unreadMessagesCount}
           onNotificationClick={() => {}}
           onAddFriendClick={() => {}}
-          onMessageClick={() => {}}
+          onMessageClick={() => setIsChatPanelOpen(true)}
           onCreateClick={() => {}}
         />
         <div className="events-page__container">
@@ -181,6 +184,11 @@ const Events: React.FC = () => {
           />
           <main className="events-page__main">{eventsContent}</main>
         </div>
+        <ChatPanel
+          isOpen={isChatPanelOpen}
+          onClose={() => setIsChatPanelOpen(false)}
+          onUnreadCountChange={setUnreadMessagesCount}
+        />
       </div>
     );
   }

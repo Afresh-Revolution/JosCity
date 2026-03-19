@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Play, Search, X, ArrowUpDown, Loader2 } from "lucide-react";
 import "../../main.css";
 import ReelVideoModal from "../../components/ReelVideoModal";
+import ChatPanel from "../../components/ChatPanel";
 import NewsFeedHeader from "./NewsFeedHeader";
 import NewsFeedSidebar from "./NewsFeedSidebar";
 
@@ -65,6 +66,8 @@ const Reels: React.FC = () => {
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [videos, setVideos] = useState<VideoData[]>([]);
   const [filteredVideos, setFilteredVideos] = useState<VideoData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -289,15 +292,14 @@ const Reels: React.FC = () => {
         showCreateMenu={true}
         showRightSidebarToggle={false}
         unreadNotificationsCount={0}
+        unreadMessagesCount={unreadMessagesCount}
         onNotificationClick={() => {
           // Handle notification click
         }}
         onAddFriendClick={() => {
           // Handle add friend click
         }}
-        onMessageClick={() => {
-          // Handle message click
-        }}
+        onMessageClick={() => setIsChatPanelOpen(true)}
         onCreateClick={() => {
           // Handle create click
         }}
@@ -527,6 +529,11 @@ const Reels: React.FC = () => {
         onClose={handleCloseModal}
         videos={filteredVideos}
         initialVideoIndex={getInitialVideoIndex()}
+      />
+      <ChatPanel
+        isOpen={isChatPanelOpen}
+        onClose={() => setIsChatPanelOpen(false)}
+        onUnreadCountChange={setUnreadMessagesCount}
       />
     </div>
   );

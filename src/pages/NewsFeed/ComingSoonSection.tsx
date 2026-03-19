@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import NewsFeedHeader from "./NewsFeedHeader";
 import NewsFeedSidebar from "./NewsFeedSidebar";
+import ChatPanel from "../../components/ChatPanel";
 import "../../scss/_newsfeed.scss";
 
 const SECTION_NAMES: Record<string, string> = {
@@ -24,6 +25,8 @@ const ComingSoonSection: React.FC = () => {
   const location = useLocation();
   const section = location.pathname.replace(/^\//, "").split("/")[0];
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const sectionName = SECTION_NAMES[section] || section || "This section";
 
   return (
@@ -34,9 +37,10 @@ const ComingSoonSection: React.FC = () => {
         showCreateMenu={false}
         showRightSidebarToggle={false}
         unreadNotificationsCount={0}
+        unreadMessagesCount={unreadMessagesCount}
         onNotificationClick={() => {}}
         onAddFriendClick={() => {}}
-        onMessageClick={() => {}}
+        onMessageClick={() => setIsChatPanelOpen(true)}
         onCreateClick={() => {}}
       />
       <div className="newsfeed-container">
@@ -69,6 +73,11 @@ const ComingSoonSection: React.FC = () => {
           </div>
         </main>
       </div>
+      <ChatPanel
+        isOpen={isChatPanelOpen}
+        onClose={() => setIsChatPanelOpen(false)}
+        onUnreadCountChange={setUnreadMessagesCount}
+      />
     </div>
   );
 };

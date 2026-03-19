@@ -341,10 +341,16 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
         const response = await feedApi.getPostComments(post.id);
         if (response.success && response.data) {
           const formattedComments: Comment[] = response.data.map((comment: ApiComment) => ({
-            id: comment.comment_id,
-            userName: comment.user?.display_name || "Unknown",
-            userAvatar: comment.user?.profile_image_url || "/placeholder-avatar.png",
-            text: comment.text || "",
+            id: comment.comment_id ?? comment.id ?? Date.now(),
+            userName:
+              comment.author?.name ||
+              comment.user?.display_name ||
+              "Unknown User",
+            userAvatar:
+              comment.author?.picture ||
+              comment.user?.profile_image_url ||
+              "",
+            text: comment.text || comment.comment || "",
             timeAgo: comment.time_ago || "just now",
           }));
           setComments(formattedComments);
@@ -371,10 +377,16 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
       const response = await feedApi.commentOnPost(post.id, { text: newComment });
       if (response.success && response.data) {
         const newCommentData: Comment = {
-          id: response.data.comment_id,
-          userName: response.data.user?.display_name || "You",
-          userAvatar: response.data.user?.profile_image_url || post.userAvatar,
-          text: response.data.text || newComment,
+          id: response.data.comment_id ?? response.data.id ?? Date.now(),
+          userName:
+            response.data.author?.name ||
+            response.data.user?.display_name ||
+            "You",
+          userAvatar:
+            response.data.author?.picture ||
+            response.data.user?.profile_image_url ||
+            post.userAvatar,
+          text: response.data.text || response.data.comment || newComment,
           timeAgo: response.data.time_ago || "just now",
         };
         setComments([...comments, newCommentData]);
@@ -392,7 +404,10 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
             postOwnerAvatar: post.userAvatar,
             commenterId: currentUserId,
             commenterName: currentUserName,
-            commenterAvatar: response.data.user?.profile_image_url || "",
+            commenterAvatar:
+              response.data.author?.picture ||
+              response.data.user?.profile_image_url ||
+              "",
             commentText: newComment,
           },
         });

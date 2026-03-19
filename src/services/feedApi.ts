@@ -60,10 +60,12 @@ export interface UserPostReaction {
 
 export interface Comment {
   comment_id: number;
+  id?: number;
   post_id: number;
   user_id: number;
   parent_comment_id?: number;
   text?: string;
+  comment?: string;
   image?: string;
   created_at: string;
   updated_at?: string;
@@ -71,6 +73,12 @@ export interface Comment {
     user_id: number;
     display_name: string;
     profile_image_url?: string;
+  };
+  author?: {
+    id: number;
+    name: string;
+    picture?: string;
+    verified?: boolean;
   };
   replies?: Comment[];
   time_ago?: string;

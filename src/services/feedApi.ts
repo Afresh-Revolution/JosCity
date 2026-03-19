@@ -10,6 +10,10 @@ export type ReactionType =
   | "sad"
   | "angry";
 
+const POST_REACTION_IDS: Partial<Record<ReactionType, number>> = {
+  like: 1,
+};
+
 export interface Story {
   story_id: number;
   user_id: number;
@@ -39,12 +43,29 @@ export interface Reaction {
   };
 }
 
+export interface PostReactionStat {
+  reaction_id: number;
+  reaction_class: string;
+  reaction_text: string;
+  reaction_image?: string | null;
+  count: number | string;
+}
+
+export interface UserPostReaction {
+  reaction_id: number;
+  reaction_class: string;
+  reaction_text: string;
+  reaction_image?: string | null;
+}
+
 export interface Comment {
   comment_id: number;
+  id?: number;
   post_id: number;
   user_id: number;
   parent_comment_id?: number;
   text?: string;
+  comment?: string;
   image?: string;
   created_at: string;
   updated_at?: string;
@@ -52,6 +73,12 @@ export interface Comment {
     user_id: number;
     display_name: string;
     profile_image_url?: string;
+  };
+  author?: {
+    id: number;
+    name: string;
+    picture?: string;
+    verified?: boolean;
   };
   replies?: Comment[];
   time_ago?: string;
@@ -62,6 +89,9 @@ export interface Share {
   post_id: number;
   user_id: number;
   created_at: string;
+  time_ago?: string;
+  shares_count?: number;
+  already_shared?: boolean;
   user?: {
     user_id: number;
     display_name: string;
@@ -364,17 +394,42 @@ export const feedApi = {
   reactToPost: async (
     postId: number,
     reaction: ReactionType
-  ): Promise<{ success: boolean; data: Reaction; message: string }> => {
+  ): Promise<{
+    success: boolean;
+    data: {
+      reactions: PostReactionStat[];
+      user_reaction: UserPostReaction | null;
+    };
+    message: string;
+  }> => {
+    const reactionId = POST_REACTION_IDS[reaction];
+
+    if (!reactionId) {
+      throw new Error(
+        `Unsupported post reaction "${reaction}" for the current backend.`
+      );
+    }
+
     return apiRequest(`/posts/${postId}/react`, {
       method: "POST",
-      body: JSON.stringify({ reaction }),
+      body: JSON.stringify({
+        reaction_id: reactionId,
+        reaction,
+      }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any; // Type assertion needed - API response structure varies
   },
 
   removeReaction: async (
     postId: number
-  ): Promise<{ success: boolean; message: string }> => {
+  ): Promise<{
+    success: boolean;
+    data: {
+      reactions: PostReactionStat[];
+      user_reaction: null;
+    };
+    message: string;
+  }> => {
     return apiRequest(`/posts/${postId}/react`, {
       method: "DELETE",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -462,7 +517,11 @@ export const feedApi = {
   // ========== Shares ==========
   sharePost: async (
     postId: number
-  ): Promise<{ success: boolean; data: Share; message: string }> => {
+  ): Promise<{
+    success: boolean;
+    data: Share | Record<string, unknown>;
+    message: string;
+  }> => {
     return apiRequest(`/posts/${postId}/share`, {
       method: "POST",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

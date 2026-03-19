@@ -42,7 +42,7 @@
   max-width: calc(1120px - 56px);
   height: 80px;
   position: fixed;
-  top: calc(1rem + 22px); // PWA: 22px lower on all pages
+  top: calc(1rem + 37px); // PWA: 37px lower on all pages
   left: 50%;
   transform: translateX(-50%);
   border-radius: 50px;
@@ -469,7 +469,7 @@
     height: 70px;
     width: calc(95% - 52px); // leave space for theme toggle (40px + 12px)
     position: fixed;
-    top: calc(1rem + 22px); // PWA: 22px lower
+    top: calc(1rem + 37px); // PWA: 37px lower
     left: 50%;
     transform: translateX(-50%);
     border-radius: 50px;
@@ -528,7 +528,7 @@
     width: calc(100% - 2rem);
     max-width: 100%;
     position: fixed;
-    top: calc(0.75rem + 22px); // PWA: 22px lower
+    top: calc(0.75rem + 37px); // PWA: 37px lower
     left: 50%;
     transform: translateX(-50%);
     border-radius: 35px;
@@ -839,7 +839,7 @@
     min-height: 56px;
     width: calc(100% - 1.5rem);
     position: fixed;
-    top: calc(0.5rem + 22px); // PWA: 22px lower
+    top: calc(0.5rem + 37px); // PWA: 37px lower
     left: 50%;
     transform: translateX(-50%);
     border-radius: 28px;
@@ -920,9 +920,9 @@
     }
 
     &__menu-toggle {
-      width: 22px;
+      width: 37px;
       height: 16px;
-      min-width: 22px;
+      min-width: 37px;
       min-height: 16px;
     }
 
@@ -1101,7 +1101,7 @@
       box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1),
         0 0 0 1px rgba(255, 255, 255, 0.05) inset;
       width: 95%;
-      top: calc(1rem + 22px); // PWA: 22px lower
+      top: calc(1rem + 37px); // PWA: 37px lower
       left: 50%;
       transform: translateX(-50%);
       border-radius: 50px;
@@ -1116,7 +1116,7 @@
       box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1),
         0 0 0 1px rgba(255, 255, 255, 0.05) inset;
       width: calc(100% - 2rem);
-      top: calc(0.75rem + 22px); // PWA: 22px lower
+      top: calc(0.75rem + 37px); // PWA: 37px lower
       left: 50%;
       transform: translateX(-50%);
       border-radius: 35px;
@@ -1186,10 +1186,11 @@
       box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1),
         0 0 0 1px rgba(255, 255, 255, 0.05) inset;
       width: calc(100% - 1.5rem);
-      top: calc(0.5rem + 22px); // PWA: 22px lower
+      top: calc(0.5rem + 37px); // PWA: 37px lower
       left: 50%;
       transform: translateX(-50%);
       border-radius: 28px;
     }
   }
 }
+

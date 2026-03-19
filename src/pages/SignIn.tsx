@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import welcomeVideo from "../vid/welcome-vid.mp4";
 import primaryLogo from "../image/primary-logo.png";
@@ -16,6 +16,7 @@ import { loginPersonal, loginBusiness } from "../api/auth";
 import "../main.css";
 
 function SignIn() {
+  const OTP_VERIFIED_ACCOUNTS_KEY = "otpVerifiedAccounts";
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -28,6 +29,21 @@ function SignIn() {
     password: "",
     activationCode: "",
   });
+
+  const normalizedEmail = formData.email.toLowerCase().trim();
+
+  const isOtpVerifiedForAccount = useMemo(() => {
+    if (!normalizedEmail) return false;
+    try {
+      const raw = localStorage.getItem(OTP_VERIFIED_ACCOUNTS_KEY);
+      if (!raw) return false;
+      const verified = JSON.parse(raw) as Record<string, boolean>;
+      const key = `${accountType}:${normalizedEmail}`;
+      return Boolean(verified[key]);
+    } catch {
+      return false;
+    }
+  }, [accountType, normalizedEmail]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -61,6 +77,17 @@ function SignIn() {
 
       if (!result.success) {
         throw new Error(result.message || "Sign in failed");
+      }
+
+      if (normalizedEmail && formData.activationCode.trim()) {
+        try {
+          const raw = localStorage.getItem(OTP_VERIFIED_ACCOUNTS_KEY);
+          const verified = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+          verified[`${accountType}:${normalizedEmail}`] = true;
+          localStorage.setItem(OTP_VERIFIED_ACCOUNTS_KEY, JSON.stringify(verified));
+        } catch {
+          // noop
+        }
       }
 
       // Store authentication token
@@ -219,20 +246,22 @@ function SignIn() {
               </div>
             </div>
 
-            <div className="signin-form-group">
-              <label htmlFor="activationCode">Activation Code</label>
-              <div className="signin-input-wrapper">
-                <ShieldCheck className="signin-input-icon" size={20} />
-                <input
-                  type="text"
-                  id="activationCode"
-                  name="activationCode"
-                  value={formData.activationCode}
-                  onChange={handleInputChange}
-                  placeholder="Activation Code"
-                />
+            {!isOtpVerifiedForAccount && (
+              <div className="signin-form-group">
+                <label htmlFor="activationCode">Activation Code</label>
+                <div className="signin-input-wrapper">
+                  <ShieldCheck className="signin-input-icon" size={20} />
+                  <input
+                    type="text"
+                    id="activationCode"
+                    name="activationCode"
+                    value={formData.activationCode}
+                    onChange={handleInputChange}
+                    placeholder="Activation Code"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {error && (
               <div

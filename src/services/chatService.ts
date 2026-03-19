@@ -452,10 +452,16 @@ class ChatService {
       timeout: 5000,
     });
 
-    this.socket.on("connect_error", (error) => {
+    this.socket.on("connect_error", (error: unknown) => {
       this.socketUnavailable = true;
       if (!this.hasLoggedSocketError) {
-        console.warn("Chat socket connection error:", error.message);
+        const message =
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Unknown socket error";
+        console.warn("Chat socket connection error:", message);
         this.hasLoggedSocketError = true;
       }
       this.disconnect();

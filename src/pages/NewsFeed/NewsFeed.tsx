@@ -130,6 +130,9 @@ const NewsFeed: React.FC = () => {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [filteredHashtag, setFilteredHashtag] = useState<string | null>(null);
+  const [trendingHashtags, setTrendingHashtags] = useState<
+    Array<{ hashtag: string; posts: number }>
+  >([]);
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
@@ -605,6 +608,34 @@ const NewsFeed: React.FC = () => {
     fetchFeeds();
   }, [fetchFeeds]);
 
+  // Trending hashtags are optional from backend; local fallback still works.
+  useEffect(() => {
+    let cancelled = false;
+    feedApi.getTrendingHashtags(10).then((res) => {
+      if (!cancelled && res?.success && Array.isArray(res.data)) {
+        setTrendingHashtags(res.data);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setTrendingHashtags([]);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const fetchFeedsByHashtag = useCallback((hashtag: string) => {
+    setFilteredHashtag(hashtag);
+    setTimeout(() => {
+      const postsSection = document.querySelector(".newsfeed-posts");
+      postsSection?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 100);
+  }, []);
+
   useEffect(() => {
     const handleFeedPostShared = () => {
       void fetchFeeds();
@@ -852,16 +883,17 @@ const NewsFeed: React.FC = () => {
       }
     });
 
-    // Convert to array, sort by count, and take top 2
+    // Convert to array, sort by count, and take top 3 (trending)
     const sortedHashtags = Object.entries(hashtagCounts)
       .map(([hashtag, count]) => ({ hashtag, posts: count }))
       .sort((a, b) => b.posts - a.posts)
-      .slice(0, 2);
+      .slice(0, 3);
 
     return sortedHashtags;
   };
 
-  const trending = calculateTrendingHashtags();
+  // Use API trending hashtags; fallback to local calculation if API returns none
+  const trending = trendingHashtags.length > 0 ? trendingHashtags : calculateTrendingHashtags();
 
   // Mock notifications
   interface Notification {
@@ -1499,7 +1531,10 @@ const NewsFeed: React.FC = () => {
                   </span>
                   <button
                     className="newsfeed-hashtag-filter__clear"
-                    onClick={() => setFilteredHashtag(null)}
+                    onClick={() => {
+                      setFilteredHashtag(null);
+                      fetchFeeds();
+                    }}
                     aria-label="Clear filter"
                   >
                     <X size={16} />
@@ -1587,6 +1622,7 @@ const NewsFeed: React.FC = () => {
           </div>
         </main>
 
+        
         {/* Right Sidebar - Aside */}
         <aside
           className={`newsfeed-aside ${
@@ -1610,15 +1646,7 @@ const NewsFeed: React.FC = () => {
           <TrendingSection
             trending={trending}
             onHashtagClick={(hashtag) => {
-              setFilteredHashtag(hashtag);
-              // Scroll to posts section
-              setTimeout(() => {
-                const postsSection = document.querySelector(".newsfeed-posts");
-                postsSection?.scrollIntoView({
-                  behavior: "smooth",
-                  block: "start",
-                });
-              }, 100);
+              fetchFeedsByHashtag(hashtag);
             }}
           />
           <SuggestedFriends friends={[]} />

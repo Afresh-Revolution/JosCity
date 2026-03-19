@@ -120,6 +120,9 @@ const NewsFeed: React.FC = () => {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [filteredHashtag, setFilteredHashtag] = useState<string | null>(null);
+  const [trendingHashtags, setTrendingHashtags] = useState<
+    Array<{ hashtag: string; posts: number }>
+  >([]);
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [selectedChatId, setSelectedChatId] = useState<number | null>(null);
@@ -506,6 +509,134 @@ const NewsFeed: React.FC = () => {
     fetchFeeds();
   }, [fetchFeeds]);
 
+  // Fetch trending hashtags from API (top by usage)
+  useEffect(() => {
+    let cancelled = false;
+    feedApi
+      .getTrendingHashtags(10)
+      .then((res) => {
+        if (!cancelled && res?.success && Array.isArray(res.data)) {
+          setTrendingHashtags(res.data);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setTrendingHashtags([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Fetch posts filtered by hashtag when user clicks a trending hashtag
+  const fetchFeedsByHashtag = useCallback(async (hashtag: string) => {
+    setFilteredHashtag(hashtag);
+    try {
+      setIsLoadingFeeds(true);
+      const response = await feedApi.getFeedsByHashtag(hashtag, { limit: 50 });
+      if (!response?.success || !Array.isArray(response.data)) {
+        setPosts([]);
+        return;
+      }
+      // Reuse same shape as main feed: backend returns same format
+      interface FeedItem {
+        post_id?: number;
+        id?: number;
+        text?: string;
+        author?: { id?: number; name?: string; picture?: string };
+        user?: { name?: string; picture?: string };
+        user_name?: string;
+        user_avatar?: string;
+        time_ago?: string;
+        created_at?: string;
+        media?: Array<{ url?: string; type?: string }>;
+        media_urls?: string[];
+        media_types?: string[];
+        image_url?: string;
+        image?: string;
+        images?: string[];
+        video_url?: string;
+        video?: string;
+        videos?: string[];
+        reactions_count?: number;
+        likes_count?: number;
+        comments_count?: number;
+        comments_preview?: unknown[];
+        views_count?: number;
+        caption?: string;
+        hashtags?: string;
+        account_type?: string;
+        accountType?: string;
+        user_id?: number;
+        action?: string;
+        time?: string;
+        views?: number;
+        reviews?: number;
+        [key: string]: unknown;
+      }
+      const transformed: Post[] = (response.data as FeedItem[])
+        .filter((f) => f.post_id != null || f.id != null)
+        .map((feed) => {
+          const author = feed.author || feed.user;
+          let image = feed.image_url || feed.image || "";
+          let images = feed.images;
+          let video = feed.video_url || feed.video || "";
+          let videos = feed.videos;
+          if (feed.media?.length) {
+            const photoUrls = feed.media.filter((m) => (m.type || "").toLowerCase().startsWith("image")).map((m) => m.url).filter(Boolean) as string[];
+            const videoUrls = feed.media.filter((m) => (m.type || "").toLowerCase().startsWith("video")).map((m) => m.url).filter(Boolean) as string[];
+            if (photoUrls.length) {
+              image = photoUrls[0];
+              if (photoUrls.length > 1) images = photoUrls;
+            }
+            if (videoUrls.length) {
+              video = videoUrls[0];
+              if (videoUrls.length > 1) videos = videoUrls;
+            }
+          } else if (feed.media_urls?.length || feed.media_types?.length) {
+            const urls = feed.media_urls || [];
+            const types = feed.media_types || [];
+            const photoUrls = urls.filter((_, i) => (types[i] || "").toLowerCase().startsWith("image") || (types[i] || "").toLowerCase() === "photo");
+            const videoUrls = urls.filter((_, i) => (types[i] || "").toLowerCase().startsWith("video"));
+            if (photoUrls.length) {
+              image = photoUrls[0];
+              if (photoUrls.length > 1) images = photoUrls;
+            }
+            if (videoUrls.length) {
+              video = videoUrls[0];
+              if (videoUrls.length > 1) videos = videoUrls;
+            }
+          }
+          return {
+            id: feed.post_id ?? feed.id ?? 0,
+            userId: (author as { id?: number })?.id ?? feed.user_id != null ? Number((author as { id?: number })?.id ?? feed.user_id) : undefined,
+            userName: author?.name || feed.user_name || "Unknown User",
+            userAvatar: author?.picture ?? feed.user_avatar ?? "",
+            action: feed.action || "",
+            timeAgo: feed.time_ago || feed.time || feed.created_at || "Just now",
+            image,
+            images: images || undefined,
+            video,
+            videos: videos || undefined,
+            likes: feed.reactions_count ?? feed.likes_count ?? 0,
+            comments: feed.comments_count ?? (Array.isArray(feed.comments_preview) ? feed.comments_preview.length : 0) ?? 0,
+            views: feed.views_count ?? feed.views ?? 0,
+            reviews: feed.reviews ?? 0,
+            caption: feed.text ?? feed.caption ?? "",
+            hashtags: feed.hashtags ?? "",
+            accountType: typeof feed.account_type === "string" ? feed.account_type : typeof feed.accountType === "string" ? feed.accountType : undefined,
+          };
+        });
+      setPosts(transformed);
+    } catch {
+      setPosts([]);
+    } finally {
+      setIsLoadingFeeds(false);
+    }
+    setTimeout(() => {
+      document.querySelector(".newsfeed-posts")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  }, []);
+
   // Helper function to normalize media URLs (handle relative paths)
   const normalizeMediaUrl = (url: string | undefined): string => {
     if (!url) return "";
@@ -742,16 +873,17 @@ const NewsFeed: React.FC = () => {
       }
     });
 
-    // Convert to array, sort by count, and take top 2
+    // Convert to array, sort by count, and take top 3 (trending)
     const sortedHashtags = Object.entries(hashtagCounts)
       .map(([hashtag, count]) => ({ hashtag, posts: count }))
       .sort((a, b) => b.posts - a.posts)
-      .slice(0, 2);
+      .slice(0, 3);
 
     return sortedHashtags;
   };
 
-  const trending = calculateTrendingHashtags();
+  // Use API trending hashtags; fallback to local calculation if API returns none
+  const trending = trendingHashtags.length > 0 ? trendingHashtags : calculateTrendingHashtags();
 
   // Mock chat conversations
   interface ChatMessage {
@@ -1595,7 +1727,10 @@ const NewsFeed: React.FC = () => {
                   </span>
                   <button
                     className="newsfeed-hashtag-filter__clear"
-                    onClick={() => setFilteredHashtag(null)}
+                    onClick={() => {
+                      setFilteredHashtag(null);
+                      fetchFeeds();
+                    }}
                     aria-label="Clear filter"
                   >
                     <X size={16} />
@@ -1706,15 +1841,7 @@ const NewsFeed: React.FC = () => {
           <TrendingSection
             trending={trending}
             onHashtagClick={(hashtag) => {
-              setFilteredHashtag(hashtag);
-              // Scroll to posts section
-              setTimeout(() => {
-                const postsSection = document.querySelector(".newsfeed-posts");
-                postsSection?.scrollIntoView({
-                  behavior: "smooth",
-                  block: "start",
-                });
-              }, 100);
+              fetchFeedsByHashtag(hashtag);
             }}
           />
           <SuggestedFriends friends={[]} onFriendAdded={handleFriendAdded} />

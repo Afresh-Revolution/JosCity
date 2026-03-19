@@ -15,8 +15,8 @@ const TrendingSection: React.FC<TrendingSectionProps> = ({
   trending,
   onHashtagClick,
 }) => {
-  // Only show top 2 hashtags
-  const topHashtags = trending.slice(0, 2);
+  // Show all trending hashtags (top 3 by use; list can show more)
+  const topHashtags = trending;
 
   return (
     <div className="newsfeed-trending">

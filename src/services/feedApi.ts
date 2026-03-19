@@ -498,6 +498,79 @@ export const feedApi = {
     return apiRequest(`/feed/feeds?${query}`) as any;
   },
 
+  /** Trending hashtags (top N by post count). Never throws: on 404 or error returns empty data so UI can use fallback. */
+  getTrendingHashtags: async (limit: number = 3): Promise<{
+    success: boolean;
+    data: Array<{ hashtag: string; posts: number }>;
+  }> => {
+    const query = new URLSearchParams({ limit: String(limit) }).toString();
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("authToken");
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+    try {
+      const response = await fetch(`${API_BASE_URL}/feed/trending-hashtags?${query}`, {
+        method: "GET",
+        headers,
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!response.ok) {
+        return { success: true, data: [] };
+      }
+      const json = await response.json().catch(() => ({}));
+      const data = Array.isArray(json?.data) ? json.data : [];
+      return { success: true, data };
+    } catch {
+      return { success: true, data: [] };
+    }
+  },
+
+  /** Feed posts filtered by hashtag. Never throws: on 404 or error returns empty data. */
+  getFeedsByHashtag: async (
+    hashtag: string,
+    params?: { page?: number; limit?: number }
+  ): Promise<{
+    success: boolean;
+    data: unknown[];
+    pagination?: { page: number; limit: number; hasMore: boolean };
+  }> => {
+    const tag = hashtag.replace(/^#+/, "").trim();
+    const limit = params?.limit ?? 20;
+    const empty = {
+      success: true as const,
+      data: [] as unknown[],
+      pagination: { page: params?.page ?? 1, limit, hasMore: false },
+    };
+    if (!tag) return empty;
+    const query = new URLSearchParams({
+      page: String(params?.page ?? 1),
+      limit: String(limit),
+    }).toString();
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("authToken");
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/feed/by-hashtag/${encodeURIComponent(tag)}?${query}`,
+        { method: "GET", headers, signal: AbortSignal.timeout(15000) }
+      );
+      if (!response.ok) return empty;
+      const json = await response.json().catch(() => ({}));
+      const data = Array.isArray((json as { data?: unknown[] }).data)
+        ? (json as { data: unknown[] }).data
+        : [];
+      const pagination = (json as { pagination?: { page: number; limit: number; hasMore: boolean } }).pagination ?? empty.pagination;
+      return { success: true, data, pagination };
+    } catch {
+      return empty;
+    }
+  },
+
   // ========== Posts ==========
   createPost: async (data: {
     caption?: string;

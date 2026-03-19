@@ -969,7 +969,7 @@
   overflow-x: hidden;
   overflow-y: auto; // Enable independent vertical scrolling
   scrollbar-width: thin;
-  height: 82vh; // Full height of container
+  height: 82vh; // Full height of container]
   min-height: 0; // Allow shrinking
   visibility: visible !important;
   opacity: 1 !important;
@@ -3933,21 +3933,38 @@
     max-width: 100% !important;
     height: 100% !important;
     max-height: 600px !important;
-    -o-object-fit: contain !important;
-    object-fit: contain !important;
     display: block;
     box-sizing: border-box;
+    background-color: var(--bg-tertiary);
+
+    .lazy-image {
+      width: 100% !important;
+      height: 100% !important;
+      max-height: 600px !important;
+      -o-object-fit: contain !important;
+      object-fit: contain !important;
+      display: block;
+      box-sizing: border-box;
+    }
 
     @media (max-width: 768px) {
       max-width: 100vw !important;
       max-height: 500px !important;
       width: 100% !important;
+
+      .lazy-image {
+        max-height: 500px !important;
+      }
     }
 
     @media (max-width: 480px) {
       max-width: 100vw !important;
       max-height: 400px !important;
       width: 100% !important;
+
+      .lazy-image {
+        max-height: 400px !important;
+      }
     }
   }
 
@@ -3956,22 +3973,37 @@
     width: 100% !important;
     height: 100% !important;
     max-height: 400px !important;
-    -o-object-fit: contain !important;
-    object-fit: contain !important;
     display: block;
+
+    .lazy-image {
+      width: 100% !important;
+      height: 100% !important;
+      max-height: 400px !important;
+      -o-object-fit: contain !important;
+      object-fit: contain !important;
+      display: block;
+    }
 
     @media (max-width: 768px) {
       max-height: 300px !important;
+
+      .lazy-image {
+        max-height: 300px !important;
+      }
     }
 
     @media (max-width: 480px) {
       max-height: 250px !important;
+
+      .lazy-image {
+        max-height: 250px !important;
+      }
     }
   }
 
   // Ensure images in wrapper also use contain
-  &__image-wrapper &__image,
-  &__images-wrapper &__image {
+  &__image-wrapper &__image .lazy-image,
+  &__images-wrapper &__image .lazy-image {
     -o-object-fit: contain !important;
     object-fit: contain !important;
   }
@@ -6228,8 +6260,8 @@
     img {
       width: 100%;
       height: 100%;
-      -o-object-fit: cover;
-      object-fit: cover;
+      -o-object-fit: contain;
+      object-fit: contain;
       display: block;
     }
 

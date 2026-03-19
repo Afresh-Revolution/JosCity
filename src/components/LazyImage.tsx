@@ -12,7 +12,17 @@ interface LazyImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>,
 
 const LazyImage = forwardRef<HTMLDivElement, LazyImageProps>(
   (
-    { src, alt, placeholder, className = "", onLoad, onError, fetchpriority, ...props },
+    {
+      src,
+      alt,
+      placeholder,
+      className = "",
+      onLoad,
+      onError,
+      fetchpriority,
+      style,
+      ...props
+    },
     ref
   ) => {
     const [isLoaded, setIsLoaded] = useState(false);
@@ -124,7 +134,8 @@ const LazyImage = forwardRef<HTMLDivElement, LazyImageProps>(
                 transition: "opacity 0.3s ease-in-out",
                 width: "100%",
                 height: "100%",
-                objectFit: "fill",
+                objectFit: style?.objectFit ?? "cover",
+                ...style,
               }}
               {...props}
             />

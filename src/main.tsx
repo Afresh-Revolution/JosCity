@@ -38,6 +38,7 @@ import Maintenance from "./pages/Maintenance";
 import ComingSoonSection from "./pages/NewsFeed/ComingSoonSection";
 import PWAProvider from "./components/PWAProvider";
 import Business from "./pages/NewsFeed/Business";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 // Prevent browser inspection/devtools
 // preventInspect();
@@ -111,7 +112,14 @@ if (rootElement) {
                     element={<ServicesComingSoon />}
                   />
                   <Route path="/success" element={<Success />} />
-                  <Route path="/newsfeed" element={<NewsFeed />} />
+                  <Route
+                    path="/newsfeed"
+                    element={
+                      <ProtectedRoute requireAdmin={false} redirectTo="/signin">
+                        <NewsFeed />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route path="/admin/login" element={<AdminLogin />} />
                   <Route path="/admin" element={<Admin />} />
                   <Route path="/admin/profile" element={<AdminProfile />} />

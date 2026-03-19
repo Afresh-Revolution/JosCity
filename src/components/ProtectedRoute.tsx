@@ -1,9 +1,11 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
+import { isAuthenticated as hasUserSession } from "../utils/userUtils";
 
 interface ProtectedRouteProps {
   children: ReactNode;
   requireAdmin?: boolean;
+  redirectTo?: string;
 }
 
 /**
@@ -13,56 +15,24 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({
   children,
   requireAdmin = true,
+  redirectTo,
 }: ProtectedRouteProps) {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const redirectPath = redirectTo ?? (requireAdmin ? "/admin/login" : "/signin");
 
-  useEffect(() => {
-    // Check if admin is logged in
-    const checkAuth = async () => {
-      try {
-        if (requireAdmin) {
-          const adminToken = localStorage.getItem("adminToken");
-          setIsAuthenticated(!!adminToken);
-        } else {
-          // For non-admin routes, you can add other checks here
-          setIsAuthenticated(true);
-        }
-      } catch (error) {
-        console.error("Auth check error:", error);
-        setIsAuthenticated(false);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [requireAdmin]);
-
-  // Show loading state while checking authentication
-  if (isLoading) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100vh",
-          fontSize: "1.2rem",
-          color: "#666",
-        }}
-      >
-        Loading...
-      </div>
-    );
+  let isAllowed = false;
+  try {
+    isAllowed = requireAdmin
+      ? !!localStorage.getItem("adminToken")
+      : hasUserSession();
+  } catch (error) {
+    console.error("Auth check error:", error);
   }
 
   // Redirect to login if not authenticated
-  if (!isAuthenticated) {
-    return <Navigate to="/admin/login" replace />;
+  if (!isAllowed) {
+    return <Navigate to={redirectPath} replace />;
   }
 
   // Render children if authenticated
   return <>{children}</>;
 }
-

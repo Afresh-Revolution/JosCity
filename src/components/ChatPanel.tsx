@@ -219,6 +219,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   ]);
 
   useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
     chatService.initializeSocket();
     void loadConversations();
 
@@ -364,7 +368,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       }
       chatService.disconnect();
     };
-  }, [loadConversations, markConversationRead, onIncomingMessage, userId]);
+  }, [isOpen, loadConversations, markConversationRead, onIncomingMessage, userId]);
 
   const handleInputChange = (value: string) => {
     setMessageInput(value);

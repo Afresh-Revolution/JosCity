@@ -370,6 +370,11 @@ export const normalizeMessageNotification = (
 
 class ChatService {
   private socket: Socket | null = null;
+  private apiUnavailable = false;
+  private socketUnavailable = false;
+  private availabilityMessage =
+    "Chat is not available on this server yet. Please deploy the chat backend and try again.";
+  private hasLoggedSocketError = false;
 
   private get headers(): HeadersInit {
     const token = getToken();
@@ -388,6 +393,10 @@ class ChatService {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
+    if (this.apiUnavailable) {
+      throw new Error(this.availabilityMessage);
+    }
+
     const response = await fetch(`${API_BASE_URL}${CHAT_BASE_PATH}${endpoint}`, {
       ...options,
       headers: {
@@ -405,6 +414,12 @@ class ChatService {
         : ({ message: text } as JsonRecord);
 
     if (!response.ok) {
+      if (response.status === 404) {
+        this.apiUnavailable = true;
+        this.disconnect();
+        throw new Error(this.availabilityMessage);
+      }
+
       throw new Error(
         extractErrorMessage(
           payload,
@@ -418,7 +433,7 @@ class ChatService {
 
   initializeSocket(): Socket | null {
     const token = getToken();
-    if (!token) return null;
+    if (!token || this.socketUnavailable || this.apiUnavailable) return null;
 
     if (this.socket) {
       if (!this.socket.connected) {
@@ -430,13 +445,20 @@ class ChatService {
 
     this.socket = io(getSocketBaseUrl(), {
       auth: { token },
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"],
       autoConnect: true,
       withCredentials: true,
+      reconnectionAttempts: 1,
+      timeout: 5000,
     });
 
     this.socket.on("connect_error", (error) => {
-      console.warn("Chat socket connection error:", error.message);
+      this.socketUnavailable = true;
+      if (!this.hasLoggedSocketError) {
+        console.warn("Chat socket connection error:", error.message);
+        this.hasLoggedSocketError = true;
+      }
+      this.disconnect();
     });
 
     return this.socket;

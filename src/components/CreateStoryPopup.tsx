@@ -37,11 +37,8 @@ const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
   }, [isOpen]);
 
   if (!isOpen || !mounted) {
-    console.log("CreateStoryPopup not rendering - isOpen:", isOpen, "mounted:", mounted);
     return null;
   }
-
-  console.log("CreateStoryPopup rendering - isOpen:", isOpen);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

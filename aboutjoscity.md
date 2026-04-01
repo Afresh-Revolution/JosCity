@@ -497,7 +497,7 @@ JosCity implements comprehensive security measures to protect user data and ensu
 
 ## 📞 Contact & Support
 
-- **Email:** support@afresh.academy
+- **Email:** support@joscity.com
 - **Phone:** +234 7067621916
 - **Location:** Jos, Plateau State, Nigeria
 - **Support Hours:** 24/7 availability

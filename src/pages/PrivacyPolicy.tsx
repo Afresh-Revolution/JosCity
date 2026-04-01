@@ -45,7 +45,7 @@ const PrivacyPolicy: React.FC = () => {
           <section className="legal-page__section">
             <h2>1. Introduction</h2>
             <p>
-              JosCity Smart Services we (Afresh/Cbrilliance) are committed to
+              JosCity Smart Services is committed to
               protecting your privacy. This Privacy Policy explains how we
               collect, use, disclose, and safeguard your information when you
               use our platform and services.
@@ -149,7 +149,7 @@ const PrivacyPolicy: React.FC = () => {
               at:
             </p>
             <p>
-              <strong>Email:</strong> support@afresh.academy
+              <strong>Email:</strong> support@joscity.com
               <br />
               <strong>Phone:</strong> +234 7067621916
               <br />

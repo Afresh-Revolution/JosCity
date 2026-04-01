@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, X } from "lucide-react";
+import { Search } from "lucide-react";
 import "../../main.css";
 import "../../scss/_newsfeed.scss";
 import "../../scss/_marketplace.scss";
@@ -330,14 +330,15 @@ const News: React.FC = () => {
                   strokeLinecap="round"
                 />
               </svg>
-                  </div>
-                  <h2 className="marketplace-empty__title">No Data Found</h2>
-                  <p className="marketplace-empty__message">
-                    There is no data to show you right now.
-                  </p>
                 </div>
+                <h2 className="marketplace-empty__title">No Data Found</h2>
+                <p className="marketplace-empty__message">
+                  There is no data to show you right now.
+                </p>
               </div>
-            </main>
+            </div>
+          </main>
+            </div>
           </div>
         </div>
       </div>

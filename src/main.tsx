@@ -39,6 +39,16 @@ import ComingSoonSection from "./pages/NewsFeed/ComingSoonSection";
 import PWAProvider from "./components/PWAProvider";
 import Business from "./pages/NewsFeed/Business";
 import ProtectedRoute from "./components/ProtectedRoute";
+import News from "./pages/NewsFeed/News";
+
+/** Logged-in user areas (sidebar / feed); redirects to sign-in if no session. */
+function UserRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <ProtectedRoute requireAdmin={false} redirectTo="/signin">
+      {children}
+    </ProtectedRoute>
+  );
+}
 
 // Prevent browser inspection/devtools
 // preventInspect();
@@ -115,9 +125,9 @@ if (rootElement) {
                   <Route
                     path="/newsfeed"
                     element={
-                      <ProtectedRoute requireAdmin={false} redirectTo="/signin">
+                      <UserRoute>
                         <NewsFeed />
-                      </ProtectedRoute>
+                      </UserRoute>
                     }
                   />
                   <Route path="/admin/login" element={<AdminLogin />} />
@@ -129,22 +139,127 @@ if (rootElement) {
                   <Route path="/accessibility" element={<Accessibility />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/contact" element={<ContactPage />} />
-                  <Route path="/people" element={<ComingSoonSection />} />
-                  <Route path="/forums" element={<ComingSoonSection />} />
-                  <Route path="/news" element={<ComingSoonSection />} />
-                  <Route path="/reels" element={<ComingSoonSection />} />
-                  <Route path="/events" element={<EventsPage />} />
-                  <Route path="/events-old" element={<Events />} />
-                  <Route path="/request" element={<Request />} />
-                  <Route path="/sent-requests" element={<SentRequest />} />
+                  <Route
+                    path="/people"
+                    element={
+                      <UserRoute>
+                        <ComingSoonSection />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/forums"
+                    element={
+                      <UserRoute>
+                        <ComingSoonSection />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/news"
+                    element={
+                      <UserRoute>
+                        <News />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/reels"
+                    element={
+                      <UserRoute>
+                        <ComingSoonSection />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/events"
+                    element={
+                      <UserRoute>
+                        <EventsPage />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/events-old"
+                    element={
+                      <UserRoute>
+                        <Events />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/request"
+                    element={
+                      <UserRoute>
+                        <Request />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/sent-requests"
+                    element={
+                      <UserRoute>
+                        <SentRequest />
+                      </UserRoute>
+                    }
+                  />
                   <Route path="/profile/:username" element={<UserProfile />} />
-                  <Route path="/marketplace" element={<ComingSoonSection />} />
-                  <Route path="/movies" element={<ComingSoonSection />} />
-                  <Route path="/offers" element={<ComingSoonSection />} />
-                  <Route path="/jobs" element={<ComingSoonSection />} />
-                  <Route path="/scheduled" element={<ComingSoonSection />} />
-                  <Route path="/saved" element={<ComingSoonSection />} />
-                  <Route path="/business" element={<Business />} />
+                  <Route
+                    path="/marketplace"
+                    element={
+                      <UserRoute>
+                        <ComingSoonSection />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/movies"
+                    element={
+                      <UserRoute>
+                        <ComingSoonSection />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/offers"
+                    element={
+                      <UserRoute>
+                        <ComingSoonSection />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/jobs"
+                    element={
+                      <UserRoute>
+                        <ComingSoonSection />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/scheduled"
+                    element={
+                      <UserRoute>
+                        <ComingSoonSection />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/saved"
+                    element={
+                      <UserRoute>
+                        <ComingSoonSection />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/business"
+                    element={
+                      <UserRoute>
+                        <Business />
+                      </UserRoute>
+                    }
+                  />
                 </Routes>
               </>
             )}

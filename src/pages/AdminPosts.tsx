@@ -235,7 +235,11 @@ const AdminPosts: React.FC = () => {
                     </button>
                   )}
                   <button
-                    onClick={() => handleAction(post.post_id, "delete", deletePost)}
+                    onClick={() =>
+                      handleAction(post.post_id, "delete", (id) =>
+                        deletePost(id, "Removed by administrator")
+                      )
+                    }
                     disabled={processing === post.post_id}
                     className="admin-action-btn admin-action-btn--delete"
                   >

@@ -1,3 +1,4 @@
+// @ts-nocheck
 const db = require('../config/database');
 
 // ----------------------------

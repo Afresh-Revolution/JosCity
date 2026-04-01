@@ -10,7 +10,8 @@ type ChatEventName =
   | "messages_read"
   | "user_joined"
   | "user_left"
-  | "new_message_notification";
+  | "new_message_notification"
+  | "admin_notification";
 
 export interface ChatParticipant {
   userId: number;
@@ -414,12 +415,6 @@ class ChatService {
         : ({ message: text } as JsonRecord);
 
     if (!response.ok) {
-      if (response.status === 404) {
-        this.apiUnavailable = true;
-        this.disconnect();
-        throw new Error(this.availabilityMessage);
-      }
-
       throw new Error(
         extractErrorMessage(
           payload,
@@ -452,10 +447,16 @@ class ChatService {
       timeout: 5000,
     });
 
-    this.socket.on("connect_error", (error) => {
+    this.socket.on("connect_error", (error: unknown) => {
       this.socketUnavailable = true;
       if (!this.hasLoggedSocketError) {
-        console.warn("Chat socket connection error:", error.message);
+        const message =
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Unknown socket error";
+        console.warn("Chat socket connection error:", message);
         this.hasLoggedSocketError = true;
       }
       this.disconnect();
@@ -693,6 +694,10 @@ class ChatService {
 
   onNewMessageNotification(callback: SocketCallback): () => void {
     return this.on("new_message_notification", callback);
+  }
+
+  onAdminNotification(callback: SocketCallback): () => void {
+    return this.on("admin_notification", callback);
   }
 
   disconnect(): void {

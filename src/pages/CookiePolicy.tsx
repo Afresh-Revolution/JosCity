@@ -176,7 +176,7 @@ const CookiePolicy: React.FC = () => {
               If you have questions about our use of cookies, please contact us at:
             </p>
             <p>
-              <strong>Email:</strong> support@afresh.academy
+              <strong>Email:</strong> support@joscity.com
               <br />
               <strong>Phone:</strong> +234 7067621916
               <br />

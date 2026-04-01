@@ -20,6 +20,7 @@ import {
   Bell,
   MessageCircle,
   Calendar,
+  AlertTriangle,
   FileText,
 } from "lucide-react";
 import NewsFeedSidebar from "./NewsFeedSidebar";
@@ -36,6 +37,7 @@ import ChatPanel, { type ChatPanelPopupPayload } from "../../components/ChatPane
 import FindFriendsModal from "../../components/FindFriendsModal";
 import CreateStoryPopup from "../../components/CreateStoryPopup";
 import MessagePopup from "../../components/MessagePopup";
+import chatService from "../../services/chatService";
 import {
   getProfileUsername,
   isAuthenticated,
@@ -130,6 +132,9 @@ const NewsFeed: React.FC = () => {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [filteredHashtag, setFilteredHashtag] = useState<string | null>(null);
+  const [trendingHashtags, setTrendingHashtags] = useState<
+    Array<{ hashtag: string; posts: number }>
+  >([]);
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
@@ -605,6 +610,34 @@ const NewsFeed: React.FC = () => {
     fetchFeeds();
   }, [fetchFeeds]);
 
+  // Trending hashtags are optional from backend; local fallback still works.
+  useEffect(() => {
+    let cancelled = false;
+    feedApi.getTrendingHashtags(10).then((res) => {
+      if (!cancelled && res?.success && Array.isArray(res.data)) {
+        setTrendingHashtags(res.data);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setTrendingHashtags([]);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const fetchFeedsByHashtag = useCallback((hashtag: string) => {
+    setFilteredHashtag(hashtag);
+    setTimeout(() => {
+      const postsSection = document.querySelector(".newsfeed-posts");
+      postsSection?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 100);
+  }, []);
+
   useEffect(() => {
     const handleFeedPostShared = () => {
       void fetchFeeds();
@@ -852,16 +885,17 @@ const NewsFeed: React.FC = () => {
       }
     });
 
-    // Convert to array, sort by count, and take top 2
+    // Convert to array, sort by count, and take top 3 (trending)
     const sortedHashtags = Object.entries(hashtagCounts)
       .map(([hashtag, count]) => ({ hashtag, posts: count }))
       .sort((a, b) => b.posts - a.posts)
-      .slice(0, 2);
+      .slice(0, 3);
 
     return sortedHashtags;
   };
 
-  const trending = calculateTrendingHashtags();
+  // Use API trending hashtags; fallback to local calculation if API returns none
+  const trending = trendingHashtags.length > 0 ? trendingHashtags : calculateTrendingHashtags();
 
   // Mock notifications
   interface Notification {
@@ -873,7 +907,8 @@ const NewsFeed: React.FC = () => {
       | "mention"
       | "share"
       | "event"
-      | "message";
+      | "message"
+      | "danger";
     userId: number;
     userName: string;
     userAvatar: string;
@@ -894,24 +929,43 @@ const NewsFeed: React.FC = () => {
     try {
       const res = await feedApi.getNotifications();
       if (res.success && Array.isArray(res.data)) {
-        const mapped: Notification[] = res.data.map((n) => ({
-          id: n.id,
-          type: n.action?.toLowerCase().includes("like") ||
-            n.action?.toLowerCase().includes("react")
-              ? "like"
-              : n.action?.toLowerCase().includes("comment")
-                ? "comment"
-                : n.action?.toLowerCase().includes("share")
-                  ? "share"
-                  : "mention",
-          userId: n.from_user_id ?? 0,
-          userName: n.from_user?.display_name ?? "Someone",
-          userAvatar: n.from_user?.profile_image_url ?? "",
-          message: n.action ?? "",
-          timestamp: n.time ?? "",
-          isRead: !!n.is_read,
-          relatedPostId: n.node_type === "post" ? n.node_id : undefined,
-        }));
+        const mapped: Notification[] = res.data.map((n) => {
+          const item = n as {
+            id: number;
+            from_user_id?: number;
+            action?: string;
+            message?: string;
+            notification_type?: string;
+            node_type?: string;
+            node_id?: number;
+            time?: string;
+            is_read?: boolean;
+            is_global?: boolean;
+            from_user?: { display_name?: string; profile_image_url?: string };
+          };
+          return {
+            id: n.id,
+            type: item.notification_type === "danger"
+              ? "danger"
+              : n.action?.toLowerCase().includes("like") ||
+                n.action?.toLowerCase().includes("react")
+                ? "like"
+                : n.action?.toLowerCase().includes("comment")
+                  ? "comment"
+                  : n.action?.toLowerCase().includes("friend_request")
+                    ? "friend_request"
+                    : n.action?.toLowerCase().includes("share")
+                      ? "share"
+                      : "mention",
+            userId: n.from_user_id ?? 0,
+            userName: n.from_user?.display_name ?? (item.is_global ? "Admin" : "Someone"),
+            userAvatar: n.from_user?.profile_image_url ?? "",
+            message: item.message || n.action || "",
+            timestamp: n.time ?? "",
+            isRead: !!n.is_read,
+            relatedPostId: n.node_type === "post" ? n.node_id : undefined,
+          };
+        });
         setNotifications((prev) => {
           const prevUnread = prev.filter((x) => !x.isRead).length;
           const newUnread = mapped.filter((x) => !x.isRead).length;
@@ -985,6 +1039,8 @@ const NewsFeed: React.FC = () => {
         return <ThumbsUp size={20} />;
       case "event":
         return <Calendar size={20} />;
+      case "danger":
+        return <AlertTriangle size={20} />;
       default:
         return <Bell size={20} />;
     }
@@ -1007,6 +1063,8 @@ const NewsFeed: React.FC = () => {
         return "#9c27b0";
       case "event":
         return "#00bcd4";
+      case "danger":
+        return "#d32f2f";
       default:
         return "#666";
     }
@@ -1025,6 +1083,47 @@ const NewsFeed: React.FC = () => {
   // Request notification permission on mount
   useEffect(() => {
     requestNotificationPermission();
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated()) return;
+    const unsubscribe = chatService.onAdminNotification((payload: unknown) => {
+      const data = payload as {
+        id?: number;
+        title?: string;
+        message?: string;
+        notification_type?: string;
+        time?: string;
+        event?: string;
+      };
+      if (!data?.id) return;
+
+      if (data.event === "deleted") {
+        setNotifications((prev) => prev.filter((n) => n.id !== data.id));
+        return;
+      }
+
+      const next: Notification = {
+        id: data.id,
+        type: data.notification_type === "danger" ? "danger" : "mention",
+        userId: 0,
+        userName: "Admin",
+        userAvatar: "",
+        message: data.message || data.title || "Admin update",
+        timestamp: data.time || new Date().toISOString(),
+        isRead: false,
+      };
+
+      setNotifications((prev) => {
+        const withoutCurrent = prev.filter((n) => n.id !== next.id);
+        return [next, ...withoutCurrent];
+      });
+      playNotificationSound();
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // Handle navbar visibility on scroll
@@ -1499,7 +1598,10 @@ const NewsFeed: React.FC = () => {
                   </span>
                   <button
                     className="newsfeed-hashtag-filter__clear"
-                    onClick={() => setFilteredHashtag(null)}
+                    onClick={() => {
+                      setFilteredHashtag(null);
+                      fetchFeeds();
+                    }}
                     aria-label="Clear filter"
                   >
                     <X size={16} />
@@ -1514,7 +1616,7 @@ const NewsFeed: React.FC = () => {
             ) : feedError ? (
               <div className="newsfeed-no-posts">
                 <p style={{ color: "var(--error-color, #e74c3c)" }}>
-                  Error loading feeds: {feedError}
+                  We could not load your feed right now. {feedError}
                 </p>
                 <button
                   onClick={() => {
@@ -1587,6 +1689,7 @@ const NewsFeed: React.FC = () => {
           </div>
         </main>
 
+        
         {/* Right Sidebar - Aside */}
         <aside
           className={`newsfeed-aside ${
@@ -1610,15 +1713,7 @@ const NewsFeed: React.FC = () => {
           <TrendingSection
             trending={trending}
             onHashtagClick={(hashtag) => {
-              setFilteredHashtag(hashtag);
-              // Scroll to posts section
-              setTimeout(() => {
-                const postsSection = document.querySelector(".newsfeed-posts");
-                postsSection?.scrollIntoView({
-                  behavior: "smooth",
-                  block: "start",
-                });
-              }, 100);
+              fetchFeedsByHashtag(hashtag);
             }}
           />
           <SuggestedFriends friends={[]} />

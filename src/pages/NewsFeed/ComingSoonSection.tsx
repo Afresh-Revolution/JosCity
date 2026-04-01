@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import NewsFeedHeader from "./NewsFeedHeader";
 import NewsFeedSidebar from "./NewsFeedSidebar";
 import ChatPanel from "../../components/ChatPanel";
+import FindFriendsModal from "../../components/FindFriendsModal";
+import { getProfileUsername } from "../../utils/userUtils";
 import "../../scss/_newsfeed.scss";
 
 const SECTION_NAMES: Record<string, string> = {
@@ -27,6 +29,8 @@ const ComingSoonSection: React.FC = () => {
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const sectionName = SECTION_NAMES[section] || section || "This section";
 
   return (
@@ -38,10 +42,13 @@ const ComingSoonSection: React.FC = () => {
         showRightSidebarToggle={false}
         unreadNotificationsCount={0}
         unreadMessagesCount={unreadMessagesCount}
-        onNotificationClick={() => {}}
-        onAddFriendClick={() => {}}
+        onNotificationClick={() => setIsNotificationPanelOpen(true)}
+        onAddFriendClick={() => setIsAddFriendModalOpen(true)}
         onMessageClick={() => setIsChatPanelOpen(true)}
-        onCreateClick={() => {}}
+        onCreateClick={() => navigate("/newsfeed")}
+        onProfileClick={() =>
+          navigate(`/profile/${encodeURIComponent(getProfileUsername())}`)
+        }
       />
       <div className="newsfeed-container">
         {isLeftSidebarOpen && (
@@ -78,6 +85,37 @@ const ComingSoonSection: React.FC = () => {
         onClose={() => setIsChatPanelOpen(false)}
         onUnreadCountChange={setUnreadMessagesCount}
       />
+      <FindFriendsModal
+        isOpen={isAddFriendModalOpen}
+        onClose={() => setIsAddFriendModalOpen(false)}
+      />
+      {isNotificationPanelOpen && (
+        <div
+          className="newsfeed-notification-panel-overlay"
+          onClick={() => setIsNotificationPanelOpen(false)}
+        >
+          <div
+            className="newsfeed-notification-panel"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="newsfeed-notification-panel__header">
+              <h3>Notifications</h3>
+              <button
+                className="newsfeed-notification-panel__close"
+                onClick={() => setIsNotificationPanelOpen(false)}
+                aria-label="Close panel"
+              >
+                X
+              </button>
+            </div>
+            <div className="newsfeed-notification-panel__content">
+              <div className="newsfeed-notification-panel__empty">
+                <p>No notifications</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

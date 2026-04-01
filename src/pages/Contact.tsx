@@ -110,10 +110,10 @@ const Contact: React.FC = () => {
       iconColor: "#00C950",
       iconBg: "rgba(0, 201, 80, 0.1)",
       title: "Email",
-      detail1: "support@afresh.academy",
+      detail1: "support@joscity.com",
       detail2: "Response in 24 hours",
       action: () => {
-        window.location.href = "mailto:support@afresh.academy";
+        window.location.href = "mailto:support@joscity.com";
       },
     },
     {

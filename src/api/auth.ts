@@ -226,6 +226,8 @@ interface LoginResponse {
   error?: string;
 }
 
+type AccountType = "personal" | "business";
+
 export const loginPersonal = async (
   credentials: LoginCredentials
 ): Promise<LoginResponse> => {
@@ -400,6 +402,220 @@ export const loginBusiness = async (
     };
   } catch (error) {
     console.error("Login error:", error);
+    return {
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Network error occurred",
+    };
+  }
+};
+
+interface ActivationRequiredResponse {
+  success: boolean;
+  activation_required?: boolean;
+  message?: string;
+}
+
+export const checkActivationRequired = async (
+  email: string,
+  accountType: AccountType
+): Promise<ActivationRequiredResponse> => {
+  try {
+    const normalizedEmail = email.toLowerCase().trim();
+    if (!normalizedEmail) {
+      return { success: false, message: "Email is required" };
+    }
+
+    const response = await fetchWithTimeout(
+      `${API_BASE_URL}/auth/activation-required`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          account_type: accountType,
+        }),
+        timeout: 30000,
+      }
+    );
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        message: data.message || "Failed to check activation requirement",
+      };
+    }
+
+    return {
+      success: true,
+      activation_required: Boolean(data.activation_required),
+      message: data.message,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Network error occurred",
+    };
+  }
+};
+
+export const requestPasswordResetOtp = async (
+  email: string,
+  accountType: AccountType
+): Promise<ApiResponse<Record<string, never>>> => {
+  try {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/auth/forgot-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: email.toLowerCase().trim(),
+        account_type: accountType,
+      }),
+      timeout: 30000,
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        message: data.message || "Failed to send OTP",
+      };
+    }
+
+    return {
+      success: true,
+      message: data.message || "If the email exists, an OTP has been sent",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Network error occurred",
+    };
+  }
+};
+
+export const verifyPasswordResetOtp = async (
+  email: string,
+  otp: string
+): Promise<ApiResponse<Record<string, never>>> => {
+  try {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/auth/confirm-reset`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: email.toLowerCase().trim(),
+        reset_key: otp.trim(),
+      }),
+      timeout: 30000,
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        message: data.message || "Invalid or expired OTP",
+      };
+    }
+
+    return {
+      success: true,
+      message: data.message || "OTP verified",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Network error occurred",
+    };
+  }
+};
+
+export const resetPasswordWithOtp = async (
+  email: string,
+  otp: string,
+  newPassword: string
+): Promise<ApiResponse<Record<string, never>>> => {
+  try {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/auth/reset-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: email.toLowerCase().trim(),
+        reset_key: otp.trim(),
+        new_password: newPassword,
+        confirm: newPassword,
+      }),
+      timeout: 30000,
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        message: data.message || "Failed to reset password",
+      };
+    }
+
+    return {
+      success: true,
+      message: data.message || "Password reset successful",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Network error occurred",
+    };
+  }
+};
+
+export const resendActivationOtp = async (
+  email: string,
+  accountType: AccountType
+): Promise<ApiResponse<{ next_allowed_at?: string }>> => {
+  try {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/auth/resend-activation`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: email.toLowerCase().trim(),
+        account_type: accountType,
+      }),
+      timeout: 30000,
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        message: data.message || "Failed to resend activation OTP",
+        data: data.next_allowed_at
+          ? { next_allowed_at: data.next_allowed_at as string }
+          : undefined,
+      };
+    }
+
+    return {
+      success: true,
+      message: data.message || "New activation OTP sent",
+      data: data.next_allowed_at
+        ? { next_allowed_at: data.next_allowed_at as string }
+        : undefined,
+    };
+  } catch (error) {
     return {
       success: false,
       message:

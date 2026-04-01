@@ -122,23 +122,23 @@ function App() {
     }
   };
 
-  const scrollToGuidlines = () => {
+  const scrollToNews = () => {
     setIsMenuOpen(false);
     if (window.location.pathname !== "/") {
       navigate("/");
       setTimeout(() => {
-        const guidelinesSection = document.getElementById("guidelines");
-        if (guidelinesSection) {
-          guidelinesSection.scrollIntoView({
+        const newsSection = document.getElementById("news");
+        if (newsSection) {
+          newsSection.scrollIntoView({
             behavior: "smooth",
             block: "start",
           });
         }
       }, 100);
     } else {
-      const guidelinesSection = document.getElementById("guidelines");
-      if (guidelinesSection) {
-        guidelinesSection.scrollIntoView({
+      const newsSection = document.getElementById("news");
+      if (newsSection) {
+        newsSection.scrollIntoView({
           behavior: "smooth",
           block: "start",
         });
@@ -214,8 +214,8 @@ function App() {
                 <li className="navbar__nav-item" onClick={scrollToAbout}>
                   ABOUT
                 </li>
-                <li className="navbar__nav-item" onClick={scrollToGuidlines}>
-                  GUIDELINES
+                <li className="navbar__nav-item" onClick={scrollToNews}>
+                  NEWS
                 </li>
                 <li className="navbar__nav-item" onClick={scrollToServices}>
                   SERVICES

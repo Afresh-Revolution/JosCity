@@ -1,20 +1,25 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import "../main.css";
 import "../scss/_events.scss";
 import multipleLaugh from "../image/multiple-laugh.png";
 import smile from "../image/smile.png";
 import ChatPanel from "../components/ChatPanel";
+import FindFriendsModal from "../components/FindFriendsModal";
 import NewsFeedHeader from "./NewsFeed/NewsFeedHeader";
 import NewsFeedSidebar from "./NewsFeed/NewsFeedSidebar";
+import { getProfileUsername } from "../utils/userUtils";
 
 const Events: React.FC = () => {
+  const navigate = useNavigate();
   const location = useLocation();
   const isStandalonePage = location.pathname === "/events";
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [visibleElements, setVisibleElements] = useState<Set<string>>(
     new Set()
@@ -163,10 +168,14 @@ const Events: React.FC = () => {
           showRightSidebarToggle={false}
           unreadNotificationsCount={0}
           unreadMessagesCount={unreadMessagesCount}
-          onNotificationClick={() => {}}
-          onAddFriendClick={() => {}}
+          onNotificationClick={() => setIsNotificationPanelOpen(true)}
+          onAddFriendClick={() => setIsAddFriendModalOpen(true)}
           onMessageClick={() => setIsChatPanelOpen(true)}
-          onCreateClick={() => {}}
+          onCreatePost={() => navigate("/newsfeed")}
+          onCreateStory={() => navigate("/newsfeed")}
+          onProfileClick={() =>
+            navigate(`/profile/${encodeURIComponent(getProfileUsername())}`)
+          }
         />
         <div className="events-page__container">
           {/* Mobile Overlay */}
@@ -189,6 +198,37 @@ const Events: React.FC = () => {
           onClose={() => setIsChatPanelOpen(false)}
           onUnreadCountChange={setUnreadMessagesCount}
         />
+        <FindFriendsModal
+          isOpen={isAddFriendModalOpen}
+          onClose={() => setIsAddFriendModalOpen(false)}
+        />
+        {isNotificationPanelOpen && (
+          <div
+            className="newsfeed-notification-panel-overlay"
+            onClick={() => setIsNotificationPanelOpen(false)}
+          >
+            <div
+              className="newsfeed-notification-panel"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="newsfeed-notification-panel__header">
+                <h3>Notifications</h3>
+                <button
+                  className="newsfeed-notification-panel__close"
+                  onClick={() => setIsNotificationPanelOpen(false)}
+                  aria-label="Close panel"
+                >
+                  X
+                </button>
+              </div>
+              <div className="newsfeed-notification-panel__content">
+                <div className="newsfeed-notification-panel__empty">
+                  <p>No notifications</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

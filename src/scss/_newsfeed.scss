@@ -6795,6 +6795,12 @@
         color: var(--text-tertiary);
       }
     }
+
+    // Force readable text color for mobile opened aside in dark theme.
+    &.newsfeed-aside--open,
+    &.newsfeed-aside--open * {
+      color: #fff !important;
+    }
   }
 
   .newsfeed-search-section {

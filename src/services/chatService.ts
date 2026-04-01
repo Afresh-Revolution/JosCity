@@ -10,7 +10,8 @@ type ChatEventName =
   | "messages_read"
   | "user_joined"
   | "user_left"
-  | "new_message_notification";
+  | "new_message_notification"
+  | "admin_notification";
 
 export interface ChatParticipant {
   userId: number;
@@ -414,12 +415,6 @@ class ChatService {
         : ({ message: text } as JsonRecord);
 
     if (!response.ok) {
-      if (response.status === 404) {
-        this.apiUnavailable = true;
-        this.disconnect();
-        throw new Error(this.availabilityMessage);
-      }
-
       throw new Error(
         extractErrorMessage(
           payload,
@@ -646,6 +641,10 @@ class ChatService {
 
   onNewMessageNotification(callback: SocketCallback): () => void {
     return this.on("new_message_notification", callback);
+  }
+
+  onAdminNotification(callback: SocketCallback): () => void {
+    return this.on("admin_notification", callback);
   }
 
   disconnect(): void {

@@ -132,7 +132,7 @@ const Accessibility: React.FC = () => {
               encounter accessibility barriers, please contact us:
             </p>
             <p>
-              <strong>Email:</strong> support@afresh.academy
+              <strong>Email:</strong> support@joscity.com
               <br />
               <strong>Phone:</strong> +234 7067621916
               <br />

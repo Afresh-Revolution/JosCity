@@ -153,7 +153,7 @@ const TermsOfService: React.FC = () => {
               For questions about these Terms of Service, please contact us at:
             </p>
             <p>
-              <strong>Email:</strong> support@afresh.academy
+              <strong>Email:</strong> support@joscity.com
               <br />
               <strong>Phone:</strong> +234 7067621916
               <br />

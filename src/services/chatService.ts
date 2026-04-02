@@ -554,6 +554,59 @@ class ChatService {
     };
   }
 
+  async editMessage(
+    messageId: number,
+    messageContent: string
+  ): Promise<{ message: ChatMessage | null }> {
+    const response = await this.apiRequest<JsonRecord>(`/messages/${messageId}`, {
+      method: "PUT",
+      body: JSON.stringify({ messageContent }),
+    });
+
+    return {
+      message:
+        normalizeChatMessage(response.message) ||
+        normalizeChatMessage(response.data) ||
+        normalizeChatMessage(response),
+    };
+  }
+
+  async deleteMessage(messageId: number): Promise<void> {
+    await this.apiRequest(`/messages/${messageId}`, {
+      method: "DELETE",
+    });
+  }
+
+  async createGroupConversation(
+    conversationName: string,
+    participantIds: number[]
+  ): Promise<{ conversation: ChatConversation | null }> {
+    const response = await this.apiRequest<JsonRecord>("/conversations/group", {
+      method: "POST",
+      body: JSON.stringify({ conversationName, participantIds }),
+    });
+
+    return {
+      conversation:
+        normalizeChatConversation(response.conversation) ||
+        normalizeChatConversation(response.data) ||
+        normalizeChatConversation(response),
+    };
+  }
+
+  async addParticipant(conversationId: number, userId: number): Promise<void> {
+    await this.apiRequest(`/conversations/${conversationId}/participants`, {
+      method: "POST",
+      body: JSON.stringify({ userId }),
+    });
+  }
+
+  async leaveConversationGroup(conversationId: number): Promise<void> {
+    await this.apiRequest(`/conversations/${conversationId}/leave`, {
+      method: "POST",
+    });
+  }
+
   async markAsRead(conversationId: number): Promise<void> {
     await this.apiRequest(`/conversations/${conversationId}/read`, {
       method: "POST",

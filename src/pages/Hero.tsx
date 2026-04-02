@@ -6,12 +6,11 @@ import {
   Zap,
   User,
   Info,
-  AlertTriangle,
   ChevronLeft,
   ChevronRight,
   Newspaper,
 } from "lucide-react";
-import API_BASE_URL from "../api/config";
+import AdminBroadcastStrip from "../components/AdminBroadcastStrip";
 import { newsApi, type NewsPost } from "../services/newsApi";
 import { preloadImage } from "../utils/imagePreloader";
 import {
@@ -88,9 +87,6 @@ function Hero() {
   };
   const [currentSlide, setCurrentSlide] = useState(0);
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(fallbackSlides);
-  const [dangerAlerts, setDangerAlerts] = useState<
-    Array<{ id: number; title?: string; message?: string }>
-  >([]);
   const [visibleElements, setVisibleElements] = useState<Set<string>>(
     new Set()
   );
@@ -129,28 +125,6 @@ function Hero() {
     }, 5000);
     return () => clearInterval(timer);
   }, [topNews]);
-
-  useEffect(() => {
-    const loadDangerAlerts = async () => {
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/notifications/public/danger?limit=3`,
-          { signal: AbortSignal.timeout(10000) }
-        );
-        if (!response.ok) return;
-        const json = (await response.json()) as {
-          success?: boolean;
-          data?: Array<{ id: number; title?: string; message?: string }>;
-        };
-        if (Array.isArray(json.data)) {
-          setDangerAlerts(json.data);
-        }
-      } catch {
-        // Ignore public alert failures on landing.
-      }
-    };
-    loadDangerAlerts();
-  }, []);
 
   // Preload all hero images on mount for better performance
   useEffect(() => {
@@ -321,30 +295,6 @@ function Hero() {
         })}
 
         <div className="hero__content">
-          {dangerAlerts.length > 0 && (
-            <div
-              style={{
-                width: "100%",
-                maxWidth: 760,
-                marginBottom: "0.75rem",
-                background: "rgba(180, 18, 18, 0.88)",
-                border: "1px solid rgba(255,255,255,0.28)",
-                color: "#fff",
-                borderRadius: 10,
-                padding: "0.6rem 0.8rem",
-              }}
-            >
-              {dangerAlerts.map((alert) => (
-                <div key={alert.id} style={{ display: "flex", gap: 8, marginBottom: 6 }}>
-                  <AlertTriangle size={16} style={{ marginTop: 2, flexShrink: 0 }} />
-                  <div>
-                    <strong>{alert.title || "Important update"}</strong>
-                    <div>{alert.message || ""}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
           <div
             ref={badgeRef}
             id="hero-badge"
@@ -366,6 +316,8 @@ function Hero() {
             <Lightbulb size={20} />
             <span>Powered by Cbrilliance AI tech LTD</span>
           </div>
+
+          <AdminBroadcastStrip variant="landing" />
 
           <h1
             ref={titleRef}

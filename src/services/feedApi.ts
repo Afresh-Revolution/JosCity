@@ -1,4 +1,4 @@
-import API_BASE_URL from "../api/config";
+import { apiUrl } from "../api/config";
 
 // Types for feed operations
 export type ReactionType =
@@ -117,7 +117,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    response = await fetch(apiUrl(endpoint), {
       ...options,
       headers,
       signal: AbortSignal.timeout(30000), // 30 second timeout
@@ -184,7 +184,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
   if (!response.ok) {
     // Log detailed error information for debugging
     console.error(`API Error ${response.status} (${response.statusText})`, {
-      endpoint: `${API_BASE_URL}${endpoint}`,
+      endpoint: apiUrl(endpoint),
       status: response.status,
       statusText: response.statusText,
       responseData: data,
@@ -259,7 +259,7 @@ export const feedApi = {
       const file = data.mediaFile instanceof Blob ? new File([data.mediaFile], "media", { type: data.mediaFile.type }) : data.mediaFile;
       formData.append("media", file);
       console.log("Creating story via POST /api/stories (FormData)", { type: data.type });
-      const response = await fetch(`${API_BASE_URL}/stories`, {
+      const response = await fetch(apiUrl("/stories"), {
         method: "POST",
         headers,
         body: formData,
@@ -570,7 +570,7 @@ export const feedApi = {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
     try {
-      const response = await fetch(`${API_BASE_URL}/feed/trending-hashtags?${query}`, {
+      const response = await fetch(apiUrl(`/feed/trending-hashtags?${query}`), {
         method: "GET",
         headers,
         signal: AbortSignal.timeout(10000),
@@ -615,7 +615,7 @@ export const feedApi = {
     };
     try {
       const response = await fetch(
-        `${API_BASE_URL}/feed/by-hashtag/${encodeURIComponent(tag)}?${query}`,
+        apiUrl(`/feed/by-hashtag/${encodeURIComponent(tag)}?${query}`),
         { method: "GET", headers, signal: AbortSignal.timeout(15000) }
       );
       if (!response.ok) return empty;
@@ -677,7 +677,7 @@ export const feedApi = {
 
     let response: Response;
     try {
-      response = await fetch(`${API_BASE_URL}/feed/posts`, {
+      response = await fetch(apiUrl("/feed/posts"), {
         method: "POST",
         headers,
         body,
@@ -751,7 +751,7 @@ export const feedApi = {
     if (!response.ok) {
       // Log detailed error information for debugging
       console.error(`API Error ${response.status} (${response.statusText})`, {
-        endpoint: `${API_BASE_URL}/feed/posts`,
+        endpoint: apiUrl("/feed/posts"),
         status: response.status,
         statusText: response.statusText,
         responseData: responseData,
@@ -823,6 +823,8 @@ export const feedApi = {
       time: string;
       is_read?: boolean;
       is_global?: boolean;
+      created_by_admin?: boolean;
+      expires_at?: string | null;
       show_on_landing?: boolean;
       from_user?: { display_name?: string; profile_image_url?: string };
     }>;
@@ -841,6 +843,8 @@ export const feedApi = {
         time: string;
         is_read?: boolean;
         is_global?: boolean;
+        created_by_admin?: boolean;
+        expires_at?: string | null;
         show_on_landing?: boolean;
         from_user?: { display_name?: string; profile_image_url?: string };
       }>;

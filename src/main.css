@@ -51,6 +51,10 @@
   box-sizing: border-box;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   font-family: "Arimo", sans-serif;
   color: var(--text-primary);
@@ -287,7 +291,7 @@ body {
 }
 @media screen and (min-width: 1025px) {
   .hero__content {
-    margin-top: 15px;
+    margin-top: 12px;
   }
 }
 .hero__badge {
@@ -317,19 +321,6 @@ body {
 [data-theme=dark] .hero__badge {
   box-shadow: 0 4px 20px rgba(52, 184, 106, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.2) inset;
 }
-.hero__badge::before {
-  content: "";
-  position: absolute;
-  top: -2px;
-  left: -2px;
-  right: -2px;
-  bottom: -2px;
-  background: linear-gradient(45deg, #34b86a, transparent, #34b86a);
-  border-radius: 2rem;
-  z-index: -1;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
 .hero__badge.fade-in {
   opacity: 0.8;
   transform: translateY(0);
@@ -338,27 +329,13 @@ body {
   will-change: transform;
   background: var(--bg-secondary);
 }
-.hero__badge.fade-in::before {
-  opacity: 1;
-  -webkit-animation: border-glow 2s ease-in-out infinite;
-          animation: border-glow 2s ease-in-out infinite;
-}
 .hero__badge.fade-in:hover {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.12));
   transform: translateY(0) scale(1.08) rotate(-0.75deg);
   box-shadow: 0 8px 28px rgba(52, 184, 106, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.25) inset;
 }
-.hero__badge.fade-in:hover::before {
-  -webkit-animation: border-glow 1.6s ease-in-out infinite;
-          animation: border-glow 1.6s ease-in-out infinite;
-}
 .hero__badge.fade-in:active {
   transform: translateY(0) scale(0.98);
-}
-.hero__badge:hover::before {
-  opacity: 1;
-  -webkit-animation: border-glow 2s ease-in-out infinite;
-          animation: border-glow 2s ease-in-out infinite;
 }
 .hero__badge:focus {
   outline: 2px solid rgba(255, 255, 255, 0.5);
@@ -4769,8 +4746,6 @@ body {
   border-radius: 50px;
   z-index: 1000;
   box-sizing: border-box;
-  -webkit-animation: slide-down 0.6s ease-out;
-          animation: slide-down 0.6s ease-out;
 }
 .navbar__left-section {
   display: flex;

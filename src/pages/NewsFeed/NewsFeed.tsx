@@ -21,7 +21,10 @@ import {
   MessageCircle,
   Calendar,
   AlertTriangle,
+  AlertOctagon,
   FileText,
+  Info,
+  CheckCircle2,
 } from "lucide-react";
 import NewsFeedSidebar from "./NewsFeedSidebar";
 import NewsFeedHeader from "./NewsFeedHeader";
@@ -57,6 +60,10 @@ import "../../scss/_profilemodal.scss";
 import "../../scss/_messagepopup.scss";
 import "../../scss/_newsfeed.scss";
 import { feedApi } from "../../services/feedApi";
+import AdminBroadcastStrip, {
+  type AdminBroadcastItem,
+  normalizeAdminBroadcastType,
+} from "../../components/AdminBroadcastStrip";
 
 interface SearchResult {
   type: "person" | "hashtag" | "post";
@@ -909,6 +916,11 @@ const NewsFeed: React.FC = () => {
       | "event"
       | "message"
       | "danger";
+    nodeType?: string;
+    createdByAdmin?: boolean;
+    notificationType?: string;
+    title?: string | null;
+    expiresAt?: string | null;
     userId: number;
     userName: string;
     userAvatar: string;
@@ -936,19 +948,28 @@ const NewsFeed: React.FC = () => {
             action?: string;
             message?: string;
             notification_type?: string;
+            title?: string | null;
             node_type?: string;
             node_id?: number;
             time?: string;
             is_read?: boolean;
             is_global?: boolean;
+            created_by_admin?: boolean;
+            expires_at?: string | null;
             from_user?: { display_name?: string; profile_image_url?: string };
           };
-          return {
-            id: n.id,
-            type: item.notification_type === "danger"
+          const isAdminBroadcast =
+            item.node_type === "admin_notification" ||
+            !!item.created_by_admin;
+          const rawType = String(item.notification_type || "normal").toLowerCase();
+          const typeForFeed: Notification["type"] = isAdminBroadcast
+            ? rawType === "danger"
+              ? "danger"
+              : "mention"
+            : item.notification_type === "danger"
               ? "danger"
               : n.action?.toLowerCase().includes("like") ||
-                n.action?.toLowerCase().includes("react")
+                  n.action?.toLowerCase().includes("react")
                 ? "like"
                 : n.action?.toLowerCase().includes("comment")
                   ? "comment"
@@ -956,9 +977,19 @@ const NewsFeed: React.FC = () => {
                     ? "friend_request"
                     : n.action?.toLowerCase().includes("share")
                       ? "share"
-                      : "mention",
+                      : "mention";
+          return {
+            id: n.id,
+            type: typeForFeed,
+            nodeType: item.node_type,
+            createdByAdmin: !!item.created_by_admin,
+            notificationType: item.notification_type || "normal",
+            title: item.title ?? null,
+            expiresAt: item.expires_at ?? null,
             userId: n.from_user_id ?? 0,
-            userName: n.from_user?.display_name ?? (item.is_global ? "Admin" : "Someone"),
+            userName:
+              n.from_user?.display_name ??
+              (item.is_global || isAdminBroadcast ? "Admin" : "Someone"),
             userAvatar: n.from_user?.profile_image_url ?? "",
             message: item.message || n.action || "",
             timestamp: n.time ?? "",
@@ -1022,9 +1053,24 @@ const NewsFeed: React.FC = () => {
     );
   };
 
-  // Get notification icon based on type
-  const getNotificationIcon = (type: Notification["type"]) => {
-    switch (type) {
+  // Get notification icon based on type (admin broadcasts use notificationType)
+  const getNotificationIcon = (n: Notification) => {
+    if (n.nodeType === "admin_notification" || n.createdByAdmin) {
+      const t = normalizeAdminBroadcastType(n.notificationType);
+      switch (t) {
+        case "info":
+          return <Info size={20} />;
+        case "success":
+          return <CheckCircle2 size={20} />;
+        case "warning":
+          return <AlertTriangle size={20} />;
+        case "danger":
+          return <AlertOctagon size={20} />;
+        default:
+          return <Bell size={20} />;
+      }
+    }
+    switch (n.type) {
       case "like":
         return <Heart size={20} />;
       case "comment":
@@ -1047,8 +1093,23 @@ const NewsFeed: React.FC = () => {
   };
 
   // Get notification color based on type
-  const getNotificationColor = (type: Notification["type"]) => {
-    switch (type) {
+  const getNotificationColor = (n: Notification) => {
+    if (n.nodeType === "admin_notification" || n.createdByAdmin) {
+      const t = normalizeAdminBroadcastType(n.notificationType);
+      switch (t) {
+        case "info":
+          return "#0288d1";
+        case "success":
+          return "#2e7d32";
+        case "warning":
+          return "#f57c00";
+        case "danger":
+          return "#c62828";
+        default:
+          return "#5c6bc0";
+      }
+    }
+    switch (n.type) {
       case "like":
         return "#e91e63";
       case "comment":
@@ -1069,6 +1130,22 @@ const NewsFeed: React.FC = () => {
         return "#666";
     }
   };
+
+  const adminBroadcastItems = useMemo((): AdminBroadcastItem[] => {
+    return notifications
+      .filter(
+        (n) =>
+          n.nodeType === "admin_notification" || n.createdByAdmin === true
+      )
+      .map((n) => ({
+        id: n.id,
+        title: n.title,
+        message: n.message,
+        notification_type: normalizeAdminBroadcastType(n.notificationType),
+        time: n.timestamp,
+        expires_at: n.expiresAt ?? undefined,
+      }));
+  }, [notifications]);
 
   // Extract all unique people from posts for search functionality
   const allPeople = [...new Set(posts.map((p) => p.userName))].map((name) => {
@@ -1095,17 +1172,71 @@ const NewsFeed: React.FC = () => {
         notification_type?: string;
         time?: string;
         event?: string;
+        expires_at?: string | null;
       };
-      if (!data?.id) return;
+      const adminNid = data.id;
+      if (adminNid == null) return;
 
       if (data.event === "deleted") {
-        setNotifications((prev) => prev.filter((n) => n.id !== data.id));
+        setNotifications((prev) => prev.filter((n) => n.id !== adminNid));
         return;
       }
 
+      if (data.event === "updated") {
+        setNotifications((prev) => {
+          const raw = String(data.notification_type || "normal").toLowerCase();
+          const typeForFeed: Notification["type"] =
+            raw === "danger" ? "danger" : "mention";
+          const idx = prev.findIndex((n) => n.id === adminNid);
+          if (idx === -1) {
+            const created: Notification = {
+              id: adminNid,
+              type: typeForFeed,
+              nodeType: "admin_notification",
+              createdByAdmin: true,
+              notificationType: data.notification_type || "normal",
+              title: data.title ?? null,
+              expiresAt: data.expires_at ?? null,
+              userId: 0,
+              userName: "Admin",
+              userAvatar: "",
+              message: data.message || data.title || "Admin update",
+              timestamp: data.time || new Date().toISOString(),
+              isRead: false,
+            };
+            return [created, ...prev];
+          }
+          return prev.map((n) => {
+            if (n.id !== adminNid) return n;
+            return {
+              ...n,
+              type: typeForFeed,
+              message:
+                data.message !== undefined && data.message !== null
+                  ? data.message
+                  : n.message,
+              title:
+                data.title !== undefined ? data.title : n.title,
+              notificationType:
+                data.notification_type || n.notificationType || "normal",
+              timestamp: data.time || n.timestamp,
+              expiresAt:
+                data.expires_at !== undefined ? data.expires_at : n.expiresAt,
+            };
+          });
+        });
+        return;
+      }
+
+      const raw = String(data.notification_type || "normal").toLowerCase();
       const next: Notification = {
-        id: data.id,
-        type: data.notification_type === "danger" ? "danger" : "mention",
+        id: adminNid,
+        type: raw === "danger" ? "danger" : "mention",
+        nodeType: "admin_notification",
+        createdByAdmin: true,
+        notificationType: data.notification_type || "normal",
+        title: data.title ?? null,
+        expiresAt: data.expires_at ?? null,
         userId: 0,
         userName: "Admin",
         userAvatar: "",
@@ -1547,6 +1678,12 @@ const NewsFeed: React.FC = () => {
               </div>
             )}
           </div>
+          {adminBroadcastItems.length > 0 && (
+            <AdminBroadcastStrip
+              variant="dashboard"
+              items={adminBroadcastItems}
+            />
+          )}
           <StoriesSection
             userName={userName}
             userAvatar={getUserAvatar()}
@@ -1851,17 +1988,17 @@ const NewsFeed: React.FC = () => {
                         className="newsfeed-notification-panel__icon-wrapper"
                         style={{
                           backgroundColor: `${getNotificationColor(
-                            notification.type
+                            notification
                           )}20`,
                         }}
                       >
                         <div
                           className="newsfeed-notification-panel__icon"
                           style={{
-                            color: getNotificationColor(notification.type),
+                            color: getNotificationColor(notification),
                           }}
                         >
-                          {getNotificationIcon(notification.type)}
+                          {getNotificationIcon(notification)}
                         </div>
                       </div>
                       <div className="newsfeed-notification-panel__content-wrapper">

@@ -49,8 +49,7 @@
   z-index: 1000;
   // Prevent overflow
   box-sizing: border-box;
-  // Smooth entrance animation
-  animation: slide-down 0.6s ease-out;
+  // No entrance animation — sliding transform caused visible "moving" / jitter with fixed positioning
 
   // Layout wrappers used by `src/pages/NavBar.tsx`
   &__left-section {

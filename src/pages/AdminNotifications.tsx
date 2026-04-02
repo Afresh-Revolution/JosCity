@@ -72,8 +72,14 @@ const AdminNotifications: React.FC = () => {
   useEffect(() => {
     if (notificationType !== "danger") {
       setShowOnLanding(false);
+      return;
     }
-  }, [notificationType]);
+    if (target === "all") {
+      setShowOnLanding(true);
+    } else {
+      setShowOnLanding(false);
+    }
+  }, [notificationType, target]);
 
   const filteredUsers = useMemo(() => {
     const q = recipientSearch.trim().toLowerCase();

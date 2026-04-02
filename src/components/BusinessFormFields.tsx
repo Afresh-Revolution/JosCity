@@ -124,6 +124,7 @@ const BusinessFormFields: React.FC<BusinessFormFieldsProps> = ({
             type={showPassword ? "text" : "password"}
             id="business_password"
             name="business_password"
+            autoComplete="new-password"
             value={formData.business_password}
             onChange={onInputChange}
             placeholder="Password"

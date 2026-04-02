@@ -17,7 +17,11 @@ import {
 import LazyImage from "../../components/LazyImage";
 import Avatar from "../../components/Avatar";
 import ConfirmationModal from "../../components/ConfirmationModal";
-import { feedApi, type Comment as ApiComment } from "../../services/feedApi";
+import {
+  feedApi,
+  type Comment as ApiComment,
+  type PostReactionStat,
+} from "../../services/feedApi";
 import { isAuthenticated, getUserData, getUserName } from "../../utils/userUtils";
 import { useNavigate } from "react-router-dom";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -31,8 +35,23 @@ interface Comment {
   timeAgo: string;
 }
 
+interface EmbeddedPost {
+  id: number;
+  userId?: number;
+  userName: string;
+  userAvatar: string;
+  timeAgo: string;
+  caption?: string;
+  image?: string;
+  images?: string[];
+  video?: string;
+  videos?: string[];
+  unavailable?: boolean;
+}
+
 interface Post {
   id: number;
+  userId?: number; // author user_id - only they can edit/delete/pin
   userName: string;
   userAvatar: string;
   action: string;
@@ -47,16 +66,23 @@ interface Post {
   reviews: number;
   hashtags?: string;
   caption?: string;
+  pinned?: boolean;
+  userReacted?: boolean;
+  userShared?: boolean;
+  originalPost?: EmbeddedPost;
 }
 
 interface PostCardProps {
   post: Post;
+  onPostDeleted?: (postId: number) => void;
+  onPostUpdated?: (postId: number, updates: { caption?: string; pinned?: boolean }) => void;
 }
 
-const PostCard: React.FC<PostCardProps> = ({ post }) => {
+const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated }) => {
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
+  const [isLiked, setIsLiked] = useState(Boolean(post.userReacted));
+  const [hasShared, setHasShared] = useState(Boolean(post.userShared));
   const [likeCount, setLikeCount] = useState(post.likes);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -75,7 +101,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [showMenu, setShowMenu] = useState(false);
-  const [isPinned, setIsPinned] = useState(false);
+  const [isPinned, setIsPinned] = useState(!!post.pinned);
   const [isLoading, setIsLoading] = useState(false);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -83,6 +109,11 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
   const MAX_CAPTION_LENGTH = 150;
+
+  // Only post author can edit, delete, or pin
+  const user = getUserData();
+  const currentUserId = (user?.user_id as number) ?? ((user as { id?: number })?.id as number) ?? null;
+  const isOwnPost = post.userId != null && currentUserId != null && post.userId === currentUserId;
 
   // Fixed caption handling with null checks
   const caption = post.caption || "";
@@ -92,6 +123,116 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
     shouldTruncate && !isExpanded
       ? `${caption.substring(0, MAX_CAPTION_LENGTH)}...`
       : caption;
+
+  const getImageSources = useCallback(
+    (postItem: { images?: string[]; image?: string }) => {
+      const imageArray: string[] = [];
+      if (postItem.images && postItem.images.length > 0) {
+        imageArray.push(...postItem.images.filter((img) => img && img.trim()));
+      } else if (postItem.image && postItem.image.trim()) {
+        imageArray.push(postItem.image);
+      }
+      return imageArray;
+    },
+    []
+  );
+
+  const getVideoSources = useCallback(
+    (postItem: { videos?: string[]; video?: string }) => {
+      const videoArray: string[] = [];
+      if (postItem.videos && postItem.videos.length > 0) {
+        videoArray.push(...postItem.videos.filter((vid) => vid && vid.trim()));
+      } else if (postItem.video && postItem.video.trim()) {
+        videoArray.push(postItem.video);
+      }
+      return videoArray;
+    },
+    []
+  );
+
+  const renderSharedOriginalPost = (originalPost: EmbeddedPost) => {
+    if (originalPost.unavailable) {
+      return (
+        <div className="newsfeed-post__shared-card newsfeed-post__shared-card--unavailable">
+          <p>Original post is no longer available.</p>
+        </div>
+      );
+    }
+
+    const originalImages = getImageSources(originalPost);
+    const originalVideos = getVideoSources(originalPost);
+
+    return (
+      <div className="newsfeed-post__shared-card">
+        <div className="newsfeed-post__shared-header">
+          <Avatar
+            src={originalPost.userAvatar}
+            name={originalPost.userName}
+            size={36}
+            className="newsfeed-post__shared-avatar"
+          />
+          <div className="newsfeed-post__shared-details">
+            <h4 className="newsfeed-post__shared-name">{originalPost.userName}</h4>
+            <span className="newsfeed-post__shared-time">
+              {originalPost.timeAgo}
+            </span>
+          </div>
+        </div>
+
+        {originalPost.caption && (
+          <div className="newsfeed-post__shared-caption">
+            <p>{originalPost.caption}</p>
+          </div>
+        )}
+
+        {originalImages.length > 0 && (
+          <div className="newsfeed-post__shared-media">
+            {originalImages.map((imageSrc, index) => (
+              <LazyImage
+                key={`${originalPost.id}-image-${index}`}
+                src={imageSrc}
+                alt={`${originalPost.userName}'s post image ${index + 1}`}
+                className="newsfeed-post__image"
+              />
+            ))}
+          </div>
+        )}
+
+        {originalVideos.length > 0 && (
+          <div className="newsfeed-post__shared-media">
+            {originalVideos.map((videoSrc, index) => (
+              <video
+                key={`${originalPost.id}-video-${index}`}
+                src={videoSrc}
+                controls
+                className="newsfeed-post__image"
+                style={{ width: "100%", height: "auto", display: "block" }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  useEffect(() => {
+    setIsLiked(Boolean(post.userReacted));
+    setLikeCount(post.likes);
+    setHasShared(Boolean(post.userShared));
+  }, [post.id, post.likes, post.userReacted, post.userShared]);
+
+  const getTotalReactionCount = (
+    reactions: PostReactionStat[] | undefined,
+    fallbackCount: number
+  ) => {
+    if (!Array.isArray(reactions)) return fallbackCount;
+
+    return reactions.reduce(
+      (total, currentReaction) =>
+        total + Number(currentReaction.count || 0),
+      0
+    );
+  };
 
   const handleLike = async () => {
     if (isLoading) return;
@@ -106,20 +247,28 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
     setIsLoading(true);
     try {
       if (isLiked) {
-        await feedApi.removeReaction(post.id);
+        const response = await feedApi.removeReaction(post.id);
         setIsLiked(false);
-        setLikeCount((prev) => prev - 1);
+        setLikeCount(
+          getTotalReactionCount(
+            response.data?.reactions,
+            Math.max(likeCount - 1, 0)
+          )
+        );
       } else {
         const response = await feedApi.reactToPost(post.id, "like");
-        setIsLiked(true);
-        setLikeCount((prev) => prev + 1);
+        const hasUserReaction = Boolean(response.data?.user_reaction);
+        setIsLiked(hasUserReaction);
+        setLikeCount(
+          getTotalReactionCount(response.data?.reactions, likeCount + 1)
+        );
         
         // Dispatch event for notification system
         const user = getUserData();
         const currentUserId = (user?.user_id as number) || ((user as { id?: number })?.id as number) || null;
         const currentUserName = getUserName();
         
-        if (response && response.data) {
+        if (response && response.data && hasUserReaction) {
           const likeEvent = new CustomEvent("postLiked", {
             detail: {
               postId: post.id,
@@ -135,8 +284,9 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
       }
     } catch (error) {
       console.error("Error reacting to post:", error);
-      // Revert on error
-      setIsLiked(!isLiked);
+      alert(
+        error instanceof Error ? error.message : "Failed to update reaction."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -191,10 +341,16 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
         const response = await feedApi.getPostComments(post.id);
         if (response.success && response.data) {
           const formattedComments: Comment[] = response.data.map((comment: ApiComment) => ({
-            id: comment.comment_id,
-            userName: comment.user?.display_name || "Unknown",
-            userAvatar: comment.user?.profile_image_url || "/placeholder-avatar.png",
-            text: comment.text || "",
+            id: comment.comment_id ?? comment.id ?? Date.now(),
+            userName:
+              comment.author?.name ||
+              comment.user?.display_name ||
+              "Unknown User",
+            userAvatar:
+              comment.author?.picture ||
+              comment.user?.profile_image_url ||
+              "",
+            text: comment.text || comment.comment || "",
             timeAgo: comment.time_ago || "just now",
           }));
           setComments(formattedComments);
@@ -221,10 +377,16 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
       const response = await feedApi.commentOnPost(post.id, { text: newComment });
       if (response.success && response.data) {
         const newCommentData: Comment = {
-          id: response.data.comment_id,
-          userName: response.data.user?.display_name || "You",
-          userAvatar: response.data.user?.profile_image_url || post.userAvatar,
-          text: response.data.text || newComment,
+          id: response.data.comment_id ?? response.data.id ?? Date.now(),
+          userName:
+            response.data.author?.name ||
+            response.data.user?.display_name ||
+            "You",
+          userAvatar:
+            response.data.author?.picture ||
+            response.data.user?.profile_image_url ||
+            post.userAvatar,
+          text: response.data.text || response.data.comment || newComment,
           timeAgo: response.data.time_ago || "just now",
         };
         setComments([...comments, newCommentData]);
@@ -242,7 +404,10 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
             postOwnerAvatar: post.userAvatar,
             commenterId: currentUserId,
             commenterName: currentUserName,
-            commenterAvatar: response.data.user?.profile_image_url || "",
+            commenterAvatar:
+              response.data.author?.picture ||
+              response.data.user?.profile_image_url ||
+              "",
             commentText: newComment,
           },
         });
@@ -267,32 +432,22 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
     setIsLoading(true);
     try {
-      // Share to feed
-      await feedApi.sharePost(post.id);
-      
-      // Also use native share if available
-      if (navigator.share) {
-        await navigator.share({
-          title: `${post.userName}'s post`,
-          text: caption || post.hashtags || "",
-          url: window.location.href,
-        });
-      } else {
-        await navigator.clipboard.writeText(window.location.href);
-        console.log("Link copied to clipboard");
+      const response = await feedApi.sharePost(post.id);
+      if (response.success) {
+        setHasShared(true);
+        window.dispatchEvent(
+          new CustomEvent("feedPostShared", {
+            detail: response.data,
+          })
+        );
       }
     } catch (error) {
-      // User cancelled share or error occurred
-      if ((error as Error).name !== "AbortError") {
-        console.error("Error sharing:", error);
-      }
-      // Fallback to clipboard
-      try {
-        await navigator.clipboard.writeText(window.location.href);
-        console.log("Link copied to clipboard");
-      } catch (clipboardError) {
-        console.error("Clipboard error:", clipboardError);
-      }
+      console.error("Error sharing:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to share this post into the feed."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -300,7 +455,19 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
   const handleEdit = () => {
     setShowMenu(false);
-    console.log("Edit post:", post.id);
+    const newText = window.prompt("Edit post caption:", caption);
+    if (newText === null) return;
+    setIsLoading(true);
+    feedApi
+      .updatePost(post.id, { text: newText })
+      .then(() => {
+        onPostUpdated?.(post.id, { caption: newText });
+      })
+      .catch((err) => {
+        console.error("Error updating post:", err);
+        alert(err instanceof Error ? err.message : "Failed to update post.");
+      })
+      .finally(() => setIsLoading(false));
   };
 
   const handleDelete = () => {
@@ -311,11 +478,12 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const handleConfirmDelete = async () => {
     setIsDeleting(true);
     try {
-      // Call delete API here when available
-      console.log("Delete post:", post.id);
+      await feedApi.deletePost(post.id);
       setShowDeleteConfirm(false);
+      onPostDeleted?.(post.id);
     } catch (error) {
       console.error("Error deleting post:", error);
+      alert(error instanceof Error ? error.message : "Failed to delete post.");
     } finally {
       setIsDeleting(false);
     }
@@ -323,8 +491,19 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
   const handlePin = () => {
     setShowMenu(false);
-    setIsPinned(!isPinned);
-    console.log("Pin post:", post.id, !isPinned);
+    const newPinned = !isPinned;
+    setIsLoading(true);
+    feedApi
+      .pinPost(post.id, newPinned)
+      .then(() => {
+        setIsPinned(newPinned);
+        onPostUpdated?.(post.id, { pinned: newPinned });
+      })
+      .catch((err) => {
+        console.error("Error pinning post:", err);
+        alert(err instanceof Error ? err.message : "Failed to update pin.");
+      })
+      .finally(() => setIsLoading(false));
   };
 
   useEffect(() => {
@@ -344,25 +523,9 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   }, [showMenu]);
 
   // Get all images and videos
-  const getAllImages = useCallback(() => {
-    const imageArray: string[] = [];
-    if (post.images && post.images.length > 0) {
-      imageArray.push(...post.images.filter(img => img && img.trim()));
-    } else if (post.image && post.image.trim()) {
-      imageArray.push(post.image);
-    }
-    return imageArray;
-  }, [post.images, post.image]);
+  const getAllImages = useCallback(() => getImageSources(post), [getImageSources, post]);
 
-  const getAllVideos = useCallback(() => {
-    const videoArray: string[] = [];
-    if (post.videos && post.videos.length > 0) {
-      videoArray.push(...post.videos.filter(vid => vid && vid.trim()));
-    } else if (post.video && post.video.trim()) {
-      videoArray.push(post.video);
-    }
-    return videoArray;
-  }, [post.videos, post.video]);
+  const getAllVideos = useCallback(() => getVideoSources(post), [getVideoSources, post]);
 
   const handleOpenImageViewer = (index: number) => {
     setCurrentImageIndex(index);
@@ -457,40 +620,42 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
             <span className="newsfeed-post__time">{post.timeAgo}</span>
           </div>
         </div>
-        <div className="newsfeed-post__menu-wrapper" ref={menuRef}>
-          <button
-            className="newsfeed-post__menu-btn"
-            onClick={() => setShowMenu(!showMenu)}
-            aria-label="Post options"
-            title="More options"
-          >
-            <MoreVertical size={20} />
-          </button>
-          {showMenu && (
-            <div className="newsfeed-post__menu-dropdown">
-              <button className="newsfeed-post__menu-item" onClick={handleEdit}>
-                <Edit size={18} />
-                <span>Edit Post</span>
-              </button>
-              <button
-                className="newsfeed-post__menu-item"
-                onClick={handleDelete}
-              >
-                <Trash2 size={18} />
-                <span>Delete Post</span>
-              </button>
-              <button
-                className={`newsfeed-post__menu-item ${
-                  isPinned ? "newsfeed-post__menu-item--active" : ""
-                }`}
-                onClick={handlePin}
-              >
-                <Pin size={18} />
-                <span>{isPinned ? "Unpin Post" : "Pin Post"}</span>
-              </button>
-            </div>
-          )}
-        </div>
+        {isOwnPost && (
+          <div className="newsfeed-post__menu-wrapper" ref={menuRef}>
+            <button
+              className="newsfeed-post__menu-btn"
+              onClick={() => setShowMenu(!showMenu)}
+              aria-label="Post options"
+              title="More options"
+            >
+              <MoreVertical size={20} />
+            </button>
+            {showMenu && (
+              <div className="newsfeed-post__menu-dropdown">
+                <button className="newsfeed-post__menu-item" onClick={handleEdit}>
+                  <Edit size={18} />
+                  <span>Edit Post</span>
+                </button>
+                <button
+                  className="newsfeed-post__menu-item"
+                  onClick={handleDelete}
+                >
+                  <Trash2 size={18} />
+                  <span>Delete Post</span>
+                </button>
+                <button
+                  className={`newsfeed-post__menu-item ${
+                    isPinned ? "newsfeed-post__menu-item--active" : ""
+                  }`}
+                  onClick={handlePin}
+                >
+                  <Pin size={18} />
+                  <span>{isPinned ? "Unpin Post" : "Pin Post"}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {caption && (
@@ -509,6 +674,8 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
           </p>
         </div>
       )}
+
+      {post.originalPost && renderSharedOriginalPost(post.originalPost)}
 
       {(() => {
         // Get all images - support both single image and images array
@@ -741,11 +908,11 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
               isLiked ? "newsfeed-post__action-btn--active" : ""
             }`}
             onClick={handleLike}
-            title="Like"
+            title={isLiked ? "Liked" : "Like"}
             aria-pressed={isLiked}
           >
             <ThumbsUp size={20} />
-            <span>Like</span>
+            <span>{isLiked ? "Liked" : "Like"}</span>
           </button>
           <button
             className="newsfeed-post__action-btn"
@@ -757,12 +924,14 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
             <span>Comment</span>
           </button>
           <button
-            className="newsfeed-post__action-btn"
+            className={`newsfeed-post__action-btn ${
+              hasShared ? "newsfeed-post__action-btn--active" : ""
+            }`}
             onClick={handleShare}
-            title="Share"
+            title={hasShared ? "Shared" : "Share"}
           >
             <Share2 size={20} />
-            <span>Share</span>
+            <span>{hasShared ? "Shared" : "Share"}</span>
           </button>
           <button
             className={`newsfeed-post__action-btn newsfeed-post__action-btn--save ${

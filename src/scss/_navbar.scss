@@ -38,11 +38,11 @@
   box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.05),
     0 0 0 1px rgba(255, 255, 255, 0.1) inset;
   padding: 1rem 6rem;
-  width: calc(90% - 80px); // reduced width by 80px (desktop)
-  max-width: 1120px; // reduced max width by 80px
+  width: calc(90% - 80px - 56px); // leave space for theme toggle (44px + 12px gap) on right
+  max-width: calc(1120px - 56px);
   height: 80px;
   position: fixed;
-  top: 1rem;
+  top: calc(1rem + 37px); // PWA: 37px lower on all pages
   left: 50%;
   transform: translateX(-50%);
   border-radius: 50px;
@@ -204,6 +204,7 @@
     flex: 0 1 auto;
     margin-left: 16px; // Increased gap between logo and nav list
   }
+
   &__nav-item {
     font-family: "Lucida Sans", "Lucida Sans Regular", "Lucida Grande",
       "Lucida Sans Unicode", Geneva, Verdana, sans-serif;
@@ -297,10 +298,35 @@
       outline-offset: 2px;
     }
   }
+
+  // Theme toggle in hamburger: hidden on desktop, shown only in mobile menu (must override &__nav-item display)
+  &__nav-item--theme-toggle {
+    display: none;
+  }
+
+  // Action buttons container (Login, Get started) in navbar right section
   &__action-buttons {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 1rem;
+    flex-wrap: nowrap;
+    min-width: 0;
+
+    @media screen and (max-width: 1024px) {
+      gap: 0.75rem;
+    }
+
+    @media screen and (max-width: 768px) {
+      // In header bar: centered by parent .navbar__right-section (flex: 1 + justify-content: center)
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    @media screen and (max-width: 480px) {
+      gap: 0.5rem;
+    }
   }
 
   &__signin-button {
@@ -441,9 +467,9 @@
       0 0 0 1px rgba(255, 255, 255, 0.1) inset;
     padding: 1rem 3rem;
     height: 70px;
-    width: 95%;
+    width: calc(95% - 52px); // leave space for theme toggle (40px + 12px)
     position: fixed;
-    top: 1rem;
+    top: calc(1rem + 37px); // PWA: 37px lower
     left: 50%;
     transform: translateX(-50%);
     border-radius: 50px;
@@ -502,16 +528,27 @@
     width: calc(100% - 2rem);
     max-width: 100%;
     position: fixed;
-    top: 0.75rem;
+    top: calc(0.75rem + 37px); // PWA: 37px lower
     left: 50%;
     transform: translateX(-50%);
     border-radius: 35px;
-    column-gap: 1rem;
+    column-gap: 0;
 
+    // Equal thirds: logo | login | hamburger with equal spacing between
     &__left-section {
-      flex: 0 0 auto;
+      flex: 1;
+      display: flex;
+      justify-content: center;
       order: 1;
       margin-left: 0;
+      min-width: 0;
+    }
+
+    &__right-section {
+      flex: 1;
+      justify-content: center;
+      align-items: center;
+      order: 2;
       min-width: 0;
     }
 
@@ -535,9 +572,9 @@
 
     &__middle-section {
       flex: 1;
-      justify-content: flex-end;
+      justify-content: center;
       align-items: center;
-      order: 2;
+      order: 3;
       position: relative;
       min-width: 0;
     }
@@ -713,6 +750,52 @@
       animation-delay: 0.35s;
     }
 
+    // Theme toggle: show only in mobile menu (icon only)
+    &__nav-item--theme-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      margin-top: 0.5rem;
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    &__theme-toggle-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: rgba(13, 74, 31, 0.12);
+      color: #1a1a1a;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.2s ease;
+      -webkit-tap-highlight-color: transparent;
+
+      &:hover {
+        background: rgba(13, 74, 31, 0.2);
+        transform: scale(1.05);
+      }
+
+      &:active {
+        transform: scale(0.98);
+      }
+
+      &:focus {
+        outline: 2px solid $color-primary;
+        outline-offset: 2px;
+      }
+
+      svg {
+        flex-shrink: 0;
+      }
+    }
+
     &__action-buttons {
       order: 1;
       width: 100%;
@@ -756,7 +839,7 @@
     min-height: 56px;
     width: calc(100% - 1.5rem);
     position: fixed;
-    top: 0.5rem;
+    top: calc(0.5rem + 37px); // PWA: 37px lower
     left: 50%;
     transform: translateX(-50%);
     border-radius: 28px;
@@ -837,9 +920,9 @@
     }
 
     &__menu-toggle {
-      width: 22px;
+      width: 37px;
       height: 16px;
-      min-width: 22px;
+      min-width: 37px;
       min-height: 16px;
     }
 
@@ -1018,7 +1101,7 @@
       box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1),
         0 0 0 1px rgba(255, 255, 255, 0.05) inset;
       width: 95%;
-      top: 1rem;
+      top: calc(1rem + 37px); // PWA: 37px lower
       left: 50%;
       transform: translateX(-50%);
       border-radius: 50px;
@@ -1033,7 +1116,7 @@
       box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1),
         0 0 0 1px rgba(255, 255, 255, 0.05) inset;
       width: calc(100% - 2rem);
-      top: 0.75rem;
+      top: calc(0.75rem + 37px); // PWA: 37px lower
       left: 50%;
       transform: translateX(-50%);
       border-radius: 35px;
@@ -1070,6 +1153,19 @@
         }
       }
 
+      &__nav-item--theme-toggle {
+        border-top-color: rgba(255, 255, 255, 0.1);
+      }
+
+      &__theme-toggle-btn {
+        background: rgba(13, 74, 31, 0.25);
+        color: #e0e0e0;
+
+        &:hover {
+          background: rgba(13, 74, 31, 0.35);
+        }
+      }
+
       &__menu-toggle {
         span {
           background-color: #e0e0e0;
@@ -1090,10 +1186,11 @@
       box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1),
         0 0 0 1px rgba(255, 255, 255, 0.05) inset;
       width: calc(100% - 1.5rem);
-      top: 0.5rem;
+      top: calc(0.5rem + 37px); // PWA: 37px lower
       left: 50%;
       transform: translateX(-50%);
       border-radius: 28px;
     }
   }
 }
+

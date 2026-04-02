@@ -15,9 +15,10 @@ import {
 import primaryLogo from "../../image/primary-logo.png";
 import "../../main.css";
 import LazyImage from "../../components/LazyImage";
+import Avatar from "../../components/Avatar";
 import NewsFeedSidebar from "./NewsFeedSidebar";
 import PostCard from "./PostCard";
-import { getUserInitials, getProfileUsername } from "../../utils/userUtils";
+import { getProfileUsername, getUserName } from "../../utils/userUtils";
 import "../../scss/_saved.scss";
 
 // Post interface matching the PostCard component
@@ -254,9 +255,13 @@ const Saved: React.FC = () => {
               className="newsfeed-header__join-btn"
               onClick={handleProfileClick}
             >
-              <span className="newsfeed-header__join-initials">
-                {getUserInitials()}
-              </span>
+              <div className="newsfeed-header__join-initials">
+                <Avatar
+                  name={getUserName()}
+                  size={32}
+                  className="newsfeed-header__join-avatar"
+                />
+              </div>
               <span className="newsfeed-header__join-text">Profile</span>
             </button>
           </div>

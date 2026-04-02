@@ -12,6 +12,17 @@ A comprehensive digital ecosystem platform connecting residents, businesses, and
 - **Admin Panel**: Dashboard for user management, post moderation, and platform settings
 - **Email Notifications**: Automated emails for account approvals and password resets
 
+### PWA (Progressive Web App)
+- **Installable**: Add JosCity to your home screen (phone/tablet) or install as an app (desktop) using the current logo for app icons.
+- **Pull-to-refresh**: On touch devices, drag down from the top of the screen to refresh the app.
+- **Update badge**: When a new version is deployed, a small “New version available” badge appears; tap **Update** to reload and get the latest version.
+- **Responsive**: All pages are responsive and work across device screen sizes (viewport meta and standalone display).
+- **Push notifications**: System notifications can be shown even when the PWA is not open. Grant notification permission and (optionally) subscribe to push via `subscribeToPushNotifications()`; send the subscription to your backend and use Web Push to deliver notifications.
+
+### Cross-Platform & Multi-Device
+- **Same account, any device**: Log in on another device with the same account; your data (posts, notifications, profile) is synced via the API so it behaves as one experience across devices.
+- **Per-device sessions**: Each device keeps its own session (token). The backend identifies you by user id, so the same account on phone, tablet, or desktop sees the same content.
+
 ### Platform Capabilities
 - **JosCity Wallet & Points System**: Digital wallet and rewards points
 - **Digital Membership ID**: Unique membership identification
@@ -56,11 +67,15 @@ A comprehensive digital ecosystem platform connecting residents, businesses, and
 npm install
 ```
 
-2. (Optional) Create a `.env` file in the root directory to configure maintenance mode:
+2. (Optional) Create a `.env` file in the root directory:
 ```env
 # Set to "true" to enable maintenance mode (shows maintenance page for all routes)
 VITE_MAINTENANCE_MODE=false
+# Optional: VAPID public key for push notifications (from your backend or web-push)
+VITE_VAPID_PUBLIC_KEY=your_base64_vapid_public_key
 ```
+
+   PWA icons are copied from `src/image/primary-logo.png` to `public/` on each build. For best results on all devices, you can add dedicated 192×192 and 512×512 PNGs as `public/icon-192.png` and `public/icon-512.png` (they will override the copied logo).
 
 3. Start the development server:
 ```bash

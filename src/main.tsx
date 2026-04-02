@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import NavBar from "./pages/NavBar";
 import Services from "./pages/Services";
 import Events from "./pages/Events";
@@ -27,26 +27,18 @@ import CookiePolicy from "./pages/CookiePolicy";
 import Accessibility from "./pages/Accessibility";
 import About from "./pages/About";
 import ContactPage from "./pages/ContactPage";
-import People from "./components/People";
-import Forums from "./pages/NewsFeed/Forums";
-import News from "./pages/NewsFeed/News";
-import Reels from "./pages/NewsFeed/Reels";
 import Request from "./components/Request";
 import SentRequest from "./components/SentRequest";
 import UserProfile from "./pages/UserProfile";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import DarkModeToggle from "./components/DarkModeToggle"; 
+import NavbarThemeToggle from "./components/NavbarThemeToggle";
 // import { preventInspect } from "./utils/preventInspect";
 import Maintenance from "./pages/Maintenance";
 // import RoutingDisabled from "./pages/RoutingDisabled";
-import MarketPlace from "./pages/NewsFeed/MarketPlace";
-import Movies from "./pages/NewsFeed/Movies";
-import Offers from "./pages/NewsFeed/Offers";
-import Jobs from "./pages/NewsFeed/Jobs";
-import Courses from "./pages/NewsFeed/Courses";
-import Scheduled from "./pages/NewsFeed/Scheduled";
-import Saved from "./pages/NewsFeed/Saved";
+import ComingSoonSection from "./pages/NewsFeed/ComingSoonSection";
+import PWAProvider from "./components/PWAProvider";
 import Business from "./pages/NewsFeed/Business";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 // Prevent browser inspection/devtools
 // preventInspect();
@@ -68,6 +60,27 @@ export function LandingPage() {
   );
 }
 
+// Theme toggle only on landing (/) and user profile (/profile/:username).
+// On landing + small screens: toggle is inside hamburger; don't show fixed icon.
+// On landing + big screens, and on profile: show fixed icon in current position.
+function ThemeToggleGate() {
+  const location = useLocation();
+  const [isSmallScreen, setIsSmallScreen] = React.useState(
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 768px)").matches : false
+  );
+  React.useEffect(() => {
+    const m = window.matchMedia("(max-width: 768px)");
+    const listener = () => setIsSmallScreen(m.matches);
+    m.addEventListener("change", listener);
+    return () => m.removeEventListener("change", listener);
+  }, []);
+  const isLanding = location.pathname === "/";
+  const isUserProfile = /^\/profile\/[^/]+$/.test(location.pathname);
+  if (!isLanding && !isUserProfile) return null;
+  if (isLanding && isSmallScreen) return null; // landing mobile: toggle in hamburger
+  return <NavbarThemeToggle />;
+}
+
 // Check if maintenance mode is enabled
 const isMaintenanceMode = import.meta.env.VITE_MAINTENANCE_MODE === "true";
 
@@ -76,59 +89,67 @@ if (rootElement) {
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
       <ThemeProvider>
-        <BrowserRouter>
-          {isMaintenanceMode ? (
-            // Show maintenance page for all routes when maintenance mode is enabled
-            <Routes>
-              <Route path="*" element={<Maintenance />} />
-            </Routes>
-          ) : (
-            // Normal app routes when maintenance mode is disabled
-            <>
-              <DarkModeToggle />
+        <PWAProvider>
+          <BrowserRouter>
+            {isMaintenanceMode ? (
+              // Show maintenance page for all routes when maintenance mode is enabled
               <Routes>
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/welcome" element={<WelcomePage />} />
-                <Route path="/registernow" element={<Register />} />
-                <Route path="/business-form" element={<Register />} />
-                <Route path="/signin" element={<SignIn />} />
-                <Route path="/coming-soon" element={<ComingSoon />} />
-                <Route
-                  path="/services-coming-soon"
-                  element={<ServicesComingSoon />}
-                />
-                <Route path="/success" element={<Success />} />
-                <Route path="/newsfeed" element={<NewsFeed />} />
-                <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/admin" element={<Admin />} />
-                <Route path="/admin/profile" element={<AdminProfile />} />
-                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-                <Route path="/terms-of-service" element={<TermsOfService />} />
-                <Route path="/cookie-policy" element={<CookiePolicy />} />
-                <Route path="/accessibility" element={<Accessibility />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/contact" element={<ContactPage />} />
-                <Route path="/people" element={<People />} />
-                <Route path="/forums" element={<Forums />} />
-                <Route path="/news" element={<News />} />
-                <Route path="/reels" element={<Reels />} />
-                <Route path="/events" element={<EventsPage />} />
-                <Route path="/events-old" element={<Events />} />
-                <Route path="/request" element={<Request />} />
-                <Route path="/sent-requests" element={<SentRequest />} />
-                <Route path="/profile/:username" element={<UserProfile />} />
-                <Route path="/marketplace" element={<MarketPlace />} />
-                <Route path="/movies" element={<Movies />} />
-                <Route path="/offers" element={<Offers />} />
-                <Route path="/jobs" element={<Jobs />} />
-                <Route path="/courses" element={<Courses />} />
-                <Route path="/scheduled" element={<Scheduled />} />
-                <Route path="/saved" element={<Saved />} />
-                <Route path="/business" element={<Business />} />
+                <Route path="*" element={<Maintenance />} />
               </Routes>
-            </>
-          )}
-        </BrowserRouter>
+            ) : (
+              // Normal app routes when maintenance mode is disabled
+              <>
+                <ThemeToggleGate />
+                <Routes>
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/welcome" element={<WelcomePage />} />
+                  <Route path="/registernow" element={<Register />} />
+                  <Route path="/business-form" element={<Register />} />
+                  <Route path="/signin" element={<SignIn />} />
+                  <Route path="/coming-soon" element={<ComingSoon />} />
+                  <Route
+                    path="/services-coming-soon"
+                    element={<ServicesComingSoon />}
+                  />
+                  <Route path="/success" element={<Success />} />
+                  <Route
+                    path="/newsfeed"
+                    element={
+                      <ProtectedRoute requireAdmin={false} redirectTo="/signin">
+                        <NewsFeed />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="/admin/login" element={<AdminLogin />} />
+                  <Route path="/admin" element={<Admin />} />
+                  <Route path="/admin/profile" element={<AdminProfile />} />
+                  <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                  <Route path="/terms-of-service" element={<TermsOfService />} />
+                  <Route path="/cookie-policy" element={<CookiePolicy />} />
+                  <Route path="/accessibility" element={<Accessibility />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/contact" element={<ContactPage />} />
+                  <Route path="/people" element={<ComingSoonSection />} />
+                  <Route path="/forums" element={<ComingSoonSection />} />
+                  <Route path="/news" element={<ComingSoonSection />} />
+                  <Route path="/reels" element={<ComingSoonSection />} />
+                  <Route path="/events" element={<EventsPage />} />
+                  <Route path="/events-old" element={<Events />} />
+                  <Route path="/request" element={<Request />} />
+                  <Route path="/sent-requests" element={<SentRequest />} />
+                  <Route path="/profile/:username" element={<UserProfile />} />
+                  <Route path="/marketplace" element={<ComingSoonSection />} />
+                  <Route path="/movies" element={<ComingSoonSection />} />
+                  <Route path="/offers" element={<ComingSoonSection />} />
+                  <Route path="/jobs" element={<ComingSoonSection />} />
+                  <Route path="/scheduled" element={<ComingSoonSection />} />
+                  <Route path="/saved" element={<ComingSoonSection />} />
+                  <Route path="/business" element={<Business />} />
+                </Routes>
+              </>
+            )}
+          </BrowserRouter>
+        </PWAProvider>
       </ThemeProvider>
     </React.StrictMode>
   );

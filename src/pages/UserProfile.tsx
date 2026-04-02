@@ -29,7 +29,7 @@ import {
   getUserInitials,
 } from "../utils/userUtils";
 import { userApi } from "../services/userApi";
-import { getUserProfile } from "../api/auth";
+import { getUserProfile, uploadProfilePicture } from "../api/auth";
 import LazyImage from "../components/LazyImage";
 import ConfirmationModal from "../components/ConfirmationModal";
 
@@ -311,36 +311,45 @@ const UserProfile: React.FC = () => {
     window.setTimeout(() => setUploadStatus(null), 3000);
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith("image/")) {
-        showUploadBadge("Invalid image file", "error");
-        return;
-      }
-
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        showUploadBadge("Image must be under 5MB", "error");
-        return;
-      }
-
-      // Read file as data URL
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setProfilePicture(result);
-        // Store in localStorage
-        localStorage.setItem("userProfilePicture", result);
-        showUploadBadge("Profile picture updated", "success");
-      };
-      reader.onerror = () => {
-        showUploadBadge("Failed to read image", "error");
-      };
-      reader.readAsDataURL(file);
+    if (!file) {
+      e.target.value = "";
+      return;
     }
-    // Reset input value to allow selecting the same file again
+
+    if (!file.type.startsWith("image/")) {
+      showUploadBadge("Invalid image file", "error");
+      e.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      showUploadBadge("Image must be under 5MB", "error");
+      e.target.value = "";
+      return;
+    }
+
+    const result = await uploadProfilePicture(file);
+    if (result.success && result.user_picture) {
+      setProfilePicture(result.user_picture);
+      localStorage.setItem("userProfilePicture", result.user_picture);
+      // Update stored user object so avatar shows elsewhere (feed, etc.)
+      try {
+        const userStr = localStorage.getItem("user");
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          user.user_picture = result.user_picture;
+          user.profile_image_url = result.user_picture;
+          localStorage.setItem("user", JSON.stringify(user));
+        }
+      } catch (_) {
+        // ignore
+      }
+      showUploadBadge("Profile picture saved to cloud", "success");
+    } else {
+      showUploadBadge(result.message || "Upload failed", "error");
+    }
     e.target.value = "";
   };
 

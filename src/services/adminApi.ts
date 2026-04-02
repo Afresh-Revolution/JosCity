@@ -29,19 +29,50 @@ const adminApiRequest = async (
 
   if (!response.ok) {
     const contentType = response.headers.get("content-type");
-    let errorData: any = {};
-    
+    let errorData: Record<string, unknown> = {};
+
     if (contentType && contentType.includes("application/json")) {
-      errorData = await response.json();
+      try {
+        errorData = (await response.json()) as Record<string, unknown>;
+      } catch {
+        errorData = {};
+      }
     } else {
       const text = await response.text();
-      errorData = { error: text || response.statusText };
+      errorData = { message: text || response.statusText };
     }
 
-    throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    // Prefer message (string); backend often sends { error: true, message: "..." }
+    const message =
+      typeof errorData.message === "string"
+        ? errorData.message
+        : typeof errorData.error === "string"
+          ? errorData.error
+          : `HTTP ${response.status}: ${response.statusText}`;
+    const err = new Error(message) as Error & { status?: number };
+    err.status = response.status;
+    throw err;
   }
 
   return response;
+};
+
+/** Refresh admin token (get new 7-day token). Call when dashboard loads to keep token renewed. */
+export const refreshAdminToken = async (): Promise<boolean> => {
+  try {
+    const response = await adminApiRequest("/refresh", { method: "POST" });
+    const data = (await response.json()) as { token?: string; admin?: unknown };
+    if (data.token) {
+      localStorage.setItem("adminToken", data.token);
+      if (data.admin) {
+        localStorage.setItem("adminData", JSON.stringify(data.admin));
+      }
+      return true;
+    }
+  } catch {
+    // ignore; token stays as-is
+  }
+  return false;
 };
 
 // ==================== DASHBOARD ====================
@@ -440,6 +471,106 @@ export const getEvents = async (params?: {
 export const getEvent = async (id: string): Promise<{ success: boolean; data: Event }> => {
   const response = await adminApiRequest(`/events/${id}`);
   return response.json();
+};
+
+const parseEventMutationError = async (response: Response): Promise<never> => {
+  const errorData = await response.json().catch(() => ({}));
+  const message =
+    typeof errorData.message === "string"
+      ? errorData.message
+      : typeof errorData.error === "string"
+        ? errorData.error
+        : "Event creation failed";
+  throw new Error(
+    message || `HTTP ${response.status}: ${response.statusText}`
+  );
+};
+
+export const createEvent = async (event: {
+  title: string;
+  description?: string;
+  category?: string;
+  date: string;
+  location?: string;
+  image?: string;
+  capacity?: number;
+}): Promise<{ success: boolean; message?: string; data: Event }> => {
+  try {
+    const response = await adminApiRequest("/events", {
+      method: "POST",
+      body: JSON.stringify(event),
+    });
+    return response.json();
+  } catch (error) {
+    const status = (error as Error & { status?: number }).status;
+
+    // Fallback for deployments where event creation is exposed on the public
+    // events endpoint but still accepts the admin bearer token.
+    if (status === 404 || status === 405 || status === 501) {
+      const adminToken = getAdminToken();
+      const response = await fetch(`${API_BASE_URL}/events`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+        },
+        body: JSON.stringify(event),
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!response.ok) {
+        await parseEventMutationError(response);
+      }
+
+      return response.json();
+    }
+
+    throw error;
+  }
+};
+
+export const updateEvent = async (
+  id: string,
+  event: {
+    title: string;
+    description?: string;
+    category?: string;
+    date: string;
+    location?: string;
+    image?: string;
+    capacity?: number;
+  }
+): Promise<{ success: boolean; message?: string; data: Event }> => {
+  try {
+    const response = await adminApiRequest(`/events/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(event),
+    });
+    return response.json();
+  } catch (error) {
+    const status = (error as Error & { status?: number }).status;
+
+    if (status === 404 || status === 405 || status === 501) {
+      const adminToken = getAdminToken();
+      const response = await fetch(`${API_BASE_URL}/events/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+        },
+        body: JSON.stringify(event),
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!response.ok) {
+        await parseEventMutationError(response);
+      }
+
+      return response.json();
+    }
+
+    throw error;
+  }
 };
 
 export const deleteEvent = async (id: string): Promise<{ success: boolean; message: string }> => {

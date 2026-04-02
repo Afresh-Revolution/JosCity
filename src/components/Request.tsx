@@ -23,7 +23,8 @@ import {
 } from "lucide-react";
 import primaryLogo from "../image/primary-logo.png";
 import LazyImage from "./LazyImage";
-import { getUserInitials, getProfileUsername } from "../utils/userUtils";
+import Avatar from "./Avatar";
+import { getProfileUsername, getUserName } from "../utils/userUtils";
 import "../main.css";
 
 const Request: React.FC = () => {
@@ -94,7 +95,11 @@ const Request: React.FC = () => {
               title="View Profile"
             >
               <div className="newsfeed-header__join-initials">
-                {getUserInitials()}
+                <Avatar
+                  name={getUserName()}
+                  size={32}
+                  className="newsfeed-header__join-avatar"
+                />
               </div>
             </button>
           </div>

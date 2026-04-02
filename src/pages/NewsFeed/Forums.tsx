@@ -39,7 +39,7 @@ import "../../main.css";
 import LazyImage from "../../components/LazyImage";
 import Avatar from "../../components/Avatar";
 import EmojiPicker from "../../components/EmojiPicker";
-import { getUserInitials, getProfileUsername, getUserAvatar } from "../../utils/userUtils";
+import { getProfileUsername, getUserName, getUserAvatar } from "../../utils/userUtils";
 import CreateForumModal from "./CreateForumModal";
 import FindFriendsModal from "../../components/FindFriendsModal";
 import "../../scss/_emojipicker.scss";
@@ -926,7 +926,11 @@ const Forums: React.FC = () => {
               title="View Profile"
             >
               <div className="newsfeed-header__join-initials">
-                {getUserInitials()}
+                <Avatar
+                  name={getUserName()}
+                  size={32}
+                  className="newsfeed-header__join-avatar"
+                />
               </div>
             </button>
             <button

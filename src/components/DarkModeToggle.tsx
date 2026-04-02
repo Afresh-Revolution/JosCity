@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { motion, useMotionValue } from "framer-motion";
 import { useTheme } from "../contexts/ThemeContext";
 import "../scss/_darkmode-toggle.scss";
@@ -7,6 +7,7 @@ const DarkModeToggle: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const x = useMotionValue(0);
   const y = useMotionValue(0);
+  const didDragRef = useRef(false);
 
   // Load saved position from localStorage on mount
   useEffect(() => {
@@ -53,7 +54,11 @@ const DarkModeToggle: React.FC = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, [x, y]);
 
-  // Save position to localStorage when drag ends
+  // Save position to localStorage when drag ends; mark that we dragged so click doesn't toggle theme
+  const handleDragStart = () => {
+    didDragRef.current = true;
+  };
+
   const handleDragEnd = () => {
     const currentX = x.get();
     const currentY = y.get();
@@ -61,12 +66,23 @@ const DarkModeToggle: React.FC = () => {
       "darkModeTogglePosition",
       JSON.stringify({ x: currentX, y: currentY })
     );
+    // Reset after a tick so click handler can see we dragged (don't toggle theme on release)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        didDragRef.current = false;
+      });
+    });
+  };
+
+  const handleClick = () => {
+    if (didDragRef.current) return;
+    toggleTheme();
   };
 
   return (
     <motion.button
       className="dark-mode-toggle"
-      onClick={toggleTheme}
+      onClick={handleClick}
       aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
       title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
       drag
@@ -79,6 +95,7 @@ const DarkModeToggle: React.FC = () => {
       }}
       dragElastic={0.1}
       style={{ x, y, left: 0, top: 0 }}
+      onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       whileDrag={{ scale: 1.1, cursor: "grabbing" }}
       whileHover={{ scale: 1.05 }}

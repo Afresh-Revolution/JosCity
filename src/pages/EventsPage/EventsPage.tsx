@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import NavBar from "../NavBar";
 import {
   SquarePlus,
   MessageCircle,
@@ -24,7 +25,8 @@ import {
 import primaryLogo from "../../image/primary-logo.png";
 import LazyImage from "../../components/LazyImage";
 import SearchBar from "../../components/SearchBar";
-import { getUserInitials, getProfileUsername } from "../../utils/userUtils";
+import Avatar from "../../components/Avatar";
+import { getProfileUsername, getUserData, getUserName } from "../../utils/userUtils";
 import { createEvent, updateEvent, deleteEvent, getEvents, type Event } from "../../api/events";
 import "../../scss/_eventspage.scss";
 import "../../scss/_searchbar.scss";
@@ -32,8 +34,8 @@ import "../../scss/_searchbar.scss";
 // Helper function to normalize event data from API to component format
 const normalizeEvent = (event: Event): Event => {
   return {
-    id: event.event_id || event.id,
-    event_id: event.event_id || event.id,
+    id: event.event_id ?? event.id,
+    event_id: event.event_id ?? event.id,
     title: event.event_title || event.title,
     event_title: event.event_title || event.title,
     description: event.event_description || event.description,
@@ -46,9 +48,12 @@ const normalizeEvent = (event: Event): Event => {
     event_location: event.event_location || event.location,
     image: event.event_cover || event.image,
     event_cover: event.event_cover || event.image,
-    capacity: event.event_capacity || event.capacity,
-    event_capacity: event.event_capacity || event.capacity,
+    capacity: event.event_capacity ?? event.capacity,
+    event_capacity: event.event_capacity ?? event.capacity,
+    tickets_sold: event.tickets_sold,
     user_picture: event.user_picture,
+    source: event.source,
+    ticket_url: event.ticket_url ?? null,
   };
 };
 
@@ -90,6 +95,10 @@ const EventsPage: React.FC = () => {
 
   // Image upload error state
   const [imageError, setImageError] = useState<string>("");
+
+  // Only business accounts can create events
+  const userData = getUserData();
+  const isBusinessAccount = (userData?.account_type || "").toLowerCase() === "business";
 
   // User event lists (Going, Interested, etc.)
   const [userEventLists, setUserEventLists] = useState<{
@@ -506,6 +515,11 @@ const EventsPage: React.FC = () => {
     return userEventLists.myEvents.includes(eventId);
   };
 
+  // External event (e.g. gatewav): show "Buy tickets" link, hide Going/Interested/Edit/Delete
+  const isExternalEvent = (event: Event): boolean => {
+    return !!(event.source === "gatewav" || event.ticket_url);
+  };
+
   // Handle event deletion
   const handleDeleteEvent = async (eventId: number) => {
     if (
@@ -554,8 +568,10 @@ const EventsPage: React.FC = () => {
   };
 
   return (
-    <div className="eventspage">
-      {/* Top Navigation Bar */}
+    <div className="events-page-wrapper">
+      <NavBar />
+      <div className="eventspage eventspage--below-navbar">
+      {/* Page header (below main site navbar) */}
       <header className="newsfeed-header">
         <div className="newsfeed-header__container">
           <div className="newsfeed-header__left">
@@ -623,9 +639,13 @@ const EventsPage: React.FC = () => {
               className="newsfeed-header__join-btn"
               onClick={handleProfileClick}
             >
-              <span className="newsfeed-header__join-initials">
-                {getUserInitials()}
-              </span>
+              <div className="newsfeed-header__join-initials">
+                <Avatar
+                  name={getUserName()}
+                  size={32}
+                  className="newsfeed-header__join-avatar"
+                />
+              </div>
               <span className="newsfeed-header__join-text">Profile</span>
             </button>
           </div>
@@ -681,13 +701,15 @@ const EventsPage: React.FC = () => {
               </button>
             ))}
           </div>
-          <button
-            className="eventspage-tabs__create-btn"
-            onClick={handleCreateEventClick}
-          >
-            <Plus size={18} />
-            <span>Create Events</span>
-          </button>
+          {isBusinessAccount && (
+            <button
+              className="eventspage-tabs__create-btn"
+              onClick={handleCreateEventClick}
+            >
+              <Plus size={18} />
+              <span>Create Events</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -881,23 +903,45 @@ const EventsPage: React.FC = () => {
                             {event.category}
                           </span>
                         </div>
-                        {/* Capacity/Attendee Info */}
+                        {/* Capacity/Attendee Info - JOSCITY: going count; Gatewav: tickets sold from Ticketing API */}
                         {event.capacity && (
                           <div className="eventspage-event-card__capacity">
                             <Users size={14} />
                             <span>
-                              {getGoingCount(event.id)} / {event.capacity} going
+                              {isExternalEvent(event)
+                                ? `${event.tickets_sold ?? 0} / ${event.capacity} tickets`
+                                : `${getGoingCount(event.id)} / ${event.capacity} going`}
                             </span>
-                            {getGoingCount(event.id) >= event.capacity && (
+                            {(isExternalEvent(event)
+                              ? (event.tickets_sold ?? 0) >= event.capacity
+                              : getGoingCount(event.id) >= event.capacity) && (
                               <span className="eventspage-event-card__capacity-full">
                                 Full
                               </span>
                             )}
                           </div>
                         )}
+                        {/* External event badge */}
+                        {isExternalEvent(event) && (
+                          <div className="eventspage-event-card__source-badge">
+                            {event.source === "gatewav" ? "Gatewav" : event.source}
+                          </div>
+                        )}
                         <div className="eventspage-event-card__actions">
+                          {/* Buy tickets - for external (gatewav) events */}
+                          {isExternalEvent(event) && event.ticket_url && (
+                            <a
+                              href={event.ticket_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="eventspage-event-card__action-btn eventspage-event-card__action-btn--primary"
+                            >
+                              <Globe size={16} />
+                              <span>Buy tickets</span>
+                            </a>
+                          )}
                           {/* Edit and Delete buttons - show for all user-created events on any tab */}
-                          {isEventCreatedByUser(event.id) && (
+                          {!isExternalEvent(event) && isEventCreatedByUser(event.id) && (
                             <>
                               <button
                                 className="eventspage-event-card__edit-btn"
@@ -918,8 +962,8 @@ const EventsPage: React.FC = () => {
                             </>
                           )}
 
-                          {/* Going button - show Add if not in list, Remove if in list */}
-                          {isEventInList(event.id, "going") ? (
+                          {/* Going button - show Add if not in list, Remove if in list (only for JOSCITY events) */}
+                          {!isExternalEvent(event) && (isEventInList(event.id, "going") ? (
                             <button
                               className="eventspage-event-card__remove-btn"
                               onClick={() =>
@@ -941,10 +985,10 @@ const EventsPage: React.FC = () => {
                               <Calendar size={16} />
                               <span>Going</span>
                             </button>
-                          )}
+                          ))}
 
-                          {/* Interested button - show Add if not in list, Remove if in list */}
-                          {isEventInList(event.id, "interested") ? (
+                          {/* Interested button - show Add if not in list, Remove if in list (only for JOSCITY events) */}
+                          {!isExternalEvent(event) && (isEventInList(event.id, "interested") ? (
                             <button
                               className="eventspage-event-card__remove-btn"
                               onClick={() =>
@@ -966,7 +1010,7 @@ const EventsPage: React.FC = () => {
                               <Users size={16} />
                               <span>Interested</span>
                             </button>
-                          )}
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -1323,6 +1367,7 @@ const EventsPage: React.FC = () => {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 };

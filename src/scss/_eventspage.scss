@@ -2,6 +2,29 @@
 @use "./variables" as *;
 @use "./mixins" as *;
 
+// Wrapper when NavBar is above events content (move content below navbar)
+.events-page-wrapper {
+  .navbar {
+    .navbar__nav-item,
+    .navbar__nav-item a,
+    .navbar__logo span,
+    .navbar__menu-toggle span {
+      color: #fff !important;
+    }
+    .navbar__menu-toggle:hover span,
+    .navbar__nav-item:hover {
+      color: rgba(255, 255, 255, 0.9) !important;
+    }
+  }
+}
+
+.eventspage--below-navbar {
+  padding-top: 129px; // Space for fixed navbar (PWA 22px lower)
+  @media (max-width: 768px) {
+    padding-top: 119px;
+  }
+}
+
 // Page Wrapper
 .eventspage {
   min-height: 100vh;
@@ -377,6 +400,14 @@
       width: 100%;
       justify-content: center;
       padding: 14px 24px;
+    }
+
+    &--disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      &:hover {
+        background-color: var(--color-primary);
+      }
     }
   }
 }
@@ -1168,6 +1199,19 @@
     }
   }
 
+  &__source-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background-color: rgba(13, 74, 31, 0.12);
+    color: var(--color-primary);
+    margin-bottom: 4px;
+  }
+
   &__actions {
     display: flex;
     gap: 8px;
@@ -1239,6 +1283,19 @@
       transition: color 0.3s ease;
       width: 16px;
       height: 16px;
+    }
+
+    &--primary {
+      background-color: var(--color-primary);
+      color: white;
+      border-color: var(--color-primary);
+      text-decoration: none;
+
+      &:hover {
+        background-color: var(--color-primary-hover, #0d4a1f);
+        color: white;
+        border-color: var(--color-primary-hover, #0d4a1f);
+      }
     }
 
     span {

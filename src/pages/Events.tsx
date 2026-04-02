@@ -1,38 +1,38 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { Calendar, Clock, MapPin, XCircle } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import "../main.css";
 import "../scss/_events.scss";
-import multipleLaugh from "../image/multiple-laugh.png";
-import smile from "../image/smile.png";
-
+import ChatPanel from "../components/ChatPanel";
 import NewsFeedHeader from "./NewsFeed/NewsFeedHeader";
 import NewsFeedSidebar from "./NewsFeed/NewsFeedSidebar";
+import { getEvents, type Event } from "../api/events";
+
+const normalizeEvent = (event: Event) => ({
+  id: event.event_id ?? event.id,
+  title: event.event_title || event.title,
+  description: event.event_description || event.description || "",
+  date: event.event_date || event.date,
+  location: event.event_location || event.location || "",
+  image: event.event_cover || event.image || "",
+  category: event.event_category || event.category || "",
+});
 
 const Events: React.FC = () => {
   const location = useLocation();
   const isStandalonePage = location.pathname === "/events";
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [events, setEvents] = useState<ReturnType<typeof normalizeEvent>[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<ReturnType<typeof normalizeEvent> | null>(null);
   const [visibleElements, setVisibleElements] = useState<Set<string>>(
     new Set()
   );
   const badgeRef = useRef<HTMLDivElement>(null);
   const imageWrapperRef = useRef<HTMLDivElement>(null);
-
-  // Event images
-  const eventImages = [
-    {
-      id: 1,
-      url: multipleLaugh,
-      alt: "Community Gathering",
-    },
-    {
-      id: 2,
-      url: smile,
-      alt: "Happy Community",
-    },
-  ];
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -72,28 +72,56 @@ const Events: React.FC = () => {
     };
   }, []);
 
-  const handlePrevImage = () => {
-    setCurrentImageIndex((prev) =>
-      prev === 0 ? eventImages.length - 1 : prev - 1
-    );
-  };
-
-  const handleNextImage = () => {
-    setCurrentImageIndex((prev) =>
-      prev === eventImages.length - 1 ? 0 : prev + 1
-    );
-  };
-
-  // Auto-advance images every 5 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentImageIndex((prev) =>
-        prev === eventImages.length - 1 ? 0 : prev + 1
-      );
-    }, 5000);
+    const loadEvents = async () => {
+      setLoading(true);
+      setError(null);
 
-    return () => clearInterval(interval);
-  }, [eventImages.length]);
+      try {
+        const response = await getEvents({ limit: 6 });
+        const normalizedEvents = (response.data || [])
+          .map(normalizeEvent)
+          .filter((event) => !!event.image);
+        setEvents(normalizedEvents);
+      } catch (loadError) {
+        console.error("Failed to load landing events:", loadError);
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Unable to load events right now."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadEvents();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedEvent) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedEvent(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [selectedEvent]);
+
+  const formatEventDate = (dateString: string) => {
+    if (!dateString) return "";
+
+    return new Date(dateString).toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   const eventsContent = (
     <section id="events" className="events">
@@ -113,39 +141,83 @@ const Events: React.FC = () => {
 
         <div
           ref={imageWrapperRef}
-          data-animate-id="events-image"
-          className={`events__image-wrapper ${
-            visibleElements.has("events-image") ? "fade-in" : ""
+          data-animate-id="events-grid"
+          className={`events__grid-wrapper ${
+            visibleElements.has("events-grid") ? "fade-in" : ""
           }`}
         >
-          {eventImages.length > 0 && (
-            <>
-              <img
-                src={eventImages[currentImageIndex].url}
-                alt={eventImages[currentImageIndex].alt}
-                className="events__image"
-              />
-              {eventImages.length > 1 && (
-                <>
-                  <button
-                    className="events__nav-button events__nav-button--prev"
-                    onClick={handlePrevImage}
-                    aria-label="Previous event"
-                  >
-                    <ChevronLeft size={20} />
-                  </button>
-                  <button
-                    className="events__nav-button events__nav-button--next"
-                    onClick={handleNextImage}
-                    aria-label="Next event"
-                  >
-                    <ChevronRight size={20} />
-                  </button>
-                </>
-              )}
-            </>
+          {loading ? (
+            <div className="events__state">Loading events...</div>
+          ) : error ? (
+            <div className="events__state">{error}</div>
+          ) : events.length === 0 ? (
+            <div className="events__state">No events have been added yet.</div>
+          ) : (
+            <div className="events__grid">
+              {events.map((event) => (
+                <button
+                  key={event.id}
+                  type="button"
+                  className="events__card"
+                  onClick={() => setSelectedEvent(event)}
+                >
+                  <div className="events__card-image-shell">
+                    <img
+                      src={event.image}
+                      alt={event.title}
+                      className="events__card-image"
+                    />
+                  </div>
+                  <div className="events__card-body">
+                    <h3 className="events__card-title">{event.title}</h3>
+                    {event.date && (
+                      <div className="events__meta">
+                        <Clock size={14} />
+                        <span>{formatEventDate(event.date)}</span>
+                      </div>
+                    )}
+                    {event.location && (
+                      <div className="events__meta">
+                        <MapPin size={14} />
+                        <span>{event.location}</span>
+                      </div>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
           )}
         </div>
+
+        {selectedEvent && (
+          <div
+            className="events__lightbox"
+            onClick={() => setSelectedEvent(null)}
+          >
+            <div
+              className="events__lightbox-dialog"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="events__lightbox-close"
+                onClick={() => setSelectedEvent(null)}
+                aria-label="Close event image"
+              >
+                <XCircle size={22} />
+              </button>
+              <img
+                src={selectedEvent.image}
+                alt={selectedEvent.title}
+                className="events__lightbox-image"
+              />
+              <div className="events__lightbox-caption">
+                <h3>{selectedEvent.title}</h3>
+                {selectedEvent.description && <p>{selectedEvent.description}</p>}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -160,9 +232,10 @@ const Events: React.FC = () => {
           showCreateMenu={true}
           showRightSidebarToggle={false}
           unreadNotificationsCount={0}
+          unreadMessagesCount={unreadMessagesCount}
           onNotificationClick={() => {}}
           onAddFriendClick={() => {}}
-          onMessageClick={() => {}}
+          onMessageClick={() => setIsChatPanelOpen(true)}
           onCreateClick={() => {}}
         />
         <div className="events-page__container">
@@ -181,6 +254,11 @@ const Events: React.FC = () => {
           />
           <main className="events-page__main">{eventsContent}</main>
         </div>
+        <ChatPanel
+          isOpen={isChatPanelOpen}
+          onClose={() => setIsChatPanelOpen(false)}
+          onUnreadCountChange={setUnreadMessagesCount}
+        />
       </div>
     );
   }

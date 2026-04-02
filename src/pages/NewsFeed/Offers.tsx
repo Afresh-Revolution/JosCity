@@ -10,6 +10,7 @@ import LazyImage from "../../components/LazyImage";
 import OfferCard from "../../components/OfferCard";
 import NewsFeedHeader from "./NewsFeedHeader";
 import FindFriendsModal from "../../components/FindFriendsModal";
+import ChatPanel from "../../components/ChatPanel";
 import { getProfileUsername } from "../../utils/userUtils";
 
 // API removed - using fallback data only
@@ -40,6 +41,7 @@ const Offers: React.FC = () => {
   // Modal/Panel states
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [notifications] = useState<any[]>([]); // Empty notifications for now
 
@@ -118,6 +120,7 @@ const Offers: React.FC = () => {
         onMessageClick={handleMessageClick}
         onAddFriendClick={handleAddFriendClick}
         unreadNotificationsCount={unreadNotificationsCount}
+        unreadMessagesCount={unreadMessagesCount}
       />
 
       <div className="offers-container">
@@ -339,34 +342,11 @@ const Offers: React.FC = () => {
         onClose={() => setIsAddFriendModalOpen(false)}
       />
 
-      {/* Chat Panel */}
-      {isChatPanelOpen && (
-        <div
-          className="newsfeed-chat-panel-overlay"
-          onClick={() => setIsChatPanelOpen(false)}
-        >
-          <div
-            className="newsfeed-chat-panel"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="newsfeed-chat-panel__header">
-              <h3>Messages</h3>
-              <button
-                className="newsfeed-chat-panel__close"
-                onClick={() => setIsChatPanelOpen(false)}
-                aria-label="Close panel"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="newsfeed-chat-panel__content">
-              <div className="newsfeed-chat-panel__empty">
-                <p>No messages yet</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ChatPanel
+        isOpen={isChatPanelOpen}
+        onClose={() => setIsChatPanelOpen(false)}
+        onUnreadCountChange={setUnreadMessagesCount}
+      />
 
       {/* Notification Panel */}
       {isNotificationPanelOpen && (
@@ -401,4 +381,3 @@ const Offers: React.FC = () => {
 };
 
 export default Offers;
-

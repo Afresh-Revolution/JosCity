@@ -3,6 +3,7 @@ import { X, Search, UserPlus, Check, Clock } from "lucide-react";
 import { userApi, User } from "../services/userApi";
 import { friendApi } from "../services/friendApi";
 import { getUserLocation } from "../utils/locationUtils";
+import { getInitialsFromName } from "../utils/userUtils";
 import LazyImage from "./LazyImage";
 
 interface FindFriendsModalProps {
@@ -45,7 +46,7 @@ const FindFriendsModal: React.FC<FindFriendsModalProps> = ({
       fetchNearbyUsers();
       checkFriendStatuses();
     }
-  }, [isOpen]);
+  }, [isOpen, currentUserId]);
 
   const fetchNearbyUsers = async () => {
     setLoading(true);
@@ -154,8 +155,9 @@ const FindFriendsModal: React.FC<FindFriendsModalProps> = ({
     return user.user_email || `User ${user.user_id}`;
   };
 
-  const getUserAvatar = (user: User): string => {
-    return user.user_picture || "/placeholder-avatar.png";
+  const getUserAvatar = (user: User): string | null => {
+    const pic = user.user_picture?.trim();
+    return pic && !/placeholder-avatar|^\/?placeholder/i.test(pic) ? pic : null;
   };
 
   // Filter users based on search query
@@ -211,18 +213,27 @@ const FindFriendsModal: React.FC<FindFriendsModalProps> = ({
               {filteredUsers.map((user) => {
                 const status = getFriendStatus(user.user_id);
                 const displayName = getUserDisplayName(user);
-                const avatar = getUserAvatar(user);
+                const avatarSrc = getUserAvatar(user);
+                const initials = getInitialsFromName(displayName);
 
                 return (
                   <div
                     key={user.user_id}
                     className="newsfeed-add-friend-modal__item"
                   >
-                    <LazyImage
-                      src={avatar}
-                      alt={displayName}
-                      className="newsfeed-add-friend-modal__avatar"
-                    />
+                    <div className="lazy-image-wrapper newsfeed-add-friend-modal__avatar">
+                      {avatarSrc ? (
+                        <LazyImage
+                          src={avatarSrc}
+                          alt={displayName}
+                          className="newsfeed-add-friend-modal__avatar-img"
+                        />
+                      ) : (
+                        <span className="newsfeed-add-friend-modal__avatar-initials">
+                          {initials}
+                        </span>
+                      )}
+                    </div>
                     <div className="newsfeed-add-friend-modal__info">
                       <p className="newsfeed-add-friend-modal__name">
                         {displayName}

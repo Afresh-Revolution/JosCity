@@ -32,8 +32,9 @@ import tianaImg from "../image/newsfeed/tiana.jpg";
 import willImg from "../image/newsfeed/will.jpg";
 import josephImg from "../image/newsfeed/joseph.png";
 import LazyImage from "./LazyImage";
+import Avatar from "./Avatar";
 import EmojiPicker from "./EmojiPicker";
-import { getUserInitials, getProfileUsername } from "../utils/userUtils";
+import { getProfileUsername, getUserName } from "../utils/userUtils";
 import "../main.css";
 import "../scss/_emojipicker.scss";
 
@@ -274,7 +275,11 @@ const People: React.FC = () => {
               title="View Profile"
             >
               <div className="newsfeed-header__join-initials">
-                {getUserInitials()}
+                <Avatar
+                  name={getUserName()}
+                  size={32}
+                  className="newsfeed-header__join-avatar"
+                />
               </div>
             </button>
           </div>

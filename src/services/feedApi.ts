@@ -10,6 +10,10 @@ export type ReactionType =
   | "sad"
   | "angry";
 
+const POST_REACTION_IDS: Partial<Record<ReactionType, number>> = {
+  like: 1,
+};
+
 export interface Story {
   story_id: number;
   user_id: number;
@@ -39,12 +43,29 @@ export interface Reaction {
   };
 }
 
+export interface PostReactionStat {
+  reaction_id: number;
+  reaction_class: string;
+  reaction_text: string;
+  reaction_image?: string | null;
+  count: number | string;
+}
+
+export interface UserPostReaction {
+  reaction_id: number;
+  reaction_class: string;
+  reaction_text: string;
+  reaction_image?: string | null;
+}
+
 export interface Comment {
   comment_id: number;
+  id?: number;
   post_id: number;
   user_id: number;
   parent_comment_id?: number;
   text?: string;
+  comment?: string;
   image?: string;
   created_at: string;
   updated_at?: string;
@@ -52,6 +73,12 @@ export interface Comment {
     user_id: number;
     display_name: string;
     profile_image_url?: string;
+  };
+  author?: {
+    id: number;
+    name: string;
+    picture?: string;
+    verified?: boolean;
   };
   replies?: Comment[];
   time_ago?: string;
@@ -62,6 +89,9 @@ export interface Share {
   post_id: number;
   user_id: number;
   created_at: string;
+  time_ago?: string;
+  shares_count?: number;
+  already_shared?: boolean;
   user?: {
     user_id: number;
     display_name: string;
@@ -202,22 +232,62 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
 // Feed API functions
 export const feedApi = {
   // ========== Stories ==========
+  // Backend expects: text stories as JSON (body.src); photo/video as multipart with field "media"
   createStory: async (data: {
     type: "photo" | "video" | "text";
-    src: string; // image/video URL or text content
+    src: string; // text content for text stories; ignored for photo/video (media sent as file)
     background_color?: string;
     text_color?: string;
     duration?: number; // hours until expiration (default: 24)
+    mediaFile?: File | Blob; // required for photo/video: the actual file to upload
   }): Promise<{ success: boolean; data: Story; message: string }> => {
-    console.log("Creating story via POST /api/stories", {
-      type: data.type,
-      hasSrc: !!data.src,
-    });
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("authToken");
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const isMediaStory = data.type === "photo" || data.type === "video";
+    const useFormData = isMediaStory && data.mediaFile != null;
+
+    if (useFormData && data.mediaFile) {
+      // Backend: upload.single("media") — send as multipart/form-data
+      const formData = new FormData();
+      formData.append("type", data.type);
+      formData.append("duration", String(data.duration ?? 24));
+      if (data.background_color) formData.append("background_color", data.background_color);
+      if (data.text_color) formData.append("text_color", data.text_color);
+      const file = data.mediaFile instanceof Blob ? new File([data.mediaFile], "media", { type: data.mediaFile.type }) : data.mediaFile;
+      formData.append("media", file);
+      console.log("Creating story via POST /api/stories (FormData)", { type: data.type });
+      const response = await fetch(`${API_BASE_URL}/stories`, {
+        method: "POST",
+        headers,
+        body: formData,
+        signal: AbortSignal.timeout(60000),
+      });
+      const text = await response.text();
+      const responseData = text && text.trim() ? JSON.parse(text) : {};
+      if (!response.ok) {
+        const msg = (responseData as { message?: string }).message ?? (responseData as { error?: string }).error ?? "Failed to create story";
+        throw new Error(typeof msg === "string" ? msg : "Failed to create story");
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return responseData as any;
+    }
+
+    // Text story: JSON body
+    console.log("Creating story via POST /api/stories (JSON)", { type: data.type });
     return apiRequest("/stories", {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        type: data.type,
+        src: data.src,
+        duration: data.duration ?? 24,
+        background_color: data.background_color,
+        text_color: data.text_color,
+      }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any; // Type assertion needed - API response structure varies
+    }) as any;
   },
 
   getStories: async (): Promise<{ success: boolean; data: Story[] }> => {
@@ -324,17 +394,42 @@ export const feedApi = {
   reactToPost: async (
     postId: number,
     reaction: ReactionType
-  ): Promise<{ success: boolean; data: Reaction; message: string }> => {
+  ): Promise<{
+    success: boolean;
+    data: {
+      reactions: PostReactionStat[];
+      user_reaction: UserPostReaction | null;
+    };
+    message: string;
+  }> => {
+    const reactionId = POST_REACTION_IDS[reaction];
+
+    if (!reactionId) {
+      throw new Error(
+        `Unsupported post reaction "${reaction}" for the current backend.`
+      );
+    }
+
     return apiRequest(`/posts/${postId}/react`, {
       method: "POST",
-      body: JSON.stringify({ reaction }),
+      body: JSON.stringify({
+        reaction_id: reactionId,
+        reaction,
+      }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any; // Type assertion needed - API response structure varies
   },
 
   removeReaction: async (
     postId: number
-  ): Promise<{ success: boolean; message: string }> => {
+  ): Promise<{
+    success: boolean;
+    data: {
+      reactions: PostReactionStat[];
+      user_reaction: null;
+    };
+    message: string;
+  }> => {
     return apiRequest(`/posts/${postId}/react`, {
       method: "DELETE",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -387,10 +482,46 @@ export const feedApi = {
     }) as any; // Type assertion needed - API response structure varies
   },
 
+  // ========== Post actions (delete, edit, pin) ==========
+  deletePost: async (
+    postId: number
+  ): Promise<{ success: boolean; message: string }> => {
+    return apiRequest(`/feed/posts/${postId}`, {
+      method: "DELETE",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any;
+  },
+
+  updatePost: async (
+    postId: number,
+    data: { text?: string }
+  ): Promise<{ success: boolean; data?: unknown; message: string }> => {
+    return apiRequest(`/feed/posts/${postId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any;
+  },
+
+  pinPost: async (
+    postId: number,
+    pinned: boolean
+  ): Promise<{ success: boolean; data?: unknown; message: string }> => {
+    return apiRequest(`/feed/posts/${postId}/pin`, {
+      method: "PATCH",
+      body: JSON.stringify({ pinned }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any;
+  },
+
   // ========== Shares ==========
   sharePost: async (
     postId: number
-  ): Promise<{ success: boolean; data: Share; message: string }> => {
+  ): Promise<{
+    success: boolean;
+    data: Share | Record<string, unknown>;
+    message: string;
+  }> => {
     return apiRequest(`/posts/${postId}/share`, {
       method: "POST",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -424,6 +555,79 @@ export const feedApi = {
     }).toString();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return apiRequest(`/feed/feeds?${query}`) as any;
+  },
+
+  /** Trending hashtags (top N by post count). Never throws: on 404 or error returns empty data so UI can use fallback. */
+  getTrendingHashtags: async (limit: number = 3): Promise<{
+    success: boolean;
+    data: Array<{ hashtag: string; posts: number }>;
+  }> => {
+    const query = new URLSearchParams({ limit: String(limit) }).toString();
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("authToken");
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+    try {
+      const response = await fetch(`${API_BASE_URL}/feed/trending-hashtags?${query}`, {
+        method: "GET",
+        headers,
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!response.ok) {
+        return { success: true, data: [] };
+      }
+      const json = await response.json().catch(() => ({}));
+      const data = Array.isArray(json?.data) ? json.data : [];
+      return { success: true, data };
+    } catch {
+      return { success: true, data: [] };
+    }
+  },
+
+  /** Feed posts filtered by hashtag. Never throws: on 404 or error returns empty data. */
+  getFeedsByHashtag: async (
+    hashtag: string,
+    params?: { page?: number; limit?: number }
+  ): Promise<{
+    success: boolean;
+    data: unknown[];
+    pagination?: { page: number; limit: number; hasMore: boolean };
+  }> => {
+    const tag = hashtag.replace(/^#+/, "").trim();
+    const limit = params?.limit ?? 20;
+    const empty = {
+      success: true as const,
+      data: [] as unknown[],
+      pagination: { page: params?.page ?? 1, limit, hasMore: false },
+    };
+    if (!tag) return empty;
+    const query = new URLSearchParams({
+      page: String(params?.page ?? 1),
+      limit: String(limit),
+    }).toString();
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("authToken");
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/feed/by-hashtag/${encodeURIComponent(tag)}?${query}`,
+        { method: "GET", headers, signal: AbortSignal.timeout(15000) }
+      );
+      if (!response.ok) return empty;
+      const json = await response.json().catch(() => ({}));
+      const data = Array.isArray((json as { data?: unknown[] }).data)
+        ? (json as { data: unknown[] }).data
+        : [];
+      const pagination = (json as { pagination?: { page: number; limit: number; hasMore: boolean } }).pagination ?? empty.pagination;
+      return { success: true, data, pagination };
+    } catch {
+      return empty;
+    }
   },
 
   // ========== Posts ==========
@@ -603,5 +807,112 @@ export const feedApi = {
           ? (responseData as { message?: string }).message
           : "Post created") as string,
     };
+  },
+
+  // ========== Notifications ==========
+  getNotifications: async (): Promise<{
+    success: boolean;
+    data: Array<{
+      id: number;
+      from_user_id?: number;
+      action: string;
+      node_type?: string;
+      node_id?: number;
+      time: string;
+      is_read?: boolean;
+      from_user?: { display_name?: string; profile_image_url?: string };
+    }>;
+  }> => {
+    return apiRequest("/notifications") as Promise<{
+      success: boolean;
+      data: Array<{
+        id: number;
+        from_user_id?: number;
+        action: string;
+        node_type?: string;
+        node_id?: number;
+        time: string;
+        is_read?: boolean;
+        from_user?: { display_name?: string; profile_image_url?: string };
+      }>;
+    }>;
+  },
+
+  markNotificationRead: async (
+    notificationId: number
+  ): Promise<{ success: boolean }> => {
+    return apiRequest(`/notifications/${notificationId}/read`, {
+      method: "PATCH",
+    }) as Promise<{ success: boolean }>;
+  },
+
+  markAllNotificationsRead: async (): Promise<{ success: boolean }> => {
+    return apiRequest("/notifications/read-all", {
+      method: "PATCH",
+    }) as Promise<{ success: boolean }>;
+  },
+
+  // ========== Friends ==========
+  getMyFriends: async (): Promise<{
+    success: boolean;
+    data: Array<{
+      user_id: number;
+      user_firstname?: string;
+      user_lastname?: string;
+      user_picture?: string;
+      friendship_id?: number;
+      created_at?: string;
+    }>;
+  }> => {
+    return apiRequest("/friends/my") as any;
+  },
+
+  getFriendRequests: async (): Promise<{
+    success: boolean;
+    data: { sent?: unknown[]; received?: unknown[] };
+  }> => {
+    return apiRequest("/friends/requests") as any;
+  },
+
+  sendFriendRequest: async (
+    userId: number
+  ): Promise<{ success: boolean; data?: unknown; message: string }> => {
+    return apiRequest("/friends/request", {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId }),
+    }) as any;
+  },
+
+  acceptFriendRequest: async (
+    requestId: number
+  ): Promise<{ success: boolean; data?: unknown; message: string }> => {
+    return apiRequest(`/friends/request/${requestId}/accept`, {
+      method: "POST",
+    }) as any;
+  },
+
+  rejectFriendRequest: async (
+    requestId: number
+  ): Promise<{ success: boolean; message: string }> => {
+    return apiRequest(`/friends/request/${requestId}/reject`, {
+      method: "POST",
+    }) as any;
+  },
+
+  removeFriend: async (
+    userId: number
+  ): Promise<{ success: boolean; message: string }> => {
+    return apiRequest(`/friends/${userId}`, {
+      method: "DELETE",
+    }) as any;
+  },
+
+  checkFriendship: async (
+    userId: number
+  ): Promise<{
+    success: boolean;
+    data: { are_friends?: boolean; request_status?: string };
+  }> => {
+    return apiRequest(`/friends/check/${userId}`) as any;
   },
 };

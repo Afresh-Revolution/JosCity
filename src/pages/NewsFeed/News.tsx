@@ -12,50 +12,23 @@ const News: React.FC = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
-  
-  // Modal/Panel states
-  const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
-  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
-  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
-  const [notifications] = useState<any[]>([]); // Empty notifications for now
 
-  // Calculate unread notifications count
-  const unreadNotificationsCount = notifications.filter(
-    (n) => !n.isRead
-  ).length;
-
-  // Handle profile navigation
   const handleProfileClick = () => {
     const username = getProfileUsername();
     navigate(`/profile/${encodeURIComponent(username)}`);
   };
 
-  // Handle notification click
-  const handleNotificationClick = () => {
-    setIsNotificationPanelOpen(true);
-  };
-
-  // Handle message click
-  const handleMessageClick = () => {
-    setIsChatPanelOpen(true);
-  };
-
-  // Handle add friend click
-  const handleAddFriendClick = () => {
-    setIsAddFriendModalOpen(true);
-  };
-
   return (
-    <div className="marketplace-page" style={{ paddingTop: '64px' }}>
-      {/* Top Navigation Bar - Using NewsFeed Header */}
+    <div className="marketplace-page" style={{ paddingTop: "64px" }}>
       <NewsFeedHeader
         isLeftSidebarOpen={isLeftSidebarOpen}
         onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
         onProfileClick={handleProfileClick}
-        onNotificationClick={handleNotificationClick}
-        onMessageClick={handleMessageClick}
-        onAddFriendClick={handleAddFriendClick}
-        unreadNotificationsCount={unreadNotificationsCount}
+        onNotificationClick={() => {}}
+        onMessageClick={() => {}}
+        onAddFriendClick={() => {}}
+        unreadNotificationsCount={0}
+        showRightSidebarToggle={false}
       />
 
       {/* Mobile Overlay */}

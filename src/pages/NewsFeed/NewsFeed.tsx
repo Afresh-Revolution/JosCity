@@ -7,50 +7,36 @@ import React, {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  SquarePlus,
-  UserPlus,
-  MessageCircle,
-  Bell,
-  Menu,
   X,
-  TrendingUp,
-  FileText,
-  Clock,
-  Users,
-  Calendar,
   Search,
   Hash,
   User,
-  Send,
-  MoreVertical,
-  Paperclip,
-  Smile,
   Heart,
   MessageSquare,
   UserCheck,
   ThumbsUp,
   CheckCircle,
   Trash2,
-  Image,
-  Video,
+  Bell,
+  MessageCircle,
+  Calendar,
+  FileText,
 } from "lucide-react";
 import NewsFeedSidebar from "./NewsFeedSidebar";
+import NewsFeedHeader from "./NewsFeedHeader";
 import StoriesSection from "./StoriesSection";
 import CreatePostInput from "./CreatePostInput";
 import CreatePostModal from "./CreatePostModal";
 import PostCard from "./PostCard";
 import TrendingSection from "./TrendingSection";
 import SuggestedFriends from "./SuggestedFriends";
-import primaryLogo from "../../image/primary-logo.png";
 import "../../main.css";
-import LazyImage from "../../components/LazyImage";
 import Avatar from "../../components/Avatar";
-import EmojiPicker from "../../components/EmojiPicker";
-import ProfileModal from "../../components/ProfileModal";
+import ChatPanel, { type ChatPanelPopupPayload } from "../../components/ChatPanel";
 import FindFriendsModal from "../../components/FindFriendsModal";
 import CreateStoryPopup from "../../components/CreateStoryPopup";
+import MessagePopup from "../../components/MessagePopup";
 import {
-  getUserInitials,
   getProfileUsername,
   isAuthenticated,
   getUserAvatar as getUserAvatarUtil,
@@ -58,7 +44,6 @@ import {
   getUserData,
   getUserAccountType,
 } from "../../utils/userUtils";
-import { addFriend } from "../../utils/friendUtils";
 import {
   playNotificationSound,
   showBrowserNotification,
@@ -80,8 +65,23 @@ interface SearchResult {
   postCount?: number;
 }
 
+interface EmbeddedPost {
+  id: number;
+  userId?: number;
+  userName: string;
+  userAvatar: string;
+  timeAgo: string;
+  caption?: string;
+  image?: string;
+  images?: string[];
+  video?: string;
+  videos?: string[];
+  unavailable?: boolean;
+}
+
 interface Post {
   id: number;
+  userId?: number; // author user_id - for edit/delete/pin (own posts only)
   userName: string;
   userAvatar: string;
   action: string;
@@ -97,6 +97,9 @@ interface Post {
   caption: string;
   hashtags?: string;
   accountType?: string;
+  userReacted?: boolean;
+  userShared?: boolean;
+  originalPost?: EmbeddedPost;
 }
 
 const NewsFeed: React.FC = () => {
@@ -120,7 +123,6 @@ const NewsFeed: React.FC = () => {
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [showGoodMorningCard, setShowGoodMorningCard] = useState(true);
-  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
   const [isCreateStoryModalOpen, setIsCreateStoryModalOpen] = useState(false);
   const [isStoryPopupOpen, setIsStoryPopupOpen] = useState(false);
@@ -128,46 +130,35 @@ const NewsFeed: React.FC = () => {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [filteredHashtag, setFilteredHashtag] = useState<string | null>(null);
+  const [trendingHashtags, setTrendingHashtags] = useState<
+    Array<{ hashtag: string; posts: number }>
+  >([]);
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
-  const [selectedChatId, setSelectedChatId] = useState<number | null>(null);
-  const [chatSearchQuery, setChatSearchQuery] = useState("");
-  const [messageInput, setMessageInput] = useState("");
-  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
-  const [messageAttachment, setMessageAttachment] = useState<{
-    type: "image" | "video" | "file";
-    url: string;
-    fileName?: string;
-    fileSize?: number;
-  } | null>(null);
-  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
-  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
-  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [selectedProfileUserId, setSelectedProfileUserId] = useState<
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [activeChatConversationId, setActiveChatConversationId] = useState<
     number | null
   >(null);
-  const [, setMessagePopup] = useState<{
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const [messagePopup, setMessagePopup] = useState<{
     userId: number;
     userName: string;
     userAvatar: string;
     message: string;
     timestamp: string;
-    chatId: number;
+    conversationId: number;
   } | null>(null);
-  const createMenuRef = useRef<HTMLDivElement>(null);
+  // const [isNavbarVisible, setIsNavbarVisible] = useState(true);
+  // const [lastScrollY, setLastScrollY] = useState(0);
+
+
+  const [prevScrollPos, setPrevScrollPos] = useState(0);
+    const [isInitialMount, setIsInitialMount] = useState(true);
+
   const searchRef = useRef<HTMLDivElement>(null);
   const addFriendModalRef = useRef<HTMLDivElement>(null);
-  const chatPanelRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const notificationPanelRef = useRef<HTMLDivElement>(null);
-  const attachmentMenuRef = useRef<HTMLDivElement>(null);
-  const attachmentButtonRef = useRef<HTMLButtonElement>(null);
-  const chatMenuRef = useRef<HTMLDivElement>(null);
-  const chatMenuButtonRef = useRef<HTMLButtonElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
+  const mainContentRef = useRef<HTMLElement>(null);
 
   // Get time-based greeting with motivational messages
   const getTimeBasedGreeting = () => {
@@ -358,6 +349,22 @@ const NewsFeed: React.FC = () => {
               likes_count?: number;
               likes?: number;
               user_reacted?: boolean;
+              user_shared?: boolean;
+              original_post?: {
+                id?: number;
+                text?: string;
+                caption?: string;
+                time_ago?: string;
+                unavailable?: boolean;
+                author?: {
+                  id?: number;
+                  name?: string;
+                  picture?: string;
+                };
+                media?: Array<{ url?: string; type?: string }>;
+                media_urls?: string[];
+                media_types?: string[];
+              };
               comments_preview?: Array<{ id?: number; comment?: string; time_ago?: string; author?: { name?: string; picture?: string; verified?: boolean } }>;
               comments_count?: number;
               comments?: number;
@@ -391,6 +398,7 @@ const NewsFeed: React.FC = () => {
                 let images = feed.images;
                 let video = feed.video_url || feed.video || "";
                 let videos = feed.videos;
+                let originalPost: EmbeddedPost | undefined;
 
                 // Backend formatPost: media = [{ url, type }, ...]; also media_urls + media_types
                 if (feed.media && Array.isArray(feed.media) && feed.media.length > 0) {
@@ -434,6 +442,96 @@ const NewsFeed: React.FC = () => {
                   }
                 }
 
+                if (feed.original_post && typeof feed.original_post === "object") {
+                  const originalMedia = Array.isArray(feed.original_post.media)
+                    ? feed.original_post.media
+                    : [];
+                  let originalImage = "";
+                  let originalImages: string[] | undefined;
+                  let originalVideo = "";
+                  let originalVideos: string[] | undefined;
+
+                  if (originalMedia.length > 0) {
+                    const originalPhotoUrls = originalMedia
+                      .filter(
+                        (item) =>
+                          (item.type || "").toLowerCase().startsWith("image") ||
+                          (item.type || "").toLowerCase() === "photo"
+                      )
+                      .map((item) => item.url)
+                      .filter((url): url is string => Boolean(url));
+                    const originalVideoUrls = originalMedia
+                      .filter((item) =>
+                        (item.type || "").toLowerCase().startsWith("video")
+                      )
+                      .map((item) => item.url)
+                      .filter((url): url is string => Boolean(url));
+
+                    if (originalPhotoUrls.length > 0) {
+                      originalImage = originalPhotoUrls[0];
+                      if (originalPhotoUrls.length > 1) {
+                        originalImages = originalPhotoUrls;
+                      }
+                    }
+
+                    if (originalVideoUrls.length > 0) {
+                      originalVideo = originalVideoUrls[0];
+                      if (originalVideoUrls.length > 1) {
+                        originalVideos = originalVideoUrls;
+                      }
+                    }
+                  } else if (
+                    (feed.original_post.media_urls &&
+                      feed.original_post.media_urls.length > 0) ||
+                    (feed.original_post.media_types &&
+                      feed.original_post.media_types.length > 0)
+                  ) {
+                    const originalUrls = feed.original_post.media_urls || [];
+                    const originalTypes = feed.original_post.media_types || [];
+                    const originalPhotoUrls = originalUrls.filter((_, index) => {
+                      const mediaType = (originalTypes[index] || "").toLowerCase();
+                      return (
+                        mediaType.startsWith("image") || mediaType === "photo"
+                      );
+                    });
+                    const originalVideoUrls = originalUrls.filter((_, index) => {
+                      const mediaType = (originalTypes[index] || "").toLowerCase();
+                      return mediaType.startsWith("video");
+                    });
+
+                    if (originalPhotoUrls.length > 0) {
+                      originalImage = originalPhotoUrls[0];
+                      if (originalPhotoUrls.length > 1) {
+                        originalImages = originalPhotoUrls;
+                      }
+                    }
+
+                    if (originalVideoUrls.length > 0) {
+                      originalVideo = originalVideoUrls[0];
+                      if (originalVideoUrls.length > 1) {
+                        originalVideos = originalVideoUrls;
+                      }
+                    }
+                  }
+
+                  originalPost = {
+                    id: feed.original_post.id ?? 0,
+                    userId: feed.original_post.author?.id,
+                    userName: feed.original_post.author?.name || "Unknown User",
+                    userAvatar: feed.original_post.author?.picture || "",
+                    timeAgo: feed.original_post.time_ago || "Just now",
+                    caption:
+                      feed.original_post.text ||
+                      feed.original_post.caption ||
+                      "",
+                    image: originalImage,
+                    images: originalImages,
+                    video: originalVideo,
+                    videos: originalVideos,
+                    unavailable: Boolean(feed.original_post.unavailable),
+                  };
+                }
+
                 const likes =
                   feed.reactions_count ?? feed.likes_count ?? feed.likes ?? 0;
                 const comments =
@@ -442,8 +540,10 @@ const NewsFeed: React.FC = () => {
                   (Array.isArray(feed.comments_preview) ? feed.comments_preview.length : 0) ??
                   0;
 
+                const authorId = (author as { id?: number })?.id ?? (feed as { user_id?: number }).user_id;
                 return {
                   id: feed.post_id ?? feed.id ?? 0,
+                  userId: authorId !== undefined && authorId !== null ? Number(authorId) : undefined,
                   userName,
                   userAvatar,
                   action: feed.action || "",
@@ -464,6 +564,9 @@ const NewsFeed: React.FC = () => {
                       : typeof feed.accountType === "string"
                         ? feed.accountType
                         : undefined,
+                  userReacted: Boolean(feed.user_reacted),
+                  userShared: Boolean(feed.user_shared),
+                  originalPost,
                 };
               });
 
@@ -503,6 +606,45 @@ const NewsFeed: React.FC = () => {
   // Fetch feeds on component mount
   useEffect(() => {
     fetchFeeds();
+  }, [fetchFeeds]);
+
+  // Trending hashtags are optional from backend; local fallback still works.
+  useEffect(() => {
+    let cancelled = false;
+    feedApi.getTrendingHashtags(10).then((res) => {
+      if (!cancelled && res?.success && Array.isArray(res.data)) {
+        setTrendingHashtags(res.data);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setTrendingHashtags([]);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const fetchFeedsByHashtag = useCallback((hashtag: string) => {
+    setFilteredHashtag(hashtag);
+    setTimeout(() => {
+      const postsSection = document.querySelector(".newsfeed-posts");
+      postsSection?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 100);
+  }, []);
+
+  useEffect(() => {
+    const handleFeedPostShared = () => {
+      void fetchFeeds();
+    };
+
+    window.addEventListener("feedPostShared", handleFeedPostShared);
+    return () => {
+      window.removeEventListener("feedPostShared", handleFeedPostShared);
+    };
   }, [fetchFeeds]);
 
   // Helper function to normalize media URLs (handle relative paths)
@@ -741,47 +883,17 @@ const NewsFeed: React.FC = () => {
       }
     });
 
-    // Convert to array, sort by count, and take top 2
+    // Convert to array, sort by count, and take top 3 (trending)
     const sortedHashtags = Object.entries(hashtagCounts)
       .map(([hashtag, count]) => ({ hashtag, posts: count }))
       .sort((a, b) => b.posts - a.posts)
-      .slice(0, 2);
+      .slice(0, 3);
 
     return sortedHashtags;
   };
 
-  const trending = calculateTrendingHashtags();
-
-  // Mock chat conversations
-  interface ChatMessage {
-    id: number;
-    senderId: number;
-    text: string;
-    timestamp: string;
-    isRead: boolean;
-    attachment?: {
-      type: "image" | "video" | "file";
-      url: string;
-      fileName?: string;
-      fileSize?: number;
-    };
-  }
-
-  interface ChatConversation {
-    id: number;
-    userId: number;
-    userName: string;
-    userAvatar: string;
-    lastMessage: string;
-    lastMessageTime: string;
-    unreadCount: number;
-    isOnline: boolean;
-    messages: ChatMessage[];
-  }
-
-  const [chatConversations, setChatConversations] = useState<
-    ChatConversation[]
-  >([]);
+  // Use API trending hashtags; fallback to local calculation if API returns none
+  const trending = trendingHashtags.length > 0 ? trendingHashtags : calculateTrendingHashtags();
 
   // Mock notifications
   interface Notification {
@@ -806,6 +918,52 @@ const NewsFeed: React.FC = () => {
   }
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const prevUnreadCountRef = useRef(0);
+
+  // Fetch notifications from API and poll for new ones (comment/reaction)
+  const fetchNotifications = useCallback(async () => {
+    if (!isAuthenticated()) return;
+    try {
+      const res = await feedApi.getNotifications();
+      if (res.success && Array.isArray(res.data)) {
+        const mapped: Notification[] = res.data.map((n) => ({
+          id: n.id,
+          type: n.action?.toLowerCase().includes("like") ||
+            n.action?.toLowerCase().includes("react")
+              ? "like"
+              : n.action?.toLowerCase().includes("comment")
+                ? "comment"
+                : n.action?.toLowerCase().includes("share")
+                  ? "share"
+                  : "mention",
+          userId: n.from_user_id ?? 0,
+          userName: n.from_user?.display_name ?? "Someone",
+          userAvatar: n.from_user?.profile_image_url ?? "",
+          message: n.action ?? "",
+          timestamp: n.time ?? "",
+          isRead: !!n.is_read,
+          relatedPostId: n.node_type === "post" ? n.node_id : undefined,
+        }));
+        setNotifications((prev) => {
+          const prevUnread = prev.filter((x) => !x.isRead).length;
+          const newUnread = mapped.filter((x) => !x.isRead).length;
+          if (newUnread > prevUnread && prevUnreadCountRef.current > 0) {
+            playNotificationSound();
+          }
+          prevUnreadCountRef.current = newUnread;
+          return mapped;
+        });
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
 
   // Calculate unread notifications count
   const unreadNotificationsCount = notifications.filter(
@@ -819,6 +977,7 @@ const NewsFeed: React.FC = () => {
         notif.id === notificationId ? { ...notif, isRead: true } : notif
       )
     );
+    feedApi.markNotificationRead(notificationId).catch(() => {});
   };
 
   // Mark all notifications as read
@@ -826,6 +985,7 @@ const NewsFeed: React.FC = () => {
     setNotifications((prev) =>
       prev.map((notif) => ({ ...notif, isRead: true }))
     );
+    feedApi.markAllNotificationsRead().catch(() => {});
   };
 
   // Clear all notifications
@@ -847,6 +1007,8 @@ const NewsFeed: React.FC = () => {
         return <Heart size={20} />;
       case "comment":
         return <MessageSquare size={20} />;
+      case "message":
+        return <MessageCircle size={20} />;
       case "friend_request":
         return <UserCheck size={20} />;
       case "mention":
@@ -867,6 +1029,8 @@ const NewsFeed: React.FC = () => {
         return "#e91e63";
       case "comment":
         return "#2196f3";
+      case "message":
+        return "#10b981";
       case "friend_request":
         return "#4caf50";
       case "mention":
@@ -890,261 +1054,133 @@ const NewsFeed: React.FC = () => {
     };
   });
 
-  // Filter conversations based on search query
-  const filteredConversations = chatConversations.filter((chat) =>
-    chat.userName.toLowerCase().includes(chatSearchQuery.toLowerCase().trim())
-  );
-
-  // Get selected chat
-  const selectedChat = chatConversations.find(
-    (chat) => chat.id === selectedChatId
-  );
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [selectedChat?.messages]);
-
   // Request notification permission on mount
   useEffect(() => {
     requestNotificationPermission();
   }, []);
 
-  // Add notification when receiving a new message
+  // Handle navbar visibility on scroll
+  // useEffect(() => {
+  //   const handleScroll = () => {
+  //     // Check both window scroll and main content scroll
+  //     const windowScrollY = window.scrollY;
+  //     const mainContent = mainContentRef.current;
+  //     const contentScrollY = mainContent ? mainContent.scrollTop : 0;
+      
+  //     // Use the larger of the two scroll positions
+  //     const currentScrollY = Math.max(windowScrollY, contentScrollY);
+      
+  //     // Show navbar when scrolling up, hide when scrolling down
+  //     if (currentScrollY > lastScrollY && currentScrollY > 100) {
+  //       // Scrolling down and past 100px - hide navbar
+  //       setIsNavbarVisible(false);
+  //     } else if (currentScrollY < lastScrollY) {
+  //       // Scrolling up - show navbar
+  //       setIsNavbarVisible(true);
+  //     }
+      
+  //     // Always show navbar at the top
+  //     if (currentScrollY < 10) {
+  //       setIsNavbarVisible(true);
+  //     }
+      
+  //     setLastScrollY(currentScrollY);
+  //   };
+
+  //   // Listen to window scroll
+  //   window.addEventListener("scroll", handleScroll, { passive: true });
+    
+  //   // Listen to main content scroll
+  //   const mainContent = mainContentRef.current;
+  //   if (mainContent) {
+  //     mainContent.addEventListener("scroll", handleScroll, { passive: true });
+  //   }
+    
+  //   return () => {
+  //     window.removeEventListener("scroll", handleScroll);
+  //     if (mainContent) {
+  //       mainContent.removeEventListener("scroll", handleScroll);
+  //     }
+  //   };
+  // }, [lastScrollY]);
+
+  // Navbar visibility on scroll is handled inside NewsFeedHeader
   useEffect(() => {
-    chatConversations.forEach((chat) => {
-      if (chat.messages.length > 0) {
-        const lastMessage = chat.messages[chat.messages.length - 1];
-        // Only create notification for messages from other users that are unread
-        // and when chat is not currently selected (user is not viewing the chat)
-        if (
-          lastMessage &&
-          lastMessage.senderId !== 0 &&
-          !lastMessage.isRead &&
-          selectedChatId !== chat.id
-        ) {
-          setNotifications((prev) => {
-            // Check if notification already exists for this message
-            const existingNotification = prev.find(
-              (n) =>
-                n.type === "message" &&
-                n.relatedChatId === chat.id &&
-                n.userId === chat.userId
-            );
-
-            if (!existingNotification) {
-              const messageText = lastMessage.attachment
-                ? lastMessage.attachment.type === "image"
-                  ? "sent you a photo"
-                  : lastMessage.attachment.type === "video"
-                  ? "sent you a video"
-                  : "sent you a file"
-                : lastMessage.text
-                ? lastMessage.text
-                : "sent you a message";
-
-              const newNotification: Notification = {
-                id: Date.now(),
-                type: "message",
-                userId: chat.userId,
-                userName: chat.userName,
-                userAvatar: chat.userAvatar,
-                message:
-                  messageText.length > 50
-                    ? `sent you a message: "${messageText.substring(0, 50)}..."`
-                    : `sent you a message: "${messageText}"`,
-                timestamp: "Just now",
-                isRead: false,
-                relatedChatId: chat.id,
-              };
-
-              // Play notification sound
-              playNotificationSound();
-
-              // Show browser notification
-              showBrowserNotification(
-                chat.userName,
-                messageText.length > 50
-                  ? messageText.substring(0, 50) + "..."
-                  : messageText,
-                chat.userAvatar
-              );
-
-              // Show message popup
-              setMessagePopup({
-                userId: chat.userId,
-                userName: chat.userName,
-                userAvatar: chat.userAvatar,
-                message: messageText,
-                timestamp: "Just now",
-                chatId: chat.id,
-              });
-
-              return [newNotification, ...prev];
-            }
-            return prev;
-          });
+    const handleScroll = () => {
+        if (isInitialMount) {
+            setIsInitialMount(false);
+            return;
         }
-      }
-    });
-  }, [chatConversations, selectedChatId]);
+        const currentScrollPos = window.scrollY;
+        setPrevScrollPos(currentScrollPos);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [prevScrollPos, isInitialMount]);
 
-  // Handle friend added
-  const handleFriendAdded = (friendId: number, friendName: string) => {
-    // Add friend to friends list
-    addFriend(friendId);
+  const openChatPanel = useCallback((conversationId?: number | null) => {
+    setMessagePopup(null);
+    setActiveChatConversationId(conversationId ?? null);
+    setIsChatPanelOpen(true);
+  }, []);
 
-    // Add friend to chat conversations if not already there
-    setChatConversations((prev) => {
-      const existingChat = prev.find((chat) => chat.userId === friendId);
-      if (!existingChat) {
-        const newChat: ChatConversation = {
+  const closeChatPanel = useCallback(() => {
+    setIsChatPanelOpen(false);
+    setActiveChatConversationId(null);
+  }, []);
+
+  const handleIncomingChatMessage = useCallback(
+    (payload: ChatPanelPopupPayload) => {
+      const messagePreview =
+        payload.message.length > 50
+          ? `${payload.message.substring(0, 50)}...`
+          : payload.message;
+
+      setNotifications((prev) => {
+        const existingNotification = prev.find(
+          (notification) =>
+            notification.type === "message" &&
+            notification.relatedChatId === payload.conversationId &&
+            notification.userId === payload.userId &&
+            notification.timestamp === payload.timestamp
+        );
+
+        if (existingNotification) {
+          return prev;
+        }
+
+        const nextNotification: Notification = {
           id: Date.now(),
-          userId: friendId,
-          userName: friendName,
-          userAvatar: "", // Avatar will be fetched from user data
-          lastMessage: "",
-          lastMessageTime: "",
-          unreadCount: 0,
-          isOnline: true,
-          messages: [],
+          type: "message",
+          userId: payload.userId,
+          userName: payload.userName,
+          userAvatar: payload.userAvatar,
+          message: `sent you a message: "${messagePreview}"`,
+          timestamp: payload.timestamp,
+          isRead: false,
+          relatedChatId: payload.conversationId,
         };
-        return [...prev, newChat];
-      }
-      return prev;
-    });
-  };
 
-  // Handle sending a message
-  const handleSendMessage = () => {
-    if ((!messageInput.trim() && !messageAttachment) || !selectedChatId) return;
+        return [nextNotification, ...prev];
+      });
 
-    const newMessage: ChatMessage = {
-      id: Date.now(),
-      senderId: 0, // Current user
-      text: messageInput.trim(),
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      isRead: false,
-      attachment: messageAttachment || undefined,
-    };
-
-    setChatConversations((prev) =>
-      prev.map((chat) => {
-        if (chat.id === selectedChatId) {
-          const lastMessageText = messageAttachment
-            ? messageAttachment.type === "image"
-              ? "📷 Photo"
-              : messageAttachment.type === "video"
-              ? "🎥 Video"
-              : `📎 ${messageAttachment.fileName || "File"}`
-            : newMessage.text;
-          return {
-            ...chat,
-            messages: [...chat.messages, newMessage],
-            lastMessage: lastMessageText,
-            lastMessageTime: "Just now",
-          };
-        }
-        return chat;
-      })
-    );
-
-    setMessageInput("");
-    setMessageAttachment(null);
-  };
-
-  // Handle file attachment
-  const handleFileSelect = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    type: "image" | "video" | "file"
-  ) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setMessageAttachment({
-          type: type,
-          url: reader.result as string,
-          fileName: file.name,
-          fileSize: file.size,
-        });
-        setIsAttachmentMenuOpen(false);
-      };
-      reader.onerror = () => {
-        alert("Error reading file. Please try again.");
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // Handle attachment menu click
-  const handleAttachmentClick = (type: "image" | "video" | "file") => {
-    setIsAttachmentMenuOpen(false);
-    if (type === "image" && imageInputRef.current) {
-      imageInputRef.current.click();
-    } else if (type === "video" && videoInputRef.current) {
-      videoInputRef.current.click();
-    } else if (type === "file" && fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  // Close attachment menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        attachmentMenuRef.current &&
-        !attachmentMenuRef.current.contains(event.target as Node) &&
-        attachmentButtonRef.current &&
-        !attachmentButtonRef.current.contains(event.target as Node)
-      ) {
-        setIsAttachmentMenuOpen(false);
-      }
-    };
-
-    if (isAttachmentMenuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isAttachmentMenuOpen]);
-
-  // Close chat menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        chatMenuRef.current &&
-        !chatMenuRef.current.contains(event.target as Node) &&
-        chatMenuButtonRef.current &&
-        !chatMenuButtonRef.current.contains(event.target as Node)
-      ) {
-        setIsChatMenuOpen(false);
-      }
-    };
-
-    if (isChatMenuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isChatMenuOpen]);
-
-  // Handle Enter key to send message
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
+      playNotificationSound();
+      showBrowserNotification(
+        payload.userName,
+        messagePreview,
+        payload.userAvatar
+      );
+      setMessagePopup({
+        userId: payload.userId,
+        userName: payload.userName,
+        userAvatar: payload.userAvatar,
+        message: payload.message,
+        timestamp: payload.timestamp,
+        conversationId: payload.conversationId,
+      });
+    },
+    []
+  );
 
   // Extract all hashtags from posts
   const allHashtags = useMemo(() => {
@@ -1290,14 +1326,6 @@ const NewsFeed: React.FC = () => {
   // Close dropdown when clicking outside
   const handleClickOutside = useCallback(
     (event: MouseEvent) => {
-      // Only close if menu is open and click is outside the wrapper
-      if (
-        isCreateMenuOpen &&
-        createMenuRef.current &&
-        !createMenuRef.current.contains(event.target as Node)
-      ) {
-        setIsCreateMenuOpen(false);
-      }
       if (
         searchRef.current &&
         !searchRef.current.contains(event.target as Node)
@@ -1315,11 +1343,11 @@ const NewsFeed: React.FC = () => {
         }
       }
     },
-    [isCreateMenuOpen]
+    []
   );
 
   useEffect(() => {
-    if (isCreateMenuOpen || isSearchFocused || isAddFriendModalOpen) {
+    if (isSearchFocused || isAddFriendModalOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
@@ -1327,28 +1355,16 @@ const NewsFeed: React.FC = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [
-    isCreateMenuOpen,
     isSearchFocused,
     isAddFriendModalOpen,
     handleClickOutside,
   ]);
 
-  const handleCreateClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log("Create button clicked, current state:", isCreateMenuOpen);
-    const newState = !isCreateMenuOpen;
-    setIsCreateMenuOpen(newState);
-    console.log("Setting menu open to:", newState);
-  };
-
   const handleCreatePost = () => {
-    setIsCreateMenuOpen(false);
     setIsCreatePostModalOpen(true);
   };
 
   const handleCreateStory = () => {
-    setIsCreateMenuOpen(false);
     setIsStoryPopupOpen(true);
   };
 
@@ -1359,141 +1375,24 @@ const NewsFeed: React.FC = () => {
     setIsStoryPopupOpen(false);
   };
 
-  const handleCreateGroup = () => {
-    setIsCreateMenuOpen(false);
-    navigate("/forums");
-  };
-
-  const handleCreateEvent = () => {
-    setIsCreateMenuOpen(false);
-    navigate("/events");
-  };
-
   return (
     <div className="newsfeed-page">
       {/* Top Navigation Bar */}
-      <header className="newsfeed-header">
-        <div className="newsfeed-header__container">
-          <div className="newsfeed-header__left">
-            <button
-              className="newsfeed-header__menu-toggle"
-              onClick={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
-              aria-label="Toggle menu"
-            >
-              {isLeftSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-            <div
-              className="newsfeed-header__logo"
-              onClick={() => navigate("/")}
-            >
-              <LazyImage src={primaryLogo} alt="JOSCity Logo" />
-              <span>JosCity</span>
-            </div>
-          </div>
-          <div className="newsfeed-header__actions">
-            <div
-              className="newsfeed-header__create-wrapper"
-              ref={createMenuRef}
-            >
-              <button
-                className="newsfeed-header__icon-btn"
-                title="Create"
-                onClick={handleCreateClick}
-                type="button"
-                aria-expanded={isCreateMenuOpen}
-              >
-                <SquarePlus size={20} />
-              </button>
-              {isCreateMenuOpen && (
-                <div
-                  className="newsfeed-header__create-dropdown"
-                  onClick={(e) => e.stopPropagation()}
-                  style={{
-                    display: "block",
-                    visibility: "visible",
-                    opacity: 1,
-                    zIndex: 1003,
-                  }}
-                >
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={handleCreatePost}
-                  >
-                    <FileText size={18} />
-                    <span>Create Post</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={handleCreateStory}
-                  >
-                    <Clock size={18} />
-                    <span>Create Story</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={handleCreateGroup}
-                  >
-                    <Users size={18} />
-                    <span>Create Forum</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={handleCreateEvent}
-                  >
-                    <Calendar size={18} />
-                    <span>Create Event</span>
-                  </button>
-                </div>
-              )}
-            </div>
-            <button
-              className="newsfeed-header__icon-btn"
-              title="Add Friend"
-              onClick={() => setIsAddFriendModalOpen(true)}
-            >
-              <UserPlus size={20} />
-            </button>
-            <button
-              className="newsfeed-header__icon-btn"
-              title="Messages"
-              onClick={() => setIsChatPanelOpen(true)}
-            >
-              <MessageCircle size={20} />
-            </button>
-            <button
-              className="newsfeed-header__icon-btn newsfeed-header__icon-btn--notifications"
-              title="Notifications"
-              onClick={() => setIsNotificationPanelOpen(true)}
-            >
-              <Bell size={20} />
-              {unreadNotificationsCount > 0 && (
-                <span className="newsfeed-header__badge">
-                  {unreadNotificationsCount > 9
-                    ? "9+"
-                    : unreadNotificationsCount}
-                </span>
-              )}
-            </button>
-            <button
-              className="newsfeed-header__join-btn"
-              onClick={handleProfileClick}
-              title="View Profile"
-            >
-              <div className="newsfeed-header__join-initials">
-                {getUserInitials()}
-              </div>
-            </button>
-            <button
-              className="newsfeed-header__sidebar-toggle"
-              onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
-              aria-label="Toggle sidebar"
-              title="Trending & Friends"
-            >
-              <TrendingUp size={20} />
-            </button>
-          </div>
-        </div>
-      </header>
+      <NewsFeedHeader
+        isLeftSidebarOpen={isLeftSidebarOpen}
+        onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
+        isRightSidebarOpen={isRightSidebarOpen}
+        onToggleRightSidebar={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+        onCreatePost={handleCreatePost}
+        onCreateStory={handleCreateStory}
+        onAddFriend={() => setIsAddFriendModalOpen(true)}
+        onOpenChat={() => openChatPanel()}
+        onOpenNotifications={() => setIsNotificationPanelOpen(true)}
+        onProfileClick={handleProfileClick}
+        unreadNotificationsCount={unreadNotificationsCount}
+        unreadMessagesCount={unreadMessagesCount}
+        mainContentRef={mainContentRef}
+      />
 
       <div className="newsfeed-container">
         {/* Mobile Overlay */}
@@ -1514,7 +1413,7 @@ const NewsFeed: React.FC = () => {
         />
 
         {/* Main Content Area */}
-        <main className="newsfeed-main">
+        <main className="newsfeed-main" ref={mainContentRef}>
           {/* Search Section */}
           <div className="newsfeed-search-section" ref={searchRef}>
             <div className="newsfeed-search-section__input-wrapper">
@@ -1632,7 +1531,10 @@ const NewsFeed: React.FC = () => {
                   </span>
                   <button
                     className="newsfeed-hashtag-filter__clear"
-                    onClick={() => setFilteredHashtag(null)}
+                    onClick={() => {
+                      setFilteredHashtag(null);
+                      fetchFeeds();
+                    }}
                     aria-label="Clear filter"
                   >
                     <X size={16} />
@@ -1676,7 +1578,31 @@ const NewsFeed: React.FC = () => {
                     return post.hashtags?.includes(filteredHashtag);
                   })
                   .map((post) => (
-                    <PostCard key={post.id} post={post} />
+                    <PostCard
+                      key={post.id}
+                      post={post}
+                      onPostDeleted={(postId) =>
+                        setPosts((prev) => prev.filter((p) => p.id !== postId))
+                      }
+                      onPostUpdated={(postId, updates) => {
+                        if (updates.caption !== undefined)
+                          setPosts((prev) =>
+                            prev.map((p) =>
+                              p.id === postId
+                                ? { ...p, caption: (updates.caption ?? p.caption) ?? "" }
+                                : p
+                            )
+                          );
+                        if (updates.pinned !== undefined)
+                          setPosts((prev) =>
+                            prev.map((p) =>
+                              p.id === postId
+                                ? { ...p, pinned: updates.pinned }
+                                : p
+                            )
+                          );
+                      }}
+                    />
                   ))}
                 {filteredHashtag &&
                   posts.filter((post) =>
@@ -1696,6 +1622,7 @@ const NewsFeed: React.FC = () => {
           </div>
         </main>
 
+        
         {/* Right Sidebar - Aside */}
         <aside
           className={`newsfeed-aside ${
@@ -1719,63 +1646,54 @@ const NewsFeed: React.FC = () => {
           <TrendingSection
             trending={trending}
             onHashtagClick={(hashtag) => {
-              setFilteredHashtag(hashtag);
-              // Scroll to posts section
-              setTimeout(() => {
-                const postsSection = document.querySelector(".newsfeed-posts");
-                postsSection?.scrollIntoView({
-                  behavior: "smooth",
-                  block: "start",
-                });
-              }, 100);
+              fetchFeedsByHashtag(hashtag);
             }}
           />
-          <SuggestedFriends friends={[]} onFriendAdded={handleFriendAdded} />
+          <SuggestedFriends friends={[]} />
+          {/* Footer under Suggested friends */}
+          <footer className="newsfeed-footer">
+            <p>© 2026 JOSCity</p>
+            <div className="newsfeed-footer__links">
+              <a
+                href="/about"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/about", { state: { fromNewsfeed: true } });
+                }}
+              >
+                About
+              </a>
+              <a
+                href="/terms-of-service"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/terms-of-service", { state: { fromNewsfeed: true } });
+                }}
+              >
+                Terms
+              </a>
+              <a
+                href="/privacy-policy"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/privacy-policy", { state: { fromNewsfeed: true } });
+                }}
+              >
+                Privacy
+              </a>
+              <a
+                href="/contact"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/contact", { state: { fromNewsfeed: true } });
+                }}
+              >
+                Contact Us
+              </a>
+            </div>
+          </footer>
         </aside>
       </div>
-
-      {/* Footer */}
-      <footer className="newsfeed-footer">
-        <p>© 2026 JOSCity</p>
-        <div className="newsfeed-footer__links">
-          <a
-            href="/about"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/about", { state: { fromNewsfeed: true } });
-            }}
-          >
-            About
-          </a>
-          <a
-            href="/terms-of-service"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/terms-of-service", { state: { fromNewsfeed: true } });
-            }}
-          >
-            Terms
-          </a>
-          <a
-            href="/privacy-policy"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/privacy-policy", { state: { fromNewsfeed: true } });
-            }}
-          >
-            Privacy
-          </a>
-          <a
-            href="/contact"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/contact", { state: { fromNewsfeed: true } });
-            }}
-          >
-            Contact Us
-          </a>
-        </div>
-      </footer>
 
       {/* Add Friend Modal */}
       <FindFriendsModal
@@ -1783,506 +1701,13 @@ const NewsFeed: React.FC = () => {
         onClose={() => setIsAddFriendModalOpen(false)}
       />
 
-      {/* Chat Panel */}
-      {isChatPanelOpen && (
-        <div
-          className="newsfeed-chat-panel-overlay"
-          onClick={() => setIsChatPanelOpen(false)}
-        >
-          <div
-            ref={chatPanelRef}
-            className="newsfeed-chat-panel"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="newsfeed-chat-panel__header">
-              <h3>Messages</h3>
-              <button
-                className="newsfeed-chat-panel__close"
-                onClick={() => setIsChatPanelOpen(false)}
-                aria-label="Close chat"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="newsfeed-chat-panel__container">
-              {/* Conversations List */}
-              <div
-                className={`newsfeed-chat-panel__conversations ${
-                  selectedChatId
-                    ? "newsfeed-chat-panel__conversations--hidden"
-                    : ""
-                }`}
-              >
-                <div className="newsfeed-chat-panel__search-wrapper">
-                  <Search
-                    size={18}
-                    className="newsfeed-chat-panel__search-icon"
-                  />
-                  <input
-                    type="text"
-                    className="newsfeed-chat-panel__search-input"
-                    placeholder="Search conversations..."
-                    value={chatSearchQuery}
-                    onChange={(e) => setChatSearchQuery(e.target.value)}
-                  />
-                </div>
-                <div className="newsfeed-chat-panel__conversations-list">
-                  {filteredConversations.length > 0 ? (
-                    filteredConversations.map((conversation) => (
-                      <div
-                        key={conversation.id}
-                        className={`newsfeed-chat-panel__conversation-item ${
-                          selectedChatId === conversation.id
-                            ? "newsfeed-chat-panel__conversation-item--active"
-                            : ""
-                        }`}
-                        onClick={() => {
-                          setSelectedChatId(conversation.id);
-                          // Mark messages as read when opening chat
-                          setChatConversations((prev) =>
-                            prev.map((chat) =>
-                              chat.id === conversation.id
-                                ? {
-                                    ...chat,
-                                    messages: chat.messages.map((msg) => ({
-                                      ...msg,
-                                      isRead: true,
-                                    })),
-                                    unreadCount: 0,
-                                  }
-                                : chat
-                            )
-                          );
-                        }}
-                      >
-                        <div className="newsfeed-chat-panel__conversation-avatar-wrapper">
-                          <Avatar
-                            src={conversation.userAvatar}
-                            alt={conversation.userName}
-                            name={conversation.userName}
-                            size={48}
-                            className="newsfeed-chat-panel__conversation-avatar"
-                          />
-                          {conversation.isOnline && (
-                            <span className="newsfeed-chat-panel__online-indicator"></span>
-                          )}
-                        </div>
-                        <div className="newsfeed-chat-panel__conversation-info">
-                          <div className="newsfeed-chat-panel__conversation-header">
-                            <p className="newsfeed-chat-panel__conversation-name">
-                              {conversation.userName}
-                            </p>
-                            <span className="newsfeed-chat-panel__conversation-time">
-                              {conversation.lastMessageTime}
-                            </span>
-                          </div>
-                          <div className="newsfeed-chat-panel__conversation-preview">
-                            <p className="newsfeed-chat-panel__conversation-message">
-                              {conversation.lastMessage}
-                            </p>
-                            {conversation.unreadCount > 0 && (
-                              <span className="newsfeed-chat-panel__unread-badge">
-                                {conversation.unreadCount}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="newsfeed-chat-panel__empty-conversations">
-                      <p>No conversations found</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Chat Window */}
-              <div
-                className={`newsfeed-chat-panel__chat-window ${
-                  selectedChatId
-                    ? "newsfeed-chat-panel__chat-window--visible"
-                    : ""
-                }`}
-              >
-                {selectedChat ? (
-                  <>
-                    <div className="newsfeed-chat-panel__chat-header">
-                      <div className="newsfeed-chat-panel__chat-user-info">
-                        <div className="newsfeed-chat-panel__chat-avatar-wrapper">
-                          <Avatar
-                            src={selectedChat.userAvatar}
-                            alt={selectedChat.userName}
-                            name={selectedChat.userName}
-                            size={40}
-                            className="newsfeed-chat-panel__chat-avatar"
-                          />
-                          {selectedChat.isOnline && (
-                            <span className="newsfeed-chat-panel__online-indicator"></span>
-                          )}
-                        </div>
-                        <div className="newsfeed-chat-panel__chat-user-details">
-                          <p className="newsfeed-chat-panel__chat-user-name">
-                            {selectedChat.userName}
-                          </p>
-                          <span className="newsfeed-chat-panel__chat-status-separator">
-                            •
-                          </span>
-                          <p className="newsfeed-chat-panel__chat-status">
-                            {selectedChat.isOnline ? "Online" : "Offline"}
-                          </p>
-                        </div>
-                      </div>
-                      <div
-                        className="newsfeed-chat-panel__chat-menu-wrapper"
-                        ref={chatMenuRef}
-                      >
-                        <button
-                          ref={chatMenuButtonRef}
-                          className="newsfeed-chat-panel__chat-menu-btn"
-                          aria-label="More options"
-                          onClick={() => setIsChatMenuOpen(!isChatMenuOpen)}
-                        >
-                          <MoreVertical size={20} />
-                        </button>
-                        {isChatMenuOpen && (
-                          <div className="newsfeed-chat-panel__chat-menu-dropdown">
-                            <button
-                              className="newsfeed-chat-panel__chat-menu-item"
-                              onClick={() => {
-                                setIsChatMenuOpen(false);
-                                if (selectedChat) {
-                                  setSelectedProfileUserId(selectedChat.userId);
-                                  setIsProfileModalOpen(true);
-                                }
-                              }}
-                            >
-                              <User size={18} />
-                              <span>View Profile</span>
-                            </button>
-                            <button
-                              className="newsfeed-chat-panel__chat-menu-item"
-                              onClick={() => {
-                                setIsChatMenuOpen(false);
-                                console.log("Mute conversation");
-                              }}
-                            >
-                              <Bell size={18} />
-                              <span>Mute Notifications</span>
-                            </button>
-                            <button
-                              className="newsfeed-chat-panel__chat-menu-item"
-                              onClick={() => {
-                                setIsChatMenuOpen(false);
-                                console.log("Clear chat");
-                              }}
-                            >
-                              <Trash2 size={18} />
-                              <span>Clear Chat</span>
-                            </button>
-                            <button
-                              className="newsfeed-chat-panel__chat-menu-item newsfeed-chat-panel__chat-menu-item--danger"
-                              onClick={() => {
-                                setIsChatMenuOpen(false);
-                                if (
-                                  window.confirm(
-                                    "Are you sure you want to delete this conversation?"
-                                  )
-                                ) {
-                                  setChatConversations((prev) =>
-                                    prev.filter(
-                                      (chat) => chat.id !== selectedChatId
-                                    )
-                                  );
-                                  setSelectedChatId(null);
-                                }
-                              }}
-                            >
-                              <X size={18} />
-                              <span>Delete Conversation</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="newsfeed-chat-panel__messages">
-                      {selectedChat.messages.map((message) => {
-                        const isCurrentUser = message.senderId === 0;
-                        return (
-                          <div
-                            key={message.id}
-                            className={`newsfeed-chat-panel__message ${
-                              isCurrentUser
-                                ? "newsfeed-chat-panel__message--sent"
-                                : "newsfeed-chat-panel__message--received"
-                            }`}
-                          >
-                            {!isCurrentUser && (
-                              <Avatar
-                                src={selectedChat.userAvatar}
-                                alt={selectedChat.userName}
-                                name={selectedChat.userName}
-                                size={32}
-                                className="newsfeed-chat-panel__message-avatar"
-                              />
-                            )}
-                            <div className="newsfeed-chat-panel__message-content">
-                              {message.attachment && (
-                                <div className="newsfeed-chat-panel__message-attachment">
-                                  {message.attachment.type === "image" && (
-                                    <img
-                                      src={message.attachment.url}
-                                      alt="Attachment"
-                                      className="newsfeed-chat-panel__attachment-image"
-                                    />
-                                  )}
-                                  {message.attachment.type === "video" && (
-                                    <video
-                                      src={message.attachment.url}
-                                      controls
-                                      className="newsfeed-chat-panel__attachment-video"
-                                    />
-                                  )}
-                                  {message.attachment.type === "file" && (
-                                    <div className="newsfeed-chat-panel__attachment-file">
-                                      <Paperclip size={20} />
-                                      <div>
-                                        <p className="newsfeed-chat-panel__attachment-filename">
-                                          {message.attachment.fileName ||
-                                            "File"}
-                                        </p>
-                                        {message.attachment.fileSize && (
-                                          <p className="newsfeed-chat-panel__attachment-filesize">
-                                            {(
-                                              message.attachment.fileSize / 1024
-                                            ).toFixed(2)}{" "}
-                                            KB
-                                          </p>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                              {message.text && (
-                                <p className="newsfeed-chat-panel__message-text">
-                                  {message.text}
-                                </p>
-                              )}
-                              <div className="newsfeed-chat-panel__message-footer">
-                                <span className="newsfeed-chat-panel__message-time">
-                                  {message.timestamp}
-                                </span>
-                                {isCurrentUser && (
-                                  <span
-                                    className={`newsfeed-chat-panel__message-status ${
-                                      message.isRead
-                                        ? "newsfeed-chat-panel__message-status--read"
-                                        : "newsfeed-chat-panel__message-status--sent"
-                                    }`}
-                                    title={message.isRead ? "Read" : "Sent"}
-                                  >
-                                    {message.isRead ? (
-                                      <CheckCircle
-                                        size={14}
-                                        fill="currentColor"
-                                        color="currentColor"
-                                      />
-                                    ) : (
-                                      <CheckCircle size={14} />
-                                    )}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <div ref={messagesEndRef} />
-                    </div>
-
-                    <div className="newsfeed-chat-panel__input-area">
-                      {messageAttachment && (
-                        <div className="newsfeed-chat-panel__attachment-preview">
-                          <div className="newsfeed-chat-panel__attachment-preview-content">
-                            {messageAttachment.type === "image" && (
-                              <Image size={16} />
-                            )}
-                            {messageAttachment.type === "video" && (
-                              <Video size={16} />
-                            )}
-                            {messageAttachment.type === "file" && (
-                              <Paperclip size={16} />
-                            )}
-                            <span className="newsfeed-chat-panel__attachment-preview-name">
-                              {messageAttachment.fileName || "Attachment"}
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => setMessageAttachment(null)}
-                            className="newsfeed-chat-panel__attachment-preview-remove"
-                            aria-label="Remove attachment"
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-                      )}
-                      <div className="newsfeed-chat-panel__input-row">
-                        <div
-                          className="newsfeed-chat-panel__attachment-menu-wrapper"
-                          ref={attachmentMenuRef}
-                        >
-                          <button
-                            ref={attachmentButtonRef}
-                            className="newsfeed-chat-panel__input-btn"
-                            aria-label="Attach file"
-                            title="Attach file"
-                            onClick={() =>
-                              setIsAttachmentMenuOpen(!isAttachmentMenuOpen)
-                            }
-                          >
-                            <Paperclip size={20} />
-                          </button>
-                          {isAttachmentMenuOpen && (
-                            <div className="newsfeed-chat-panel__attachment-menu">
-                              <button
-                                className="newsfeed-chat-panel__attachment-menu-item"
-                                onClick={() => handleAttachmentClick("image")}
-                              >
-                                <Image size={18} />
-                                <span>Photo</span>
-                              </button>
-                              <button
-                                className="newsfeed-chat-panel__attachment-menu-item"
-                                onClick={() => handleAttachmentClick("video")}
-                              >
-                                <Video size={18} />
-                                <span>Video</span>
-                              </button>
-                              <button
-                                className="newsfeed-chat-panel__attachment-menu-item"
-                                onClick={() => handleAttachmentClick("file")}
-                              >
-                                <Paperclip size={18} />
-                                <span>File</span>
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        <input
-                          type="file"
-                          ref={fileInputRef}
-                          accept="*/*"
-                          onChange={(e) => handleFileSelect(e, "file")}
-                          style={{ display: "none" }}
-                        />
-                        <input
-                          type="file"
-                          ref={imageInputRef}
-                          accept="image/*"
-                          onChange={(e) => handleFileSelect(e, "image")}
-                          style={{ display: "none" }}
-                        />
-                        <input
-                          type="file"
-                          ref={videoInputRef}
-                          accept="video/*"
-                          onChange={(e) => handleFileSelect(e, "video")}
-                          style={{ display: "none" }}
-                        />
-                        <input
-                          type="text"
-                          className="newsfeed-chat-panel__input"
-                          placeholder="Type a message..."
-                          value={messageInput}
-                          onChange={(e) => setMessageInput(e.target.value)}
-                          onKeyPress={handleKeyPress}
-                        />
-                        <div className="newsfeed-chat-panel__emoji-wrapper">
-                          <button
-                            className="newsfeed-chat-panel__input-btn"
-                            aria-label="Add emoji"
-                            title="Add emoji"
-                            onClick={() =>
-                              setIsEmojiPickerOpen(!isEmojiPickerOpen)
-                            }
-                          >
-                            <Smile size={20} />
-                          </button>
-                          {isEmojiPickerOpen && (
-                            <EmojiPicker
-                              isOpen={isEmojiPickerOpen}
-                              onClose={() => setIsEmojiPickerOpen(false)}
-                              onEmojiSelect={(emoji) => {
-                                setMessageInput((prev) => prev + emoji);
-                                setIsEmojiPickerOpen(false);
-                              }}
-                              position="top"
-                            />
-                          )}
-                        </div>
-                        <button
-                          className="newsfeed-chat-panel__send-btn"
-                          onClick={handleSendMessage}
-                          disabled={!messageInput.trim() && !messageAttachment}
-                          aria-label="Send message"
-                          title="Send message"
-                        >
-                          <Send size={20} />
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="newsfeed-chat-panel__no-chat-selected">
-                    <MessageCircle size={64} />
-                    <p>Select a conversation to start chatting</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Profile Modal */}
-      {isProfileModalOpen && selectedProfileUserId && (
-        <ProfileModal
-          isOpen={isProfileModalOpen}
-          onClose={() => {
-            setIsProfileModalOpen(false);
-            setSelectedProfileUserId(null);
-          }}
-          userId={selectedProfileUserId}
-          userName={
-            chatConversations.find((c) => c.userId === selectedProfileUserId)
-              ?.userName || "User"
-          }
-          userAvatar={
-            chatConversations.find((c) => c.userId === selectedProfileUserId)
-              ?.userAvatar || "/placeholder-avatar.png"
-          }
-          isOnline={
-            chatConversations.find((c) => c.userId === selectedProfileUserId)
-              ?.isOnline || false
-          }
-          onMessage={() => {
-            const chat = chatConversations.find(
-              (c) => c.userId === selectedProfileUserId
-            );
-            if (chat) {
-              setSelectedChatId(chat.id);
-              setIsChatPanelOpen(true);
-            }
-          }}
-          onAddFriend={() => {
-            console.log("Add friend:", selectedProfileUserId);
-            // Handle add friend action
-          }}
-        />
-      )}
+      <ChatPanel
+        isOpen={isChatPanelOpen}
+        onClose={closeChatPanel}
+        onUnreadCountChange={setUnreadMessagesCount}
+        onIncomingMessage={handleIncomingChatMessage}
+        activeConversationId={activeChatConversationId}
+      />
 
       {/* Notification Panel */}
       {isNotificationPanelOpen && (
@@ -2344,7 +1769,16 @@ const NewsFeed: React.FC = () => {
                           ? "newsfeed-notification-panel__item--unread"
                           : ""
                       }`}
-                      onClick={() => markNotificationAsRead(notification.id)}
+                      onClick={() => {
+                        markNotificationAsRead(notification.id);
+                        if (
+                          notification.type === "message" &&
+                          notification.relatedChatId
+                        ) {
+                          setIsNotificationPanelOpen(false);
+                          openChatPanel(notification.relatedChatId);
+                        }
+                      }}
                     >
                       <div
                         className="newsfeed-notification-panel__icon-wrapper"
@@ -2416,6 +1850,18 @@ const NewsFeed: React.FC = () => {
         </div>
       )}
 
+      {messagePopup && (
+        <MessagePopup
+          userId={messagePopup.userId}
+          userName={messagePopup.userName}
+          userAvatar={messagePopup.userAvatar}
+          message={messagePopup.message}
+          timestamp={messagePopup.timestamp}
+          onClose={() => setMessagePopup(null)}
+          onOpenChat={() => openChatPanel(messagePopup.conversationId)}
+        />
+      )}
+
       {/* Create Post Modal */}
       {isAuthenticated() && userName && (
         <CreatePostModal
@@ -2438,3 +1884,4 @@ const NewsFeed: React.FC = () => {
 };
 
 export default NewsFeed;
+

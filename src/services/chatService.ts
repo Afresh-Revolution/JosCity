@@ -10,7 +10,8 @@ type ChatEventName =
   | "messages_read"
   | "user_joined"
   | "user_left"
-  | "new_message_notification";
+  | "new_message_notification"
+  | "admin_notification";
 
 export interface ChatParticipant {
   userId: number;
@@ -414,12 +415,6 @@ class ChatService {
         : ({ message: text } as JsonRecord);
 
     if (!response.ok) {
-      if (response.status === 404) {
-        this.apiUnavailable = true;
-        this.disconnect();
-        throw new Error(this.availabilityMessage);
-      }
-
       throw new Error(
         extractErrorMessage(
           payload,
@@ -559,6 +554,59 @@ class ChatService {
     };
   }
 
+  async editMessage(
+    messageId: number,
+    messageContent: string
+  ): Promise<{ message: ChatMessage | null }> {
+    const response = await this.apiRequest<JsonRecord>(`/messages/${messageId}`, {
+      method: "PUT",
+      body: JSON.stringify({ messageContent }),
+    });
+
+    return {
+      message:
+        normalizeChatMessage(response.message) ||
+        normalizeChatMessage(response.data) ||
+        normalizeChatMessage(response),
+    };
+  }
+
+  async deleteMessage(messageId: number): Promise<void> {
+    await this.apiRequest(`/messages/${messageId}`, {
+      method: "DELETE",
+    });
+  }
+
+  async createGroupConversation(
+    conversationName: string,
+    participantIds: number[]
+  ): Promise<{ conversation: ChatConversation | null }> {
+    const response = await this.apiRequest<JsonRecord>("/conversations/group", {
+      method: "POST",
+      body: JSON.stringify({ conversationName, participantIds }),
+    });
+
+    return {
+      conversation:
+        normalizeChatConversation(response.conversation) ||
+        normalizeChatConversation(response.data) ||
+        normalizeChatConversation(response),
+    };
+  }
+
+  async addParticipant(conversationId: number, userId: number): Promise<void> {
+    await this.apiRequest(`/conversations/${conversationId}/participants`, {
+      method: "POST",
+      body: JSON.stringify({ userId }),
+    });
+  }
+
+  async leaveConversationGroup(conversationId: number): Promise<void> {
+    await this.apiRequest(`/conversations/${conversationId}/leave`, {
+      method: "POST",
+    });
+  }
+
   async markAsRead(conversationId: number): Promise<void> {
     await this.apiRequest(`/conversations/${conversationId}/read`, {
       method: "POST",
@@ -646,6 +694,10 @@ class ChatService {
 
   onNewMessageNotification(callback: SocketCallback): () => void {
     return this.on("new_message_notification", callback);
+  }
+
+  onAdminNotification(callback: SocketCallback): () => void {
+    return this.on("admin_notification", callback);
   }
 
   disconnect(): void {

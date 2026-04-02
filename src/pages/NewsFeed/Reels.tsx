@@ -1,10 +1,13 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Play, Search, X, ArrowUpDown, Loader2 } from "lucide-react";
 import "../../main.css";
 import ReelVideoModal from "../../components/ReelVideoModal";
 import ChatPanel from "../../components/ChatPanel";
+import FindFriendsModal from "../../components/FindFriendsModal";
 import NewsFeedHeader from "./NewsFeedHeader";
 import NewsFeedSidebar from "./NewsFeedSidebar";
+import { getProfileUsername } from "../../utils/userUtils";
 
 interface VideoData {
   id: number;
@@ -63,11 +66,14 @@ const initialVideos: VideoData[] = [
 ];
 
 const Reels: React.FC = () => {
+  const navigate = useNavigate();
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [videos, setVideos] = useState<VideoData[]>([]);
   const [filteredVideos, setFilteredVideos] = useState<VideoData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -294,16 +300,14 @@ const Reels: React.FC = () => {
         showRightSidebarToggle={false}
         unreadNotificationsCount={0}
         unreadMessagesCount={unreadMessagesCount}
-        onNotificationClick={() => {
-          // Handle notification click
-        }}
-        onAddFriendClick={() => {
-          // Handle add friend click
-        }}
+        onNotificationClick={() => setIsNotificationPanelOpen(true)}
+        onAddFriendClick={() => setIsAddFriendModalOpen(true)}
         onMessageClick={() => setIsChatPanelOpen(true)}
-        onCreateClick={() => {
-          // Handle create click
-        }}
+        onCreatePost={() => navigate("/newsfeed")}
+        onCreateStory={() => navigate("/newsfeed")}
+        onProfileClick={() =>
+          navigate(`/profile/${encodeURIComponent(getProfileUsername())}`)
+        }
       />
 
       {/* Mobile Overlay */}
@@ -536,6 +540,37 @@ const Reels: React.FC = () => {
         onClose={() => setIsChatPanelOpen(false)}
         onUnreadCountChange={setUnreadMessagesCount}
       />
+      <FindFriendsModal
+        isOpen={isAddFriendModalOpen}
+        onClose={() => setIsAddFriendModalOpen(false)}
+      />
+      {isNotificationPanelOpen && (
+        <div
+          className="newsfeed-notification-panel-overlay"
+          onClick={() => setIsNotificationPanelOpen(false)}
+        >
+          <div
+            className="newsfeed-notification-panel"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="newsfeed-notification-panel__header">
+              <h3>Notifications</h3>
+              <button
+                className="newsfeed-notification-panel__close"
+                onClick={() => setIsNotificationPanelOpen(false)}
+                aria-label="Close panel"
+              >
+                X
+              </button>
+            </div>
+            <div className="newsfeed-notification-panel__content">
+              <div className="newsfeed-notification-panel__empty">
+                <p>No notifications</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

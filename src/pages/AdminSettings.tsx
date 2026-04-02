@@ -381,9 +381,9 @@ const AdminSettings: React.FC = () => {
                     <div className="admin-dashboard__card-content">
                       <div className="admin-dashboard__account-badge-container">
                         {registration.account_type === "business" ? (
-                          <Building2 size={20} color="#666" />
+                          <Building2 size={20} color="var(--text-tertiary)" />
                         ) : (
-                          <User size={20} color="#666" />
+                          <User size={20} color="var(--text-tertiary)" />
                         )}
                         <span className="admin-dashboard__account-badge">
                           {registration.account_type === "business"

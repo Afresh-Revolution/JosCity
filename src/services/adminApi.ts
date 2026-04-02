@@ -1,5 +1,25 @@
 import API_BASE_URL from "../api/config";
 
+/** Express/HTML error pages: extract a short line and avoid dumping full HTML into the UI. */
+function normalizeNonJsonAdminError(status: number, statusText: string, body: string): string {
+  const trimmed = body.trim();
+  const preMatch = trimmed.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i);
+  const fromPre = preMatch ? preMatch[1].trim() : "";
+  if (fromPre) {
+    if (status === 404 && /cannot\s+get/i.test(fromPre)) {
+      return `${fromPre}. This route may not be on your deployed API yet — deploy the latest backend or confirm your API base URL.`;
+    }
+    return fromPre.length > 400 ? `${fromPre.slice(0, 400)}…` : fromPre;
+  }
+  if (trimmed.startsWith("<!DOCTYPE") || /^<html[\s>]/i.test(trimmed)) {
+    if (status === 404) {
+      return "Admin endpoint not found (404). Deploy the latest backend or verify the API URL matches the server that includes admin notifications.";
+    }
+    return `Request failed (${status} ${statusText}). The server returned HTML instead of JSON.`;
+  }
+  return trimmed.length > 500 ? `${trimmed.slice(0, 500)}…` : trimmed || `${status} ${statusText}`;
+}
+
 // Helper function to get admin token
 const getAdminToken = (): string | null => {
   return localStorage.getItem("adminToken");
@@ -39,7 +59,9 @@ const adminApiRequest = async (
       }
     } else {
       const text = await response.text();
-      errorData = { message: text || response.statusText };
+      errorData = {
+        message: normalizeNonJsonAdminError(response.status, response.statusText, text),
+      };
     }
 
     // Prefer message (string); backend often sends { error: true, message: "..." }
@@ -314,9 +336,13 @@ export const approvePost = async (id: string): Promise<{ success: boolean; messa
   return response.json();
 };
 
-export const deletePost = async (id: string): Promise<{ success: boolean; message: string }> => {
+export const deletePost = async (
+  id: string,
+  reason: string
+): Promise<{ success: boolean; message: string }> => {
   const response = await adminApiRequest(`/posts/${id}`, {
     method: "DELETE",
+    body: JSON.stringify({ reason }),
   });
   return response.json();
 };
@@ -1243,6 +1269,68 @@ export const rejectAccount = async (user_id: string, reason?: string): Promise<{
   const response = await adminApiRequest(`/auth/reject`, {
     method: "POST",
     body: JSON.stringify({ user_id, reason }),
+  });
+  return response.json();
+};
+
+// ==================== ADMIN NOTIFICATIONS ====================
+export interface AdminNotificationPayload {
+  target: "all" | "user";
+  user_id?: number;
+  title: string;
+  message: string;
+  notification_type: "normal" | "info" | "success" | "warning" | "danger";
+  show_on_landing?: boolean;
+  expires_at?: string | null;
+}
+
+export interface AdminNotificationItem {
+  id: number;
+  to_user_id?: number | null;
+  title?: string | null;
+  message?: string | null;
+  notification_type?: string;
+  is_global?: boolean;
+  show_on_landing?: boolean;
+  time: string;
+  user_firstname?: string | null;
+  user_lastname?: string | null;
+  user_email?: string | null;
+}
+
+export const sendAdminNotification = async (
+  payload: AdminNotificationPayload
+): Promise<{ success: boolean; message: string; data: AdminNotificationItem }> => {
+  const response = await adminApiRequest("/notifications", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return response.json();
+};
+
+export const getAdminNotifications = async (
+  limit: number = 50
+): Promise<{ success: boolean; data: AdminNotificationItem[] }> => {
+  const response = await adminApiRequest(`/notifications?limit=${limit}`);
+  return response.json();
+};
+
+export const updateAdminNotification = async (
+  id: number,
+  payload: Omit<AdminNotificationPayload, "target" | "user_id">
+): Promise<{ success: boolean; message: string; data: AdminNotificationItem }> => {
+  const response = await adminApiRequest(`/notifications/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+  return response.json();
+};
+
+export const deleteAdminNotification = async (
+  id: number
+): Promise<{ success: boolean; message: string }> => {
+  const response = await adminApiRequest(`/notifications/${id}`, {
+    method: "DELETE",
   });
   return response.json();
 };

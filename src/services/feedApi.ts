@@ -1,4 +1,4 @@
-import API_BASE_URL from "../api/config";
+import { apiUrl } from "../api/config";
 
 // Types for feed operations
 export type ReactionType =
@@ -117,7 +117,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    response = await fetch(apiUrl(endpoint), {
       ...options,
       headers,
       signal: AbortSignal.timeout(30000), // 30 second timeout
@@ -135,10 +135,10 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
       error.message?.includes("ECONNREFUSED")
     ) {
       throw new Error(
-        "Unable to connect to server. Please ensure the backend is running on port 3000."
+        "We could not connect right now. Please check your internet and try again."
       );
     }
-    throw new Error(`Network error: ${error.message || "Connection failed"}`);
+    throw new Error("Connection issue detected. Please try again.");
   }
 
   // Check if response is ok before trying to parse
@@ -171,20 +171,20 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
   const getErrorMessage = (value: unknown): string => {
     if (typeof value === "string") return value;
     if (typeof value === "boolean")
-      return value ? "An error occurred" : "Request failed";
+      return value ? "Something went wrong." : "We could not complete your request.";
     if (value && typeof value === "object") {
       const errorObj = value as { message?: unknown; error?: unknown };
       if (errorObj.message) return String(errorObj.message);
       if (errorObj.error) return String(errorObj.error);
       return JSON.stringify(value);
     }
-    return String(value || "Request failed");
+    return String(value || "We could not complete your request.");
   };
 
   if (!response.ok) {
     // Log detailed error information for debugging
     console.error(`API Error ${response.status} (${response.statusText})`, {
-      endpoint: `${API_BASE_URL}${endpoint}`,
+      endpoint: apiUrl(endpoint),
       status: response.status,
       statusText: response.statusText,
       responseData: data,
@@ -192,7 +192,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     });
 
     // Provide user-friendly error messages based on status codes
-    let defaultMessage = `API Error: ${response.statusText}`;
+    let defaultMessage = "Something went wrong while loading this page.";
     if (response.status === 500) {
       defaultMessage =
         "Server error. Please try again later or contact support if the problem persists.";
@@ -205,7 +205,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     } else if (response.status >= 500) {
       defaultMessage = "Server error. Please try again later.";
     } else if (response.status >= 400) {
-      defaultMessage = "Request failed. Please check your input and try again.";
+      defaultMessage = "We could not complete that request. Please try again.";
     }
 
     const errorMessage =
@@ -220,7 +220,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     const errorMessage =
       getErrorMessage(data.error) ||
       getErrorMessage(data.message) ||
-      "Request failed";
+      "We could not complete that request.";
     throw new Error(errorMessage);
   }
 
@@ -259,7 +259,7 @@ export const feedApi = {
       const file = data.mediaFile instanceof Blob ? new File([data.mediaFile], "media", { type: data.mediaFile.type }) : data.mediaFile;
       formData.append("media", file);
       console.log("Creating story via POST /api/stories (FormData)", { type: data.type });
-      const response = await fetch(`${API_BASE_URL}/stories`, {
+      const response = await fetch(apiUrl("/stories"), {
         method: "POST",
         headers,
         body: formData,
@@ -570,7 +570,7 @@ export const feedApi = {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
     try {
-      const response = await fetch(`${API_BASE_URL}/feed/trending-hashtags?${query}`, {
+      const response = await fetch(apiUrl(`/feed/trending-hashtags?${query}`), {
         method: "GET",
         headers,
         signal: AbortSignal.timeout(10000),
@@ -615,7 +615,7 @@ export const feedApi = {
     };
     try {
       const response = await fetch(
-        `${API_BASE_URL}/feed/by-hashtag/${encodeURIComponent(tag)}?${query}`,
+        apiUrl(`/feed/by-hashtag/${encodeURIComponent(tag)}?${query}`),
         { method: "GET", headers, signal: AbortSignal.timeout(15000) }
       );
       if (!response.ok) return empty;
@@ -677,7 +677,7 @@ export const feedApi = {
 
     let response: Response;
     try {
-      response = await fetch(`${API_BASE_URL}/feed/posts`, {
+      response = await fetch(apiUrl("/feed/posts"), {
         method: "POST",
         headers,
         body,
@@ -696,10 +696,10 @@ export const feedApi = {
         error.message?.includes("ECONNREFUSED")
       ) {
         throw new Error(
-          "Unable to connect to server. Please ensure the backend is running on port 3000."
+          "We could not connect right now. Please check your internet and try again."
         );
       }
-      throw new Error(`Network error: ${error.message || "Connection failed"}`);
+      throw new Error("Connection issue detected. Please try again.");
     }
 
     // Check if response is ok before trying to parse
@@ -738,20 +738,20 @@ export const feedApi = {
     const getErrorMessage = (value: unknown): string => {
       if (typeof value === "string") return value;
       if (typeof value === "boolean")
-        return value ? "An error occurred" : "Request failed";
+        return value ? "Something went wrong." : "We could not complete your request.";
       if (value && typeof value === "object") {
         const errorObj = value as { message?: unknown; error?: unknown };
         if (errorObj.message) return String(errorObj.message);
         if (errorObj.error) return String(errorObj.error);
         return JSON.stringify(value);
       }
-      return String(value || "Request failed");
+      return String(value || "We could not complete your request.");
     };
 
     if (!response.ok) {
       // Log detailed error information for debugging
       console.error(`API Error ${response.status} (${response.statusText})`, {
-        endpoint: `${API_BASE_URL}/feed/posts`,
+        endpoint: apiUrl("/feed/posts"),
         status: response.status,
         statusText: response.statusText,
         responseData: responseData,
@@ -759,7 +759,7 @@ export const feedApi = {
       });
 
       // Provide user-friendly error messages based on status codes
-      let defaultMessage = `API Error: ${response.statusText}`;
+      let defaultMessage = "Something went wrong while saving your post.";
       if (response.status === 500) {
         defaultMessage =
           "Server error. Please try again later or contact support if the problem persists.";
@@ -772,8 +772,7 @@ export const feedApi = {
       } else if (response.status >= 500) {
         defaultMessage = "Server error. Please try again later.";
       } else if (response.status >= 400) {
-        defaultMessage =
-          "Request failed. Please check your input and try again.";
+        defaultMessage = "We could not save your post. Please try again.";
       }
 
       const errorMessage =
@@ -788,7 +787,7 @@ export const feedApi = {
       const errorMessage =
         getErrorMessage(responseData.error) ||
         getErrorMessage(responseData.message) ||
-        "Request failed";
+        "We could not save your post.";
       throw new Error(errorMessage);
     }
 
@@ -816,10 +815,17 @@ export const feedApi = {
       id: number;
       from_user_id?: number;
       action: string;
+      title?: string;
+      message?: string;
+      notification_type?: "normal" | "info" | "success" | "warning" | "danger";
       node_type?: string;
       node_id?: number;
       time: string;
       is_read?: boolean;
+      is_global?: boolean;
+      created_by_admin?: boolean;
+      expires_at?: string | null;
+      show_on_landing?: boolean;
       from_user?: { display_name?: string; profile_image_url?: string };
     }>;
   }> => {
@@ -829,10 +835,17 @@ export const feedApi = {
         id: number;
         from_user_id?: number;
         action: string;
+        title?: string;
+        message?: string;
+        notification_type?: "normal" | "info" | "success" | "warning" | "danger";
         node_type?: string;
         node_id?: number;
         time: string;
         is_read?: boolean;
+        is_global?: boolean;
+        created_by_admin?: boolean;
+        expires_at?: string | null;
+        show_on_landing?: boolean;
         from_user?: { display_name?: string; profile_image_url?: string };
       }>;
     }>;

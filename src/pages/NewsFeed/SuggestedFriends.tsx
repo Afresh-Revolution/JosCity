@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { UserPlus, Check, X } from "lucide-react";
+import { UserPlus, Check, Clock, X } from "lucide-react";
 import Avatar from "../../components/Avatar";
 import {
   calculateDistance,
   getUserLocation,
   getUserRange,
 } from "../../utils/locationUtils";
-import { addFriend, getFriendsList } from "../../utils/friendUtils";
 import { getUserAccountType } from "../../utils/userUtils";
 import { userApi, type User } from "../../services/userApi";
 import { friendApi } from "../../services/friendApi";
@@ -50,9 +49,11 @@ function userToFriend(user: User, mutualFriends = 0): Friend {
 
 const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
   friends: propFriends,
-  onFriendAdded,
+  onFriendAdded: _onFriendAdded,
 }) => {
-  const [addedFriends, setAddedFriends] = useState<number[]>([]);
+  const [friendStatuses, setFriendStatuses] = useState<
+    Record<number, "none" | "sent" | "pending" | "friends">
+  >({});
   const [fetchedBusinesses, setFetchedBusinesses] = useState<Friend[]>([]);
   const [fetchedNearbyFriends, setFetchedNearbyFriends] = useState<Friend[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -76,9 +77,39 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
     }
   }, []);
 
-  // Load existing friends on mount (local list for "added" state)
+  // Load real friendship/request statuses
   useEffect(() => {
-    setAddedFriends(getFriendsList());
+    const loadStatuses = async () => {
+      try {
+        const [friendsRes, requestsRes] = await Promise.all([
+          friendApi.getFriends().catch(() => ({ success: false as const, data: [] })),
+          friendApi
+            .getPendingRequests()
+            .catch(() => ({ success: false as const, data: { sent: [], received: [] } })),
+        ]);
+
+        const statuses: Record<number, "none" | "sent" | "pending" | "friends"> = {};
+        if (friendsRes.success) {
+          friendsRes.data.forEach((friend) => {
+            statuses[friend.user_id] = "friends";
+          });
+        }
+        if (requestsRes.success) {
+          requestsRes.data.sent.forEach((request) => {
+            statuses[request.receiver_id] = "sent";
+          });
+          requestsRes.data.received.forEach((request) => {
+            if (!statuses[request.sender_id]) statuses[request.sender_id] = "pending";
+          });
+        }
+
+        setFriendStatuses(statuses);
+      } catch {
+        // ignore status bootstrap errors
+      }
+    };
+
+    void loadStatuses();
   }, []);
 
   // Fetch nearby users: business accounts when business, else nearby users (same endpoint as Add Friends)
@@ -182,24 +213,16 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
   }, [filteredFriends]);
 
   const handleAddFriend = async (friend: Friend) => {
-    const usingApi = !isBusinessAccount && fetchedNearbyFriends.length > 0;
-    if (usingApi) {
-      try {
-        const res = await friendApi.sendFriendRequest(friend.id);
-        if (res.success) {
-          setAddedFriends((prev) => [...prev, friend.id]);
-          onFriendAdded?.(friend.id, friend.name);
-        } else {
-          alert("Could not send friend request. Please try again.");
-        }
-      } catch {
-        alert("Failed to send friend request. Please try again.");
+    try {
+      const res = await friendApi.sendFriendRequest(friend.id);
+      if (res.success) {
+        setFriendStatuses((prev) => ({ ...prev, [friend.id]: "sent" }));
+      } else {
+        alert("Could not send friend request. Please try again.");
       }
-      return;
+    } catch {
+      alert("Failed to send friend request. Please try again.");
     }
-    addFriend(friend.id);
-    setAddedFriends((prev) => [...prev, friend.id]);
-    onFriendAdded?.(friend.id, friend.name);
   };
 
   return (
@@ -233,7 +256,8 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
           </div>
         ) : (
           displayedFriends.map((friend) => {
-            const isAlreadyFriend = addedFriends.includes(friend.id);
+            const status = friendStatuses[friend.id] || "none";
+            const isActionDisabled = status !== "none";
             return (
               <div
                 key={friend.id}
@@ -262,16 +286,26 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
                 </div>
                 <button
                   className={`newsfeed-suggested-friends__add-btn ${
-                    isAlreadyFriend
+                    isActionDisabled
                       ? "newsfeed-suggested-friends__add-btn--added"
                       : ""
                   }`}
-                  onClick={() => !isAlreadyFriend && void handleAddFriend(friend)}
-                  disabled={isAlreadyFriend}
-                  title={isAlreadyFriend ? "Already added" : "Add friend"}
+                  onClick={() => !isActionDisabled && void handleAddFriend(friend)}
+                  disabled={isActionDisabled}
+                  title={
+                    status === "friends"
+                      ? "Already friends"
+                      : status === "sent"
+                        ? "Request sent"
+                        : status === "pending"
+                          ? "Incoming request pending"
+                          : "Add friend"
+                  }
                 >
-                  {isAlreadyFriend ? (
+                  {status === "friends" ? (
                     <Check size={18} />
+                  ) : status === "sent" || status === "pending" ? (
+                    <Clock size={18} />
                   ) : (
                     <UserPlus size={18} />
                   )}
@@ -316,7 +350,8 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
                 </div>
               ) : (
                 filteredFriends.map((friend) => {
-                  const isAlreadyFriend = addedFriends.includes(friend.id);
+                  const status = friendStatuses[friend.id] || "none";
+                  const isActionDisabled = status !== "none";
                   return (
                     <div
                       key={friend.id}
@@ -345,18 +380,28 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
                       </div>
                       <button
                         className={`newsfeed-suggested-friends__add-btn ${
-                          isAlreadyFriend
+                          isActionDisabled
                             ? "newsfeed-suggested-friends__add-btn--added"
                             : ""
                         }`}
                         onClick={() =>
-                          !isAlreadyFriend && void handleAddFriend(friend)
+                          !isActionDisabled && void handleAddFriend(friend)
                         }
-                        disabled={isAlreadyFriend}
-                        title={isAlreadyFriend ? "Already added" : "Add friend"}
+                        disabled={isActionDisabled}
+                        title={
+                          status === "friends"
+                            ? "Already friends"
+                            : status === "sent"
+                              ? "Request sent"
+                              : status === "pending"
+                                ? "Incoming request pending"
+                                : "Add friend"
+                        }
                       >
-                        {isAlreadyFriend ? (
+                        {status === "friends" ? (
                           <Check size={18} />
+                        ) : status === "sent" || status === "pending" ? (
+                          <Clock size={18} />
                         ) : (
                           <UserPlus size={18} />
                         )}

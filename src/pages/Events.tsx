@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Calendar, Clock, MapPin, XCircle } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import "../main.css";
 import "../scss/_events.scss";
 import ChatPanel from "../components/ChatPanel";
+import FindFriendsModal from "../components/FindFriendsModal";
 import NewsFeedHeader from "./NewsFeed/NewsFeedHeader";
 import NewsFeedSidebar from "./NewsFeed/NewsFeedSidebar";
 import { getEvents, type Event } from "../api/events";
+import { getProfileUsername } from "../utils/userUtils";
 
 const normalizeEvent = (event: Event) => ({
   id: event.event_id ?? event.id,
@@ -15,22 +17,23 @@ const normalizeEvent = (event: Event) => ({
   date: event.event_date || event.date,
   location: event.event_location || event.location || "",
   image: event.event_cover || event.image || "",
-  category: event.event_category || event.category || "",
 });
 
 const Events: React.FC = () => {
+  const navigate = useNavigate();
   const location = useLocation();
   const isStandalonePage = location.pathname === "/events";
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [events, setEvents] = useState<ReturnType<typeof normalizeEvent>[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<ReturnType<typeof normalizeEvent> | null>(null);
-  const [visibleElements, setVisibleElements] = useState<Set<string>>(
-    new Set()
-  );
+  const [selectedEvent, setSelectedEvent] =
+    useState<ReturnType<typeof normalizeEvent> | null>(null);
+  const [visibleElements, setVisibleElements] = useState<Set<string>>(new Set());
   const badgeRef = useRef<HTMLDivElement>(null);
   const imageWrapperRef = useRef<HTMLDivElement>(null);
 
@@ -39,20 +42,16 @@ const Events: React.FC = () => {
       (entries) => {
         entries.forEach((entry) => {
           const elementId = entry.target.getAttribute("data-animate-id");
+          if (!elementId) return;
 
           if (entry.isIntersecting) {
-            if (elementId) {
-              setVisibleElements((prev) => new Set(prev).add(elementId));
-            }
+            setVisibleElements((prev) => new Set(prev).add(elementId));
           } else {
-            // Remove from visible when scrolling out
-            if (elementId) {
-              setVisibleElements((prev) => {
-                const newSet = new Set(prev);
-                newSet.delete(elementId);
-                return newSet;
-              });
-            }
+            setVisibleElements((prev) => {
+              const next = new Set(prev);
+              next.delete(elementId);
+              return next;
+            });
           }
         });
       },
@@ -60,15 +59,10 @@ const Events: React.FC = () => {
     );
 
     const elements = [badgeRef.current, imageWrapperRef.current];
-
-    elements.forEach((el) => {
-      if (el) observer.observe(el);
-    });
+    elements.forEach((el) => el && observer.observe(el));
 
     return () => {
-      elements.forEach((el) => {
-        if (el) observer.unobserve(el);
-      });
+      elements.forEach((el) => el && observer.unobserve(el));
     };
   }, []);
 
@@ -84,7 +78,6 @@ const Events: React.FC = () => {
           .filter((event) => !!event.image);
         setEvents(normalizedEvents);
       } catch (loadError) {
-        console.error("Failed to load landing events:", loadError);
         setError(
           loadError instanceof Error
             ? loadError.message
@@ -222,24 +215,25 @@ const Events: React.FC = () => {
     </section>
   );
 
-  // If used as standalone page, wrap with header and sidebar
   if (isStandalonePage) {
     return (
       <div className="events-page">
         <NewsFeedHeader
           isLeftSidebarOpen={isLeftSidebarOpen}
           onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
-          showCreateMenu={true}
-          showRightSidebarToggle={false}
           unreadNotificationsCount={0}
           unreadMessagesCount={unreadMessagesCount}
-          onNotificationClick={() => {}}
-          onAddFriendClick={() => {}}
+          showRightSidebarToggle={false}
+          onNotificationClick={() => setIsNotificationPanelOpen(true)}
           onMessageClick={() => setIsChatPanelOpen(true)}
-          onCreateClick={() => {}}
+          onAddFriendClick={() => setIsAddFriendModalOpen(true)}
+          onCreatePost={() => navigate("/newsfeed")}
+          onCreateStory={() => navigate("/newsfeed")}
+          onProfileClick={() =>
+            navigate(`/profile/${encodeURIComponent(getProfileUsername())}`)
+          }
         />
         <div className="events-page__container">
-          {/* Mobile Overlay */}
           {isLeftSidebarOpen && (
             <div
               className={`events-overlay ${
@@ -259,11 +253,41 @@ const Events: React.FC = () => {
           onClose={() => setIsChatPanelOpen(false)}
           onUnreadCountChange={setUnreadMessagesCount}
         />
+        <FindFriendsModal
+          isOpen={isAddFriendModalOpen}
+          onClose={() => setIsAddFriendModalOpen(false)}
+        />
+        {isNotificationPanelOpen && (
+          <div
+            className="newsfeed-notification-panel-overlay"
+            onClick={() => setIsNotificationPanelOpen(false)}
+          >
+            <div
+              className="newsfeed-notification-panel"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="newsfeed-notification-panel__header">
+                <h3>Notifications</h3>
+                <button
+                  className="newsfeed-notification-panel__close"
+                  onClick={() => setIsNotificationPanelOpen(false)}
+                  aria-label="Close panel"
+                >
+                  X
+                </button>
+              </div>
+              <div className="newsfeed-notification-panel__content">
+                <div className="newsfeed-notification-panel__empty">
+                  <p>No notifications</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  // If used as section in landing page, return just the content
   return eventsContent;
 };
 

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Check, Building2, X } from "lucide-react";
+import { Check, Building2, Clock, X } from "lucide-react";
 import Avatar from "../../components/Avatar";
 import {
   calculateDistance,
   getUserLocation,
   getUserRange,
 } from "../../utils/locationUtils";
-import { addFriend, getFriendsList } from "../../utils/friendUtils";
+import { friendApi } from "../../services/friendApi";
 
 interface Business {
   id: number;
@@ -29,16 +29,47 @@ interface SuggestedBusinessesProps {
 
 const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
   businesses,
-  onBusinessAdded,
+  onBusinessAdded: _onBusinessAdded,
 }) => {
-  const [addedBusinesses, setAddedBusinesses] = useState<number[]>([]);
+  const [businessStatuses, setBusinessStatuses] = useState<
+    Record<number, "none" | "sent" | "pending" | "friends">
+  >({});
   const [isSeeAllModalOpen, setIsSeeAllModalOpen] = useState(false);
   const userLocation = getUserLocation();
   const userRange = getUserRange();
 
-  // Load existing businesses on mount
+  // Load real friendship/request statuses
   useEffect(() => {
-    setAddedBusinesses(getFriendsList());
+    const loadStatuses = async () => {
+      try {
+        const [friendsRes, requestsRes] = await Promise.all([
+          friendApi.getFriends().catch(() => ({ success: false as const, data: [] })),
+          friendApi
+            .getPendingRequests()
+            .catch(() => ({ success: false as const, data: { sent: [], received: [] } })),
+        ]);
+
+        const statuses: Record<number, "none" | "sent" | "pending" | "friends"> = {};
+        if (friendsRes.success) {
+          friendsRes.data.forEach((friend) => {
+            statuses[friend.user_id] = "friends";
+          });
+        }
+        if (requestsRes.success) {
+          requestsRes.data.sent.forEach((request) => {
+            statuses[request.receiver_id] = "sent";
+          });
+          requestsRes.data.received.forEach((request) => {
+            if (!statuses[request.sender_id]) statuses[request.sender_id] = "pending";
+          });
+        }
+        setBusinessStatuses(statuses);
+      } catch {
+        // ignore status bootstrap errors
+      }
+    };
+
+    void loadStatuses();
   }, []);
 
   // Filter businesses based on criteria
@@ -76,14 +107,14 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
     return filteredBusinesses.slice(0, 4);
   }, [filteredBusinesses]);
 
-  const handleAddBusiness = (business: Business) => {
-    // Add to friends list (businesses are treated as friends for connection purposes)
-    addFriend(business.id);
-    setAddedBusinesses((prev) => [...prev, business.id]);
-
-    // Notify parent component
-    if (onBusinessAdded) {
-      onBusinessAdded(business.id, business.name);
+  const handleAddBusiness = async (business: Business) => {
+    try {
+      const response = await friendApi.sendFriendRequest(business.id);
+      if (response.success) {
+        setBusinessStatuses((prev) => ({ ...prev, [business.id]: "sent" }));
+      }
+    } catch (error) {
+      console.error("Error sending friend request:", error);
     }
   };
 
@@ -112,7 +143,8 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
           </div>
         ) : (
           displayedBusinesses.map((business) => {
-            const isAlreadyAdded = addedBusinesses.includes(business.id);
+            const status = businessStatuses[business.id] || "none";
+            const isActionDisabled = status !== "none";
             return (
               <div
                 key={business.id}
@@ -142,16 +174,26 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
                 </div>
                 <button
                   className={`newsfeed-suggested-friends__add-btn ${
-                    isAlreadyAdded
+                    isActionDisabled
                       ? "newsfeed-suggested-friends__add-btn--added"
                       : ""
                   }`}
-                  onClick={() => !isAlreadyAdded && handleAddBusiness(business)}
-                  disabled={isAlreadyAdded}
-                  title={isAlreadyAdded ? "Already added" : "Add business"}
+                  onClick={() => !isActionDisabled && void handleAddBusiness(business)}
+                  disabled={isActionDisabled}
+                  title={
+                    status === "friends"
+                      ? "Already friends"
+                      : status === "sent"
+                        ? "Request sent"
+                        : status === "pending"
+                          ? "Incoming request pending"
+                          : "Add business"
+                  }
                 >
-                  {isAlreadyAdded ? (
+                  {status === "friends" ? (
                     <Check size={18} />
+                  ) : status === "sent" || status === "pending" ? (
+                    <Clock size={18} />
                   ) : (
                     <Building2 size={18} />
                   )}
@@ -191,7 +233,8 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
                 </div>
               ) : (
                 filteredBusinesses.map((business) => {
-                  const isAlreadyAdded = addedBusinesses.includes(business.id);
+                  const status = businessStatuses[business.id] || "none";
+                  const isActionDisabled = status !== "none";
                   return (
                     <div
                       key={business.id}
@@ -221,20 +264,28 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
                       </div>
                       <button
                         className={`newsfeed-suggested-friends__add-btn ${
-                          isAlreadyAdded
+                          isActionDisabled
                             ? "newsfeed-suggested-friends__add-btn--added"
                             : ""
                         }`}
                         onClick={() =>
-                          !isAlreadyAdded && handleAddBusiness(business)
+                          !isActionDisabled && void handleAddBusiness(business)
                         }
-                        disabled={isAlreadyAdded}
+                        disabled={isActionDisabled}
                         title={
-                          isAlreadyAdded ? "Already added" : "Add business"
+                          status === "friends"
+                            ? "Already friends"
+                            : status === "sent"
+                              ? "Request sent"
+                              : status === "pending"
+                                ? "Incoming request pending"
+                                : "Add business"
                         }
                       >
-                        {isAlreadyAdded ? (
+                        {status === "friends" ? (
                           <Check size={18} />
+                        ) : status === "sent" || status === "pending" ? (
+                          <Clock size={18} />
                         ) : (
                           <Building2 size={18} />
                         )}

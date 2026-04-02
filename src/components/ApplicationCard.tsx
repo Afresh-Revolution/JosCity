@@ -9,7 +9,6 @@ interface CustomField {
   placeholder?: string;
   options?: string[];
   required?: boolean;
-  
 }
 
 interface ApplicationCardProps {

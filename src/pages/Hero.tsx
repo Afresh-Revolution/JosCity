@@ -1,6 +1,17 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { Lightbulb, Shield, Zap, User, Info } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  Lightbulb,
+  Shield,
+  Zap,
+  User,
+  Info,
+  ChevronLeft,
+  ChevronRight,
+  Newspaper,
+} from "lucide-react";
+import AdminBroadcastStrip from "../components/AdminBroadcastStrip";
+import { newsApi, type NewsPost } from "../services/newsApi";
 import { preloadImage } from "../utils/imagePreloader";
 import {
   getRegisteredCitizensCount,
@@ -71,11 +82,17 @@ const fallbackSlides = [
 
 function Hero() {
   const navigate = useNavigate();
+  const goToNewsSection = () => {
+    navigate("/news");
+  };
   const [currentSlide, setCurrentSlide] = useState(0);
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(fallbackSlides);
   const [visibleElements, setVisibleElements] = useState<Set<string>>(
     new Set()
   );
+  const [topNews, setTopNews] = useState<NewsPost[]>([]);
+  const [newsError, setNewsError] = useState("");
+  const [newsIndex, setNewsIndex] = useState(0);
   const badgeRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const subtitleRef = useRef<HTMLHeadingElement>(null);
@@ -86,6 +103,28 @@ function Hero() {
   useEffect(() => {
     setHeroSlides(fallbackSlides);
   }, []);
+
+  useEffect(() => {
+    const loadNews = async () => {
+      try {
+        const data = await newsApi.getPublished(3, true);
+        setTopNews(data.slice(0, 3));
+      } catch (error) {
+        setNewsError(
+          error instanceof Error ? error.message : "Unable to load news updates."
+        );
+      }
+    };
+    loadNews();
+  }, []);
+
+  useEffect(() => {
+    if (topNews.length <= 1) return;
+    const timer = setInterval(() => {
+      setNewsIndex((prev) => (prev + 1) % topNews.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [topNews]);
 
   // Preload all hero images on mount for better performance
   useEffect(() => {
@@ -278,6 +317,8 @@ function Hero() {
             <span>Powered by Cbrilliance AI tech LTD</span>
           </div>
 
+          <AdminBroadcastStrip variant="landing" />
+
           <h1
             ref={titleRef}
             id="hero-title"
@@ -344,6 +385,137 @@ function Hero() {
         </div>
       </div>
       <AboutSection />
+      <section id="news" className="landing-news" aria-labelledby="landing-news-title">
+        <div className="landing-news__ambient" aria-hidden />
+        <div className="landing-news__inner">
+          <header className="landing-news__head">
+            <span className="landing-news__eyebrow">
+              <Newspaper size={16} strokeWidth={2} aria-hidden />
+              Live feed
+            </span>
+            <h2 id="landing-news-title" className="landing-news__title">
+              News &amp; stories
+            </h2>
+            <p className="landing-news__lead">
+              Curated updates from JOSCity — stay connected to what matters in the community.
+            </p>
+          </header>
+
+          {topNews.length === 0 ? (
+            <Link
+              to="/news"
+              className="landing-news__shell landing-news__shell--empty landing-news__shell--interactive"
+              aria-label="Open the news section. Sign in if prompted."
+            >
+              <p className="landing-news__empty-text">
+                {newsError || "No news updates yet. Please check back soon."}
+              </p>
+            </Link>
+          ) : (
+            <div className="landing-news__shell">
+              <Link
+                key={topNews[newsIndex].id}
+                to="/news"
+                className="landing-news__feature landing-news__feature--interactive"
+                aria-label="Open the full news section. Sign in if prompted."
+              >
+                <div
+                  className={`landing-news__feature-grid${
+                    !topNews[newsIndex].image_urls?.[0]
+                      ? " landing-news__feature-grid--text-only"
+                      : ""
+                  }`}
+                >
+                  <div className="landing-news__copy">
+                    <span className="landing-news__index" aria-hidden>
+                      {String(newsIndex + 1).padStart(2, "0")}
+                    </span>
+                    <h3 className="landing-news__h3">{topNews[newsIndex].title}</h3>
+                    <p className="landing-news__excerpt">
+                      {topNews[newsIndex].content.trim().length > 200
+                        ? `${topNews[newsIndex].content.trim().slice(0, 200).trim()}…`
+                        : topNews[newsIndex].content.trim()}
+                    </p>
+                    <div className="landing-news__meta">
+                      {topNews[newsIndex].is_featured && (
+                        <span className="landing-news__pill">Featured</span>
+                      )}
+                      <time
+                        className="landing-news__time"
+                        dateTime={topNews[newsIndex].created_at}
+                      >
+                        {new Date(topNews[newsIndex].created_at).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </time>
+                    </div>
+                  </div>
+                  {topNews[newsIndex].image_urls?.[0] ? (
+                    <div className="landing-news__media">
+                      <div className="landing-news__media-frame">
+                        <img
+                          src={topNews[newsIndex].image_urls[0]}
+                          alt=""
+                          className="landing-news__image"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                        <div className="landing-news__media-shine" aria-hidden />
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </Link>
+
+              <div className="landing-news__controls">
+                <button
+                  type="button"
+                  className="landing-news__arrow"
+                  onClick={() =>
+                    setNewsIndex((prev) => (prev - 1 + topNews.length) % topNews.length)
+                  }
+                  aria-label="Previous story"
+                >
+                  <ChevronLeft size={22} strokeWidth={2} />
+                </button>
+                <div className="landing-news__dots" role="tablist" aria-label="Choose story">
+                  {topNews.map((n, index) => (
+                    <button
+                      key={n.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={index === newsIndex}
+                      className={index === newsIndex ? "is-active" : ""}
+                      onClick={() => setNewsIndex(index)}
+                      aria-label={`Story ${index + 1}: ${n.title}`}
+                    />
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="landing-news__arrow"
+                  onClick={() => setNewsIndex((prev) => (prev + 1) % topNews.length)}
+                  aria-label="Next story"
+                >
+                  <ChevronRight size={22} strokeWidth={2} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="landing-news__actions">
+            <button
+              type="button"
+              className="hero__button hero__button--primary landing-news__cta"
+              onClick={goToNewsSection}
+            >
+              Explore all news <span aria-hidden>&gt;</span>
+            </button>
+          </div>
+        </div>
+      </section>
     </>
   );
 }

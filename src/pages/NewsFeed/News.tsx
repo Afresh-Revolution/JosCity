@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import "../../main.css";
@@ -6,32 +6,70 @@ import "../../scss/_newsfeed.scss";
 import "../../scss/_marketplace.scss";
 import NewsFeedSidebar from "./NewsFeedSidebar";
 import NewsFeedHeader from "./NewsFeedHeader";
+import ChatPanel from "../../components/ChatPanel";
+import FindFriendsModal from "../../components/FindFriendsModal";
 import { getProfileUsername } from "../../utils/userUtils";
+import { newsApi, type NewsPost } from "../../services/newsApi";
 
 const News: React.FC = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const [items, setItems] = useState<NewsPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const handleProfileClick = () => {
-    const username = getProfileUsername();
-    navigate(`/profile/${encodeURIComponent(username)}`);
-  };
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const data = await newsApi.getPublished(100);
+        setItems(data);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "We could not load news right now."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(
+      (item) =>
+        item.title.toLowerCase().includes(q) ||
+        item.content.toLowerCase().includes(q)
+    );
+  }, [items, searchQuery]);
 
   return (
-    <div className="marketplace-page" style={{ paddingTop: "64px" }}>
+    <div className="news-page">
       <NewsFeedHeader
         isLeftSidebarOpen={isLeftSidebarOpen}
         onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
-        onProfileClick={handleProfileClick}
-        onNotificationClick={() => {}}
-        onMessageClick={() => {}}
-        onAddFriendClick={() => {}}
         unreadNotificationsCount={0}
+        unreadMessagesCount={unreadMessagesCount}
         showRightSidebarToggle={false}
+        onNotificationClick={() => setIsNotificationPanelOpen(true)}
+        onMessageClick={() => setIsChatPanelOpen(true)}
+        onAddFriendClick={() => setIsAddFriendModalOpen(true)}
+        onCreatePost={() => navigate("/newsfeed")}
+        onCreateStory={() => navigate("/newsfeed")}
+        onProfileClick={() =>
+          navigate(`/profile/${encodeURIComponent(getProfileUsername())}`)
+        }
       />
 
-      {/* Mobile Overlay */}
       {isLeftSidebarOpen && (
         <div
           className="newsfeed-overlay"
@@ -39,282 +77,221 @@ const News: React.FC = () => {
         />
       )}
 
-      <div className="marketplace-container">
-        {/* Mobile Overlay */}
-        {isLeftSidebarOpen && (
-          <div
-            className="marketplace-overlay"
-            onClick={() => setIsLeftSidebarOpen(false)}
-          />
-        )}
+      <div className="newsfeed-container newsfeed-container--no-aside">
+        <NewsFeedSidebar
+          isOpen={isLeftSidebarOpen}
+          onClose={() => setIsLeftSidebarOpen(false)}
+        />
 
-        {/* News Hero Section */}
-        <section className="marketplace-hero">
-          <div className="marketplace-hero__content">
-            <div className="marketplace-hero__image">
-              <div className="marketplace-hero__icon">
-                <svg
-                  width="250"
-                  height="180"
-                  viewBox="0 0 140 140"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  {/* 3D Newspaper Icon - Enhanced */}
-                  <g transform="translate(10, 10)">
-                    {/* Main paper base - white */}
-                    <rect
-                      x="0"
-                      y="0"
-                      width="80"
-                      height="100"
-                      rx="3"
-                      fill="#ffffff"
-                      stroke="#e0e0e0"
-                      strokeWidth="1.5"
-                    />
-                    
-                    {/* Folded corner - orange */}
-                    <path
-                      d="M 80 0 L 80 25 L 55 0 Z"
-                      fill="#ff6f00"
-                      stroke="#ff6f00"
-                      strokeWidth="1.5"
-                    />
-                    
-                    {/* Blue accent page edge */}
-                    <rect
-                      x="75"
-                      y="0"
-                      width="5"
-                      height="100"
-                      fill="#2196f3"
-                      opacity="0.8"
-                    />
-                    
-                    {/* Yellow accent stripe */}
-                    <rect
-                      x="0"
-                      y="15"
-                      width="80"
-                      height="8"
-                      fill="#ffc107"
-                      opacity="0.6"
-                    />
-                    
-                    {/* NEWS text - white and orange */}
-                    <text
-                      x="40"
-                      y="35"
-                      fontSize="20"
-                      fontWeight="900"
-                      fill="#ffffff"
-                      textAnchor="middle"
-                      fontFamily="Arial, sans-serif"
-                      stroke="#ff6f00"
-                      strokeWidth="0.5"
+        <main className="newsfeed-main news-main">
+          <div className="news-banner">
+            <div className="news-banner__content">
+              <div className="news-banner__left">
+                <div className="news-banner__icon-wrapper">
+                  <div className="news-banner__icon">
+                    <svg
+                      width="120"
+                      height="120"
+                      viewBox="0 0 120 120"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
                     >
-                      NEWS
-                    </text>
-                    <text
-                      x="40"
-                      y="35"
-                      fontSize="20"
-                      fontWeight="900"
-                      fill="#ff6f00"
-                      textAnchor="middle"
-                      fontFamily="Arial, sans-serif"
-                    >
-                      NEWS
-                    </text>
-                    
-                    {/* Lines on paper */}
-                    <line
-                      x1="12"
-                      y1="50"
-                      x2="68"
-                      y2="50"
-                      stroke="#cccccc"
-                      strokeWidth="1.5"
-                    />
-                    <line
-                      x1="12"
-                      y1="60"
-                      x2="65"
-                      y2="60"
-                      stroke="#cccccc"
-                      strokeWidth="1.5"
-                    />
-                    <line
-                      x1="12"
-                      y1="70"
-                      x2="68"
-                      y2="70"
-                      stroke="#cccccc"
-                      strokeWidth="1.5"
-                    />
-                    <line
-                      x1="12"
-                      y1="80"
-                      x2="60"
-                      y2="80"
-                      stroke="#cccccc"
-                      strokeWidth="1.5"
-                    />
-                    
-                    {/* Shadow for 3D effect */}
-                    <rect
-                      x="3"
-                      y="98"
-                      width="74"
-                      height="4"
-                      fill="rgba(0,0,0,0.15)"
-                      rx="2"
-                    />
-                    
-                    {/* Additional depth shadow */}
-                    <ellipse
-                      cx="40"
-                      cy="102"
-                      rx="35"
-                      ry="3"
-                      fill="rgba(0,0,0,0.1)"
-                    />
-                  </g>
-                </svg>
+                      <g transform="translate(20, 20)">
+                        <rect
+                          x="0"
+                          y="0"
+                          width="60"
+                          height="80"
+                          rx="2"
+                          fill="#f5f5f5"
+                          stroke="#ddd"
+                          strokeWidth="1"
+                        />
+                        <path
+                          d="M 60 0 L 60 20 L 40 0 Z"
+                          fill="#ffd700"
+                          stroke="#ffb300"
+                          strokeWidth="1"
+                        />
+                        <text
+                          x="30"
+                          y="25"
+                          fontSize="16"
+                          fontWeight="bold"
+                          fill="#d32f2f"
+                          textAnchor="middle"
+                          fontFamily="Arial, sans-serif"
+                        >
+                          NEWS
+                        </text>
+                        <line x1="10" y1="35" x2="50" y2="35" stroke="#ccc" strokeWidth="1" />
+                        <line x1="10" y1="45" x2="45" y2="45" stroke="#ccc" strokeWidth="1" />
+                        <line x1="10" y1="55" x2="50" y2="55" stroke="#ccc" strokeWidth="1" />
+                        <rect x="2" y="78" width="56" height="2" fill="rgba(0,0,0,0.1)" />
+                      </g>
+                    </svg>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="news-hero__text">
-              <h1 className="news-hero__title">News</h1>
-              <p className="news-hero__subtitle">Discover events</p>
-              <form onSubmit={(e) => e.preventDefault()} className="news-hero__search">
-                <input
-                  type="text"
-                  placeholder="Search for news"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="news-hero__search-input"
-                />
-                <button
-                  type="submit"
-                  className="news-hero__search-icon"
-                  aria-label="Search"
-                >
-                  <Search size={20} />
-                </button>
-              </form>
+
+              <div className="news-banner__right">
+                <div className="news-banner__text">
+                  <h1 className="news-banner__title">News</h1>
+                  <p className="news-banner__subtitle">Discover events</p>
+                </div>
+                <div className="news-banner__search-wrapper">
+                  <input
+                    type="text"
+                    className="news-banner__search"
+                    placeholder="Search for news"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  <Search size={20} className="news-banner__search-icon" />
+                </div>
+              </div>
             </div>
           </div>
-        </section>
 
-        {/* Container for sidebar and main content */}
-        <div className="newsfeed-container newsfeed-container--no-aside">
-          {/* Navigation Menu Sidebar */}
-          <NewsFeedSidebar
-            isOpen={isLeftSidebarOpen}
-            onClose={() => setIsLeftSidebarOpen(false)}
-          />
+          <h2 className="news-main__section-title">News</h2>
 
-          {/* Categories and Content Section (Light Gray Background) */}
-          <div className="marketplace-content-section">
-            <div className="marketplace-main-layout">
-              {/* Main Content Area Container */}
-              <main className="marketplace-content-container">
-                <div className="marketplace-content">
-                <div className="marketplace-empty">
-                  <div className="marketplace-empty__icon">
-              <svg
-                width="120"
-                height="120"
-                viewBox="0 0 120 120"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                {/* Document shape */}
-                <rect
-                  x="30"
-                  y="20"
-                  width="60"
-                  height="80"
-                  rx="3"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  fill="none"
-                />
-                {/* Dotted lines inside document */}
-                <circle cx="40" cy="35" r="1.5" fill="currentColor" />
-                <circle cx="45" cy="35" r="1.5" fill="currentColor" />
-                <circle cx="50" cy="35" r="1.5" fill="currentColor" />
-                <circle cx="55" cy="35" r="1.5" fill="currentColor" />
-                <circle cx="60" cy="35" r="1.5" fill="currentColor" />
-                <circle cx="65" cy="35" r="1.5" fill="currentColor" />
-                <circle cx="70" cy="35" r="1.5" fill="currentColor" />
-                <circle cx="75" cy="35" r="1.5" fill="currentColor" />
-                
-                <circle cx="40" cy="45" r="1.5" fill="currentColor" />
-                <circle cx="45" cy="45" r="1.5" fill="currentColor" />
-                <circle cx="50" cy="45" r="1.5" fill="currentColor" />
-                <circle cx="55" cy="45" r="1.5" fill="currentColor" />
-                <circle cx="60" cy="45" r="1.5" fill="currentColor" />
-                <circle cx="65" cy="45" r="1.5" fill="currentColor" />
-                <circle cx="70" cy="45" r="1.5" fill="currentColor" />
-                
-                <circle cx="40" cy="55" r="1.5" fill="currentColor" />
-                <circle cx="45" cy="55" r="1.5" fill="currentColor" />
-                <circle cx="50" cy="55" r="1.5" fill="currentColor" />
-                <circle cx="55" cy="55" r="1.5" fill="currentColor" />
-                <circle cx="60" cy="55" r="1.5" fill="currentColor" />
-                <circle cx="65" cy="55" r="1.5" fill="currentColor" />
-                <circle cx="70" cy="55" r="1.5" fill="currentColor" />
-                <circle cx="75" cy="55" r="1.5" fill="currentColor" />
-                
-                <circle cx="40" cy="65" r="1.5" fill="currentColor" />
-                <circle cx="45" cy="65" r="1.5" fill="currentColor" />
-                <circle cx="50" cy="65" r="1.5" fill="currentColor" />
-                <circle cx="55" cy="65" r="1.5" fill="currentColor" />
-                <circle cx="60" cy="65" r="1.5" fill="currentColor" />
-                <circle cx="65" cy="65" r="1.5" fill="currentColor" />
-                
-                <circle cx="40" cy="75" r="1.5" fill="currentColor" />
-                <circle cx="45" cy="75" r="1.5" fill="currentColor" />
-                <circle cx="50" cy="75" r="1.5" fill="currentColor" />
-                <circle cx="55" cy="75" r="1.5" fill="currentColor" />
-                <circle cx="60" cy="75" r="1.5" fill="currentColor" />
-                <circle cx="65" cy="75" r="1.5" fill="currentColor" />
-                <circle cx="70" cy="75" r="1.5" fill="currentColor" />
-                <circle cx="75" cy="75" r="1.5" fill="currentColor" />
-                
-                {/* Magnifying glass overlapping */}
-                <circle
-                  cx="75"
-                  cy="30"
-                  r="18"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  fill="none"
-                />
-                <line
-                  x1="88"
-                  y1="43"
-                  x2="95"
-                  y2="50"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-                </div>
-                <h2 className="marketplace-empty__title">No Data Found</h2>
-                <p className="marketplace-empty__message">
-                  There is no data to show you right now.
-                </p>
-              </div>
+          {loading ? (
+            <div className="news-main__empty">
+              <p className="news-main__empty-text">Loading latest news...</p>
             </div>
-          </main>
+          ) : error ? (
+            <div className="news-main__empty">
+              <p className="news-main__empty-text">{error}</p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="news-main__empty">
+              <p className="news-main__empty-text">No news found</p>
+              <p className="news-main__empty-subtext">
+                Try a different search term.
+              </p>
+            </div>
+          ) : (
+            <div className="news-main__list">
+              {filtered.map((item) => {
+                const images = Array.isArray(item.image_urls)
+                  ? item.image_urls.filter(Boolean)
+                  : [];
+                const videos = Array.isArray(item.video_urls)
+                  ? item.video_urls.filter(Boolean)
+                  : [];
+
+                return (
+                  <article
+                    key={item.id}
+                    className={`news-main__card${
+                      item.is_featured ? " news-main__card--featured" : ""
+                    }`}
+                  >
+                    <header className="news-main__card-header">
+                      <div className="news-main__card-heading-row">
+                        {item.is_featured && (
+                          <span className="news-main__card-badge">Featured</span>
+                        )}
+                        <h3 className="news-main__card-title">{item.title}</h3>
+                      </div>
+                      <time className="news-main__card-time" dateTime={item.created_at}>
+                        {new Date(item.created_at).toLocaleString()}
+                      </time>
+                    </header>
+
+                    {(images.length > 0 || videos.length > 0) && (
+                      <div className="news-main__card-media" aria-label="Media">
+                        {images.map((url, i) => (
+                          <figure key={`${item.id}-img-${i}`} className="news-main__card-figure">
+                            <img
+                              src={url}
+                              alt={
+                                images.length > 1
+                                  ? `${item.title} image ${i + 1}`
+                                  : item.title
+                              }
+                              className="news-main__card-image"
+                              loading="lazy"
+                            />
+                          </figure>
+                        ))}
+                        {videos.map((url, i) => (
+                          <figure
+                            key={`${item.id}-vid-${i}`}
+                            className="news-main__card-figure news-main__card-figure--video"
+                          >
+                            <video controls className="news-main__card-video" preload="metadata">
+                              <source src={url} />
+                            </video>
+                          </figure>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="news-main__card-body">
+                      <p className="news-main__card-content">{item.content}</p>
+                    </div>
+
+                    {Array.isArray(item.source_links) && item.source_links.length > 0 && (
+                      <div className="news-main__card-links">
+                        {item.source_links.map((link, index) => (
+                          <a
+                            key={`${item.id}-link-${index}`}
+                            href={link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="news-main__card-link"
+                          >
+                            Source {index + 1}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </main>
+      </div>
+
+      <ChatPanel
+        isOpen={isChatPanelOpen}
+        onClose={() => setIsChatPanelOpen(false)}
+        onUnreadCountChange={setUnreadMessagesCount}
+      />
+      <FindFriendsModal
+        isOpen={isAddFriendModalOpen}
+        onClose={() => setIsAddFriendModalOpen(false)}
+      />
+
+      {isNotificationPanelOpen && (
+        <div
+          className="newsfeed-notification-panel-overlay"
+          onClick={() => setIsNotificationPanelOpen(false)}
+        >
+          <div
+            className="newsfeed-notification-panel"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="newsfeed-notification-panel__header">
+              <h3>Notifications</h3>
+              <button
+                className="newsfeed-notification-panel__close"
+                onClick={() => setIsNotificationPanelOpen(false)}
+                aria-label="Close panel"
+              >
+                X
+              </button>
+            </div>
+            <div className="newsfeed-notification-panel__content">
+              <div className="newsfeed-notification-panel__empty">
+                <p>No notifications</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -30,6 +30,7 @@ const About: React.FC = () => {
           >
             <ArrowLeft size={20} />
             {fromNewsfeed ? "Back to Newsfeed" : "Back Home"}
+            
           </button>
           <h1 className="legal-page__title">About JOSCity</h1>
           <p className="legal-page__last-updated">

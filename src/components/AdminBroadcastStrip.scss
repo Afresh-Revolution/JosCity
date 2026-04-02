@@ -102,22 +102,23 @@
   background: rgba(239, 68, 68, 0.14);
 }
 
+// Second-highest stacking: below app chrome at 99999 (e.g. theme toggle), above modals ~10000
 .admin-broadcast-panel-overlay {
   position: fixed;
   inset: 0;
-  z-index: 10050;
+  z-index: 99998;
   background: rgba(15, 23, 42, 0.55);
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  padding: 0;
+  padding: 0.75rem 1rem;
+  box-sizing: border-box;
   animation: admin-broadcast-fade-in 0.2s ease;
 }
 
 @media (min-width: 640px) {
   .admin-broadcast-panel-overlay {
-    align-items: center;
-    padding: 1rem;
+    padding: 1rem 1.25rem;
   }
 }
 
@@ -133,32 +134,21 @@
 .admin-broadcast-panel {
   position: relative;
   width: 100%;
-  max-width: 520px;
+  max-width: min(520px, 100%);
+  margin: 0 auto;
   max-height: min(85vh, 640px);
   overflow-y: auto;
   background: var(--bg-secondary, #fff);
   color: var(--text-primary, #0f172a);
-  border-radius: 1rem 1rem 0 0;
-  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.2);
+  border-radius: 1rem;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
   padding: 1.35rem 1.25rem 1.5rem;
-  animation: admin-broadcast-slide-up 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: admin-broadcast-scale-in 0.25s ease;
 }
 
 @media (min-width: 640px) {
   .admin-broadcast-panel {
-    border-radius: 1rem;
-    animation: admin-broadcast-scale-in 0.25s ease;
-  }
-}
-
-@keyframes admin-broadcast-slide-up {
-  from {
-    transform: translateY(100%);
-    opacity: 0.85;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
+    box-shadow: 0 24px 56px rgba(0, 0, 0, 0.22);
   }
 }
 

@@ -319,7 +319,15 @@ const Footer: React.FC = () => {
             >
               2025
             </span>{" "}
-            JosCity Smart Services. All rights reserved. Developed by AfrESH
+            JosCity Smart Services. All rights reserved. Developed by{" "}
+            <a
+              href="https://afresh.center"
+              className="footer__link"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              AfrESH
+            </a>
           </p>
         </div>
       </div>

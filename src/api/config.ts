@@ -8,6 +8,17 @@ const API_BASE_URL: string =
   import.meta.env.VITE_BASE_URL ||
   "/api";
 
+/**
+ * Build an absolute API path. Ensures a single `/api` prefix so production envs like
+ * `https://example.com` (missing `/api`) still hit `https://example.com/api/...`.
+ */
+export function apiUrl(path: string): string {
+  const base = API_BASE_URL.replace(/\/+$/, "");
+  const withApi = base.endsWith("/api") ? base : `${base}/api`;
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return `${withApi}${p}`;
+}
+
 // Debug logging in development
 if (import.meta.env.DEV) {
   console.log("API Configuration:", {

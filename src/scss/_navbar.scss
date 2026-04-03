@@ -38,8 +38,8 @@
   box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.05),
     0 0 0 1px rgba(255, 255, 255, 0.1) inset;
   padding: 1rem 6rem;
-  width: calc(90% - 80px - 56px); // leave space for theme toggle (44px + 12px gap) on right
-  max-width: calc(1120px - 56px);
+  width: calc(90% - 80px - 56px - 6px); // leave space for theme toggle (44px + 12px gap) on right
+  max-width: calc(1120px - 56px - 6px);
   height: 80px;
   position: fixed;
   top: calc(1rem + 32px); // PWA offset adjusted 5px higher
@@ -466,7 +466,7 @@
       0 0 0 1px rgba(255, 255, 255, 0.1) inset;
     padding: 1rem 3rem;
     height: 70px;
-    width: calc(95% - 52px); // leave space for theme toggle (40px + 12px)
+    width: calc(95% - 52px - 6px); // leave space for theme toggle (40px + 12px)
     position: fixed;
     top: calc(1rem + 32px); // PWA offset adjusted 5px higher
     left: 50%;
@@ -524,7 +524,7 @@
     padding: 0.75rem 1.25rem;
     height: auto;
     min-height: 60px;
-    width: calc(100% - 2rem);
+    width: calc(100% - 2rem - 6px);
     max-width: 100%;
     position: fixed;
     top: calc(0.75rem + 32px); // PWA offset adjusted 5px higher
@@ -836,7 +836,7 @@
       0 0 0 1px rgba(255, 255, 255, 0.1) inset;
     padding: 0.65rem 1rem;
     min-height: 56px;
-    width: calc(100% - 1.5rem);
+    width: calc(100% - 1.5rem - 6px);
     position: fixed;
     top: calc(0.5rem + 32px); // PWA offset adjusted 5px higher
     left: 50%;
@@ -910,7 +910,7 @@
   @media screen and (max-width: 360px) {
     padding: 0.6rem 0.75rem;
     min-height: 52px;
-    width: calc(100% - 1rem);
+    width: calc(100% - 1rem - 6px);
     border-radius: 26px;
 
     &__logo-image {
@@ -1099,7 +1099,7 @@
       backdrop-filter: blur(10px) saturate(150%);
       box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1),
         0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-      width: 95%;
+      width: calc(95% - 6px);
       top: calc(1rem + 32px); // PWA offset adjusted 5px higher
       left: 50%;
       transform: translateX(-50%);
@@ -1114,7 +1114,7 @@
       backdrop-filter: blur(10px) saturate(150%);
       box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1),
         0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-      width: calc(100% - 2rem);
+      width: calc(100% - 2rem - 6px);
       top: calc(0.75rem + 32px); // PWA offset adjusted 5px higher
       left: 50%;
       transform: translateX(-50%);
@@ -1184,7 +1184,7 @@
       backdrop-filter: blur(10px) saturate(150%);
       box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1),
         0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-      width: calc(100% - 1.5rem);
+      width: calc(100% - 1.5rem - 6px);
       top: calc(0.5rem + 32px); // PWA offset adjusted 5px higher
       left: 50%;
       transform: translateX(-50%);

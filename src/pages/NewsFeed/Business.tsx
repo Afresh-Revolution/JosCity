@@ -15,17 +15,13 @@ import {
   MoreVertical,
   Paperclip,
   Smile,
-  Heart,
-  MessageSquare,
   UserCheck,
-  ThumbsUp,
+  UserX,
   CheckCircle,
   Trash2,
   Image,
   Video,
   User,
-  Calendar,
-  Hash,
 } from "lucide-react";
 import primaryLogo from "../../image/primary-logo.png";
 import LazyImage from "../../components/LazyImage";
@@ -39,7 +35,15 @@ import SuggestedBusinesses from "./SuggestedBusinesses";
 import {
   getProfileUsername,
   getUserName,
+  isAuthenticated,
 } from "../../utils/userUtils";
+import { feedApi } from "../../services/feedApi";
+import {
+  type FeedPanelNotification,
+  mapApiRowToFeedPanelNotification,
+  getFeedPanelNotificationIcon,
+  getFeedPanelNotificationColor,
+} from "../../utils/feedPanelNotifications";
 import { addFriend } from "../../utils/friendUtils";
 import { friendApi } from "../../services/friendApi";
 import {
@@ -100,28 +104,6 @@ interface ChatConversation {
   messages: ChatMessage[];
 }
 
-// Notification interface
-interface Notification {
-  id: number;
-  type:
-    | "like"
-    | "comment"
-    | "friend_request"
-    | "mention"
-    | "share"
-    | "event"
-    | "message";
-  userId: number;
-  userName: string;
-  userAvatar: string;
-  message: string;
-  timestamp: string;
-  isRead: boolean;
-  relatedPostId?: number;
-  relatedEventId?: number;
-  relatedChatId?: number;
-}
-
 const Business: React.FC = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
@@ -156,7 +138,9 @@ const Business: React.FC = () => {
 
   // Notifications state
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<FeedPanelNotification[]>(
+    []
+  );
   const [friendsList, setFriendsList] = useState<number[]>([]); // List of user IDs that are following the current user
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
@@ -304,76 +288,99 @@ const Business: React.FC = () => {
     }
   };
 
-  // Calculate unread notifications count
+  const fetchNotifications = useCallback(async () => {
+    if (!isAuthenticated()) return;
+    try {
+      const res = await feedApi.getNotifications();
+      if (res.success && Array.isArray(res.data)) {
+        setNotifications(
+          res.data.map((n) => mapApiRowToFeedPanelNotification(n as never))
+        );
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
   const unreadNotificationsCount = notifications.filter(
     (n) => !n.isRead
   ).length;
 
-  // Mark notification as read
   const markNotificationAsRead = (notificationId: number) => {
     setNotifications((prev) =>
       prev.map((notif) =>
         notif.id === notificationId ? { ...notif, isRead: true } : notif
       )
     );
+    feedApi.markNotificationRead(notificationId).catch(() => {});
   };
 
-  // Mark all notifications as read
-  const markAllAsRead = () => {
-    setNotifications((prev) =>
-      prev.map((notif) => ({ ...notif, isRead: true }))
-    );
-  };
-
-  // Clear all notifications
-  const clearAllNotifications = () => {
-    setNotifications([]);
-  };
-
-  // Delete notification
-  const deleteNotification = (notificationId: number) => {
-    setNotifications((prev) =>
-      prev.filter((notif) => notif.id !== notificationId)
-    );
-  };
-
-  // Get notification icon based on type
-  const getNotificationIcon = (type: Notification["type"]) => {
-    switch (type) {
-      case "like":
-        return <Heart size={20} />;
-      case "comment":
-        return <MessageSquare size={20} />;
-      case "friend_request":
-        return <UserCheck size={20} />;
-      case "mention":
-        return <Hash size={20} />;
-      case "share":
-        return <ThumbsUp size={20} />;
-      case "event":
-        return <Calendar size={20} />;
-      default:
-        return <Bell size={20} />;
+  const markAllAsRead = async () => {
+    try {
+      const res = await feedApi.markAllNotificationsRead();
+      if (res.success) {
+        setNotifications((prev) =>
+          prev.map((notif) => ({ ...notif, isRead: true }))
+        );
+      }
+    } catch {
+      await fetchNotifications();
     }
   };
 
-  // Get notification color based on type
-  const getNotificationColor = (type: Notification["type"]) => {
-    switch (type) {
-      case "like":
-        return "#e91e63";
-      case "comment":
-        return "#2196f3";
-      case "friend_request":
-        return "#4caf50";
-      case "mention":
-        return "#ff9800";
-      case "share":
-        return "#9c27b0";
-      case "event":
-        return "#00bcd4";
-      default:
-        return "#666";
+  const deleteAllNotificationsForUser = async () => {
+    try {
+      const res = await feedApi.deleteAllNotifications();
+      if (res.success) setNotifications([]);
+    } catch {
+      await fetchNotifications();
+    }
+  };
+
+  const deleteNotification = async (notificationId: number) => {
+    try {
+      const res = await feedApi.deleteNotificationById(notificationId);
+      if (res.success) {
+        setNotifications((prev) =>
+          prev.filter((notif) => notif.id !== notificationId)
+        );
+      }
+    } catch {
+      await fetchNotifications();
+    }
+  };
+
+  const acceptFriendFromNotification = async (
+    e: React.MouseEvent,
+    n: FeedPanelNotification
+  ) => {
+    e.stopPropagation();
+    if (n.relatedFriendRequestId == null) return;
+    try {
+      const res = await feedApi.acceptFriendRequest(n.relatedFriendRequestId);
+      if (res.success) await fetchNotifications();
+    } catch {
+      await fetchNotifications();
+    }
+  };
+
+  const rejectFriendFromNotification = async (
+    e: React.MouseEvent,
+    n: FeedPanelNotification
+  ) => {
+    e.stopPropagation();
+    if (n.relatedFriendRequestId == null) return;
+    try {
+      const res = await feedApi.rejectFriendRequest(n.relatedFriendRequestId);
+      if (res.success) await fetchNotifications();
+    } catch {
+      await fetchNotifications();
     }
   };
 
@@ -397,19 +404,6 @@ const Business: React.FC = () => {
   // Request notification permission on mount
   useEffect(() => {
     requestNotificationPermission();
-  }, []);
-
-  // Clear any mock or persisted notifications on mount
-  useEffect(() => {
-    // Ensure notifications start empty
-    setNotifications([]);
-    // Clear any notifications from localStorage if they exist
-    try {
-      localStorage.removeItem("notifications");
-      localStorage.removeItem("businessNotifications");
-    } catch (error) {
-      // Ignore localStorage errors
-    }
   }, []);
 
   // Get current user ID and load friends list
@@ -470,7 +464,7 @@ const Business: React.FC = () => {
       // 1. It's the current user's post
       // 2. The liker is following the current user (is in friends list)
       if (isMyPost(postOwnerName) && likerId && friendsList.includes(likerId)) {
-        const newNotification: Notification = {
+        const newNotification: FeedPanelNotification = {
           id: Date.now(),
           type: "like",
           userId: likerId,
@@ -528,7 +522,7 @@ const Business: React.FC = () => {
           ? `commented: "${commentText}"`
           : "commented on your post";
 
-        const newNotification: Notification = {
+        const newNotification: FeedPanelNotification = {
           id: Date.now(),
           type: "comment",
           userId: commenterId,
@@ -588,7 +582,7 @@ const Business: React.FC = () => {
       loadFriendsList();
 
       // Create notification for friend request acceptance
-      const newNotification: Notification = {
+      const newNotification: FeedPanelNotification = {
         id: Date.now(),
         type: "friend_request",
         userId: friendId,
@@ -667,7 +661,7 @@ const Business: React.FC = () => {
                 ? lastMessage.text
                 : "sent you a message";
 
-              const newNotification: Notification = {
+              const newNotification: FeedPanelNotification = {
                 id: Date.now(),
                 type: "message",
                 userId: chat.userId,
@@ -1609,7 +1603,7 @@ const Business: React.FC = () => {
                 {unreadNotificationsCount > 0 && (
                   <button
                     className="newsfeed-notification-panel__action-btn"
-                    onClick={markAllAsRead}
+                    onClick={() => void markAllAsRead()}
                     title="Mark all as read"
                   >
                     <CheckCircle size={18} />
@@ -1618,7 +1612,7 @@ const Business: React.FC = () => {
                 {notifications.length > 0 && (
                   <button
                     className="newsfeed-notification-panel__action-btn"
-                    onClick={clearAllNotifications}
+                    onClick={() => void deleteAllNotificationsForUser()}
                     title="Clear all"
                   >
                     <Trash2 size={18} />
@@ -1650,18 +1644,18 @@ const Business: React.FC = () => {
                       <div
                         className="newsfeed-notification-panel__icon-wrapper"
                         style={{
-                          backgroundColor: `${getNotificationColor(
-                            notification.type
+                          backgroundColor: `${getFeedPanelNotificationColor(
+                            notification
                           )}20`,
                         }}
                       >
                         <div
                           className="newsfeed-notification-panel__icon"
                           style={{
-                            color: getNotificationColor(notification.type),
+                            color: getFeedPanelNotificationColor(notification),
                           }}
                         >
-                          {getNotificationIcon(notification.type)}
+                          {getFeedPanelNotificationIcon(notification)}
                         </div>
                       </div>
                       <div className="newsfeed-notification-panel__content-wrapper">
@@ -1683,6 +1677,39 @@ const Business: React.FC = () => {
                             <span className="newsfeed-notification-panel__timestamp">
                               {notification.timestamp}
                             </span>
+                            {notification.type === "friend_request" &&
+                              notification.relatedFriendRequestId != null && (
+                                <div className="newsfeed-notification-panel__friend-actions">
+                                  <button
+                                    type="button"
+                                    className="newsfeed-notification-panel__friend-action-btn newsfeed-notification-panel__friend-action-btn--accept"
+                                    title="Accept friend request"
+                                    aria-label="Accept friend request"
+                                    onClick={(e) =>
+                                      void acceptFriendFromNotification(
+                                        e,
+                                        notification
+                                      )
+                                    }
+                                  >
+                                    <UserCheck size={18} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="newsfeed-notification-panel__friend-action-btn newsfeed-notification-panel__friend-action-btn--reject"
+                                    title="Decline friend request"
+                                    aria-label="Decline friend request"
+                                    onClick={(e) =>
+                                      void rejectFriendFromNotification(
+                                        e,
+                                        notification
+                                      )
+                                    }
+                                  >
+                                    <UserX size={18} />
+                                  </button>
+                                </div>
+                              )}
                           </div>
                         </div>
                         {!notification.isRead && (
@@ -1693,7 +1720,7 @@ const Business: React.FC = () => {
                         className="newsfeed-notification-panel__delete-btn"
                         onClick={(e) => {
                           e.stopPropagation();
-                          deleteNotification(notification.id);
+                          void deleteNotification(notification.id);
                         }}
                         aria-label="Delete notification"
                         title="Delete"

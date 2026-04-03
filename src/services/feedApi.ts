@@ -873,6 +873,24 @@ export const feedApi = {
     }) as Promise<{ success: boolean }>;
   },
 
+  /** Delete every notification row for the current user (to_user_id = self). */
+  deleteAllNotifications: async (): Promise<{
+    success: boolean;
+    deleted?: number;
+  }> => {
+    return apiRequest("/notifications/all", {
+      method: "DELETE",
+    }) as Promise<{ success: boolean; deleted?: number }>;
+  },
+
+  deleteNotificationById: async (
+    notificationId: number
+  ): Promise<{ success: boolean }> => {
+    return apiRequest(`/notifications/${notificationId}`, {
+      method: "DELETE",
+    }) as Promise<{ success: boolean }>;
+  },
+
   // ========== Friends ==========
   getMyFriends: async (): Promise<{
     success: boolean;

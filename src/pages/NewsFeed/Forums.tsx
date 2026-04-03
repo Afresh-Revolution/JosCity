@@ -13,14 +13,12 @@ import {
   Users,
   Calendar,
   Search,
-  Hash,
   Send,
   Paperclip,
   Smile,
-  Heart,
   MessageSquare,
   UserCheck,
-  ThumbsUp,
+  UserX,
   CheckCircle,
   Trash2,
   Image,
@@ -30,7 +28,6 @@ import {
   Shield,
   ArrowLeft,
   MoreVertical,
-  UserX,
 } from "lucide-react";
 import ConfirmationModal from "../../components/ConfirmationModal";
 
@@ -39,7 +36,19 @@ import "../../main.css";
 import LazyImage from "../../components/LazyImage";
 import Avatar from "../../components/Avatar";
 import EmojiPicker from "../../components/EmojiPicker";
-import { getProfileUsername, getUserName, getUserAvatar } from "../../utils/userUtils";
+import {
+  getProfileUsername,
+  getUserName,
+  getUserAvatar,
+  isAuthenticated,
+} from "../../utils/userUtils";
+import { feedApi } from "../../services/feedApi";
+import {
+  type FeedPanelNotification,
+  mapApiRowToFeedPanelNotification,
+  getFeedPanelNotificationIcon,
+  getFeedPanelNotificationColor,
+} from "../../utils/feedPanelNotifications";
 import CreateForumModal from "./CreateForumModal";
 import FindFriendsModal from "../../components/FindFriendsModal";
 import "../../scss/_emojipicker.scss";
@@ -562,29 +571,31 @@ const Forums: React.FC = () => {
     ChatConversation[]
   >([]);
 
-  // Mock notifications
-  interface Notification {
-    id: number;
-    type:
-      | "like"
-      | "comment"
-      | "friend_request"
-      | "mention"
-      | "share"
-      | "event"
-      | "message";
-    userId: number;
-    userName: string;
-    userAvatar: string;
-    message: string;
-    timestamp: string;
-    isRead: boolean;
-    relatedPostId?: number;
-    relatedEventId?: number;
-    relatedChatId?: number;
-  }
+  const [notifications, setNotifications] = useState<FeedPanelNotification[]>(
+    []
+  );
 
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const fetchNotifications = useCallback(async () => {
+    if (!isAuthenticated()) return;
+    try {
+      const res = await feedApi.getNotifications();
+      if (res.success && Array.isArray(res.data)) {
+        setNotifications(
+          res.data.map((n) =>
+            mapApiRowToFeedPanelNotification(n as never)
+          )
+        );
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
 
   const unreadNotificationsCount = notifications.filter(
     (n) => !n.isRead
@@ -596,59 +607,69 @@ const Forums: React.FC = () => {
         notif.id === notificationId ? { ...notif, isRead: true } : notif
       )
     );
+    feedApi.markNotificationRead(notificationId).catch(() => {});
   };
 
-  const markAllAsRead = () => {
-    setNotifications((prev) =>
-      prev.map((notif) => ({ ...notif, isRead: true }))
-    );
-  };
-
-  const clearAllNotifications = () => {
-    setNotifications([]);
-  };
-
-  const deleteNotification = (notificationId: number) => {
-    setNotifications((prev) =>
-      prev.filter((notif) => notif.id !== notificationId)
-    );
-  };
-
-  const getNotificationIcon = (type: Notification["type"]) => {
-    switch (type) {
-      case "like":
-        return <Heart size={20} />;
-      case "comment":
-        return <MessageSquare size={20} />;
-      case "friend_request":
-        return <UserCheck size={20} />;
-      case "mention":
-        return <Hash size={20} />;
-      case "share":
-        return <ThumbsUp size={20} />;
-      case "event":
-        return <Calendar size={20} />;
-      default:
-        return <Bell size={20} />;
+  const markAllAsRead = async () => {
+    try {
+      const res = await feedApi.markAllNotificationsRead();
+      if (res.success) {
+        setNotifications((prev) =>
+          prev.map((notif) => ({ ...notif, isRead: true }))
+        );
+      }
+    } catch {
+      await fetchNotifications();
     }
   };
 
-  const getNotificationColor = (type: Notification["type"]) => {
-    switch (type) {
-      case "like":
-        return "#e91e63";
-      case "comment":
-        return "#2196f3";
-      case "friend_request":
-        return "#4caf50";
-      case "mention":
-        return "#ff9800";
-      case "share":
-        return "#9c27b0";
-      case "event":
-        return "#00bcd4";
-      default:
-        return "#666";
+  const deleteAllNotificationsForUser = async () => {
+    try {
+      const res = await feedApi.deleteAllNotifications();
+      if (res.success) setNotifications([]);
+    } catch {
+      await fetchNotifications();
+    }
+  };
+
+  const deleteNotification = async (notificationId: number) => {
+    try {
+      const res = await feedApi.deleteNotificationById(notificationId);
+      if (res.success) {
+        setNotifications((prev) =>
+          prev.filter((notif) => notif.id !== notificationId)
+        );
+      }
+    } catch {
+      await fetchNotifications();
+    }
+  };
+
+  const acceptFriendFromNotification = async (
+    e: React.MouseEvent,
+    n: FeedPanelNotification
+  ) => {
+    e.stopPropagation();
+    if (n.relatedFriendRequestId == null) return;
+    try {
+      const res = await feedApi.acceptFriendRequest(n.relatedFriendRequestId);
+      if (res.success) await fetchNotifications();
+    } catch {
+      await fetchNotifications();
+    }
+  };
+
+  const rejectFriendFromNotification = async (
+    e: React.MouseEvent,
+    n: FeedPanelNotification
+  ) => {
+    e.stopPropagation();
+    if (n.relatedFriendRequestId == null) return;
+    try {
+      const res = await feedApi.rejectFriendRequest(n.relatedFriendRequestId);
+      if (res.success) await fetchNotifications();
+    } catch {
+      await fetchNotifications();
     }
   };
 
@@ -2353,7 +2374,7 @@ const Forums: React.FC = () => {
                 {unreadNotificationsCount > 0 && (
                   <button
                     className="newsfeed-notification-panel__action-btn"
-                    onClick={markAllAsRead}
+                    onClick={() => void markAllAsRead()}
                     title="Mark all as read"
                   >
                     <CheckCircle size={18} />
@@ -2362,7 +2383,7 @@ const Forums: React.FC = () => {
                 {notifications.length > 0 && (
                   <button
                     className="newsfeed-notification-panel__action-btn"
-                    onClick={clearAllNotifications}
+                    onClick={() => void deleteAllNotificationsForUser()}
                     title="Clear all"
                   >
                     <Trash2 size={18} />
@@ -2394,18 +2415,18 @@ const Forums: React.FC = () => {
                       <div
                         className="newsfeed-notification-panel__icon-wrapper"
                         style={{
-                          backgroundColor: `${getNotificationColor(
-                            notification.type
+                          backgroundColor: `${getFeedPanelNotificationColor(
+                            notification
                           )}20`,
                         }}
                       >
                         <div
                           className="newsfeed-notification-panel__icon"
                           style={{
-                            color: getNotificationColor(notification.type),
+                            color: getFeedPanelNotificationColor(notification),
                           }}
                         >
-                          {getNotificationIcon(notification.type)}
+                          {getFeedPanelNotificationIcon(notification)}
                         </div>
                       </div>
                       <div className="newsfeed-notification-panel__content-wrapper">
@@ -2427,6 +2448,39 @@ const Forums: React.FC = () => {
                             <span className="newsfeed-notification-panel__timestamp">
                               {notification.timestamp}
                             </span>
+                            {notification.type === "friend_request" &&
+                              notification.relatedFriendRequestId != null && (
+                                <div className="newsfeed-notification-panel__friend-actions">
+                                  <button
+                                    type="button"
+                                    className="newsfeed-notification-panel__friend-action-btn newsfeed-notification-panel__friend-action-btn--accept"
+                                    title="Accept friend request"
+                                    aria-label="Accept friend request"
+                                    onClick={(e) =>
+                                      void acceptFriendFromNotification(
+                                        e,
+                                        notification
+                                      )
+                                    }
+                                  >
+                                    <UserCheck size={18} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="newsfeed-notification-panel__friend-action-btn newsfeed-notification-panel__friend-action-btn--reject"
+                                    title="Decline friend request"
+                                    aria-label="Decline friend request"
+                                    onClick={(e) =>
+                                      void rejectFriendFromNotification(
+                                        e,
+                                        notification
+                                      )
+                                    }
+                                  >
+                                    <UserX size={18} />
+                                  </button>
+                                </div>
+                              )}
                           </div>
                         </div>
                         {!notification.isRead && (
@@ -2437,7 +2491,7 @@ const Forums: React.FC = () => {
                         className="newsfeed-notification-panel__delete-btn"
                         onClick={(e) => {
                           e.stopPropagation();
-                          deleteNotification(notification.id);
+                          void deleteNotification(notification.id);
                         }}
                         aria-label="Delete notification"
                         title="Delete"

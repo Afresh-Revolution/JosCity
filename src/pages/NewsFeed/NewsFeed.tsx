@@ -11,20 +11,12 @@ import {
   Search,
   Hash,
   User,
-  Heart,
-  MessageSquare,
   UserCheck,
-  ThumbsUp,
+  UserX,
   CheckCircle,
   Trash2,
   Bell,
-  MessageCircle,
-  Calendar,
-  AlertTriangle,
-  AlertOctagon,
   FileText,
-  Info,
-  CheckCircle2,
 } from "lucide-react";
 import NewsFeedSidebar from "./NewsFeedSidebar";
 import NewsFeedHeader from "./NewsFeedHeader";
@@ -64,6 +56,12 @@ import AdminBroadcastStrip, {
   type AdminBroadcastItem,
   normalizeAdminBroadcastType,
 } from "../../components/AdminBroadcastStrip";
+import {
+  type FeedPanelNotification,
+  mapApiRowToFeedPanelNotification,
+  getFeedPanelNotificationIcon,
+  getFeedPanelNotificationColor,
+} from "../../utils/feedPanelNotifications";
 
 interface SearchResult {
   type: "person" | "hashtag" | "post";
@@ -904,35 +902,9 @@ const NewsFeed: React.FC = () => {
   // Use API trending hashtags; fallback to local calculation if API returns none
   const trending = trendingHashtags.length > 0 ? trendingHashtags : calculateTrendingHashtags();
 
-  // Mock notifications
-  interface Notification {
-    id: number;
-    type:
-      | "like"
-      | "comment"
-      | "friend_request"
-      | "mention"
-      | "share"
-      | "event"
-      | "message"
-      | "danger";
-    nodeType?: string;
-    createdByAdmin?: boolean;
-    notificationType?: string;
-    title?: string | null;
-    expiresAt?: string | null;
-    userId: number;
-    userName: string;
-    userAvatar: string;
-    message: string;
-    timestamp: string;
-    isRead: boolean;
-    relatedPostId?: number;
-    relatedEventId?: number;
-    relatedChatId?: number;
-  }
-
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<FeedPanelNotification[]>(
+    []
+  );
   const prevUnreadCountRef = useRef(0);
 
   // Fetch notifications from API and poll for new ones (comment/reaction)
@@ -941,62 +913,11 @@ const NewsFeed: React.FC = () => {
     try {
       const res = await feedApi.getNotifications();
       if (res.success && Array.isArray(res.data)) {
-        const mapped: Notification[] = res.data.map((n) => {
-          const item = n as {
-            id: number;
-            from_user_id?: number;
-            action?: string;
-            message?: string;
-            notification_type?: string;
-            title?: string | null;
-            node_type?: string;
-            node_id?: number;
-            time?: string;
-            is_read?: boolean;
-            is_global?: boolean;
-            created_by_admin?: boolean;
-            expires_at?: string | null;
-            from_user?: { display_name?: string; profile_image_url?: string };
-          };
-          const isAdminBroadcast =
-            item.node_type === "admin_notification" ||
-            !!item.created_by_admin;
-          const rawType = String(item.notification_type || "normal").toLowerCase();
-          const typeForFeed: Notification["type"] = isAdminBroadcast
-            ? rawType === "danger"
-              ? "danger"
-              : "mention"
-            : item.notification_type === "danger"
-              ? "danger"
-              : n.action?.toLowerCase().includes("like") ||
-                  n.action?.toLowerCase().includes("react")
-                ? "like"
-                : n.action?.toLowerCase().includes("comment")
-                  ? "comment"
-                  : n.action?.toLowerCase().includes("friend_request")
-                    ? "friend_request"
-                    : n.action?.toLowerCase().includes("share")
-                      ? "share"
-                      : "mention";
-          return {
-            id: n.id,
-            type: typeForFeed,
-            nodeType: item.node_type,
-            createdByAdmin: !!item.created_by_admin,
-            notificationType: item.notification_type || "normal",
-            title: item.title ?? null,
-            expiresAt: item.expires_at ?? null,
-            userId: n.from_user_id ?? 0,
-            userName:
-              n.from_user?.display_name ??
-              (item.is_global || isAdminBroadcast ? "Admin" : "Someone"),
-            userAvatar: n.from_user?.profile_image_url ?? "",
-            message: item.message || n.action || "",
-            timestamp: n.time ?? "",
-            isRead: !!n.is_read,
-            relatedPostId: n.node_type === "post" ? n.node_id : undefined,
-          };
-        });
+        const mapped: FeedPanelNotification[] = res.data.map((n) =>
+          mapApiRowToFeedPanelNotification(
+            n as unknown as Parameters<typeof mapApiRowToFeedPanelNotification>[0]
+          )
+        );
         setNotifications((prev) => {
           const prevUnread = prev.filter((x) => !x.isRead).length;
           const newUnread = mapped.filter((x) => !x.isRead).length;
@@ -1033,101 +954,68 @@ const NewsFeed: React.FC = () => {
     feedApi.markNotificationRead(notificationId).catch(() => {});
   };
 
-  // Mark all notifications as read
-  const markAllAsRead = () => {
-    setNotifications((prev) =>
-      prev.map((notif) => ({ ...notif, isRead: true }))
-    );
-    feedApi.markAllNotificationsRead().catch(() => {});
-  };
-
-  // Clear all notifications
-  const clearAllNotifications = () => {
-    setNotifications([]);
-  };
-
-  // Delete notification
-  const deleteNotification = (notificationId: number) => {
-    setNotifications((prev) =>
-      prev.filter((notif) => notif.id !== notificationId)
-    );
-  };
-
-  // Get notification icon based on type (admin broadcasts use notificationType)
-  const getNotificationIcon = (n: Notification) => {
-    if (n.nodeType === "admin_notification" || n.createdByAdmin) {
-      const t = normalizeAdminBroadcastType(n.notificationType);
-      switch (t) {
-        case "info":
-          return <Info size={20} />;
-        case "success":
-          return <CheckCircle2 size={20} />;
-        case "warning":
-          return <AlertTriangle size={20} />;
-        case "danger":
-          return <AlertOctagon size={20} />;
-        default:
-          return <Bell size={20} />;
+  const markAllAsRead = async () => {
+    try {
+      const res = await feedApi.markAllNotificationsRead();
+      if (res.success) {
+        setNotifications((prev) =>
+          prev.map((notif) => ({ ...notif, isRead: true }))
+        );
       }
-    }
-    switch (n.type) {
-      case "like":
-        return <Heart size={20} />;
-      case "comment":
-        return <MessageSquare size={20} />;
-      case "message":
-        return <MessageCircle size={20} />;
-      case "friend_request":
-        return <UserCheck size={20} />;
-      case "mention":
-        return <Hash size={20} />;
-      case "share":
-        return <ThumbsUp size={20} />;
-      case "event":
-        return <Calendar size={20} />;
-      case "danger":
-        return <AlertTriangle size={20} />;
-      default:
-        return <Bell size={20} />;
+    } catch {
+      await fetchNotifications();
     }
   };
 
-  // Get notification color based on type
-  const getNotificationColor = (n: Notification) => {
-    if (n.nodeType === "admin_notification" || n.createdByAdmin) {
-      const t = normalizeAdminBroadcastType(n.notificationType);
-      switch (t) {
-        case "info":
-          return "#0288d1";
-        case "success":
-          return "#2e7d32";
-        case "warning":
-          return "#f57c00";
-        case "danger":
-          return "#c62828";
-        default:
-          return "#5c6bc0";
+  const deleteAllNotificationsForUser = async () => {
+    try {
+      const res = await feedApi.deleteAllNotifications();
+      if (res.success) {
+        setNotifications([]);
       }
+    } catch {
+      await fetchNotifications();
     }
-    switch (n.type) {
-      case "like":
-        return "#e91e63";
-      case "comment":
-        return "#2196f3";
-      case "message":
-        return "#10b981";
-      case "friend_request":
-        return "#4caf50";
-      case "mention":
-        return "#ff9800";
-      case "share":
-        return "#9c27b0";
-      case "event":
-        return "#00bcd4";
-      case "danger":
-        return "#d32f2f";
-      default:
-        return "#666";
+  };
+
+  const deleteNotification = async (notificationId: number) => {
+    try {
+      const res = await feedApi.deleteNotificationById(notificationId);
+      if (res.success) {
+        setNotifications((prev) =>
+          prev.filter((notif) => notif.id !== notificationId)
+        );
+      }
+    } catch {
+      await fetchNotifications();
+    }
+  };
+
+  const acceptFriendFromNotification = async (
+    e: React.MouseEvent,
+    n: FeedPanelNotification
+  ) => {
+    e.stopPropagation();
+    if (n.relatedFriendRequestId == null) return;
+    try {
+      const res = await feedApi.acceptFriendRequest(n.relatedFriendRequestId);
+      if (res.success) await fetchNotifications();
+    } catch {
+      await fetchNotifications();
+    }
+  };
+
+  const rejectFriendFromNotification = async (
+    e: React.MouseEvent,
+    n: FeedPanelNotification
+  ) => {
+    e.stopPropagation();
+    if (n.relatedFriendRequestId == null) return;
+    try {
+      const res = await feedApi.rejectFriendRequest(n.relatedFriendRequestId);
+      if (res.success) await fetchNotifications();
+    } catch {
+      await fetchNotifications();
     }
   };
 
@@ -1185,11 +1073,11 @@ const NewsFeed: React.FC = () => {
       if (data.event === "updated") {
         setNotifications((prev) => {
           const raw = String(data.notification_type || "normal").toLowerCase();
-          const typeForFeed: Notification["type"] =
+          const typeForFeed: FeedPanelNotification["type"] =
             raw === "danger" ? "danger" : "mention";
           const idx = prev.findIndex((n) => n.id === adminNid);
           if (idx === -1) {
-            const created: Notification = {
+            const created: FeedPanelNotification = {
               id: adminNid,
               type: typeForFeed,
               nodeType: "admin_notification",
@@ -1229,7 +1117,7 @@ const NewsFeed: React.FC = () => {
       }
 
       const raw = String(data.notification_type || "normal").toLowerCase();
-      const next: Notification = {
+      const next: FeedPanelNotification = {
         id: adminNid,
         type: raw === "danger" ? "danger" : "mention",
         nodeType: "admin_notification",
@@ -1347,7 +1235,7 @@ const NewsFeed: React.FC = () => {
           return prev;
         }
 
-        const nextNotification: Notification = {
+        const nextNotification: FeedPanelNotification = {
           id: Date.now(),
           type: "message",
           userId: payload.userId,
@@ -1678,12 +1566,6 @@ const NewsFeed: React.FC = () => {
               </div>
             )}
           </div>
-          {adminBroadcastItems.length > 0 && (
-            <AdminBroadcastStrip
-              variant="dashboard"
-              items={adminBroadcastItems}
-            />
-          )}
           <StoriesSection
             userName={userName}
             userAvatar={getUserAvatar()}
@@ -1719,6 +1601,13 @@ const NewsFeed: React.FC = () => {
                   ×
                 </button>
               </div>
+            )}
+            {adminBroadcastItems.length > 0 && (
+              <AdminBroadcastStrip
+                variant="dashboard"
+                items={adminBroadcastItems}
+                className="admin-broadcast-strip--newsfeed-composer"
+              />
             )}
           </div>
 
@@ -1937,7 +1826,7 @@ const NewsFeed: React.FC = () => {
                 {unreadNotificationsCount > 0 && (
                   <button
                     className="newsfeed-notification-panel__action-btn"
-                    onClick={markAllAsRead}
+                    onClick={() => void markAllAsRead()}
                     title="Mark all as read"
                   >
                     <CheckCircle size={18} />
@@ -1946,7 +1835,7 @@ const NewsFeed: React.FC = () => {
                 {notifications.length > 0 && (
                   <button
                     className="newsfeed-notification-panel__action-btn"
-                    onClick={clearAllNotifications}
+                    onClick={() => void deleteAllNotificationsForUser()}
                     title="Clear all"
                   >
                     <Trash2 size={18} />
@@ -1987,7 +1876,7 @@ const NewsFeed: React.FC = () => {
                       <div
                         className="newsfeed-notification-panel__icon-wrapper"
                         style={{
-                          backgroundColor: `${getNotificationColor(
+                          backgroundColor: `${getFeedPanelNotificationColor(
                             notification
                           )}20`,
                         }}
@@ -1995,10 +1884,10 @@ const NewsFeed: React.FC = () => {
                         <div
                           className="newsfeed-notification-panel__icon"
                           style={{
-                            color: getNotificationColor(notification),
+                            color: getFeedPanelNotificationColor(notification),
                           }}
                         >
-                          {getNotificationIcon(notification)}
+                          {getFeedPanelNotificationIcon(notification)}
                         </div>
                       </div>
                       <div className="newsfeed-notification-panel__content-wrapper">
@@ -2020,6 +1909,39 @@ const NewsFeed: React.FC = () => {
                             <span className="newsfeed-notification-panel__timestamp">
                               {notification.timestamp}
                             </span>
+                            {notification.type === "friend_request" &&
+                              notification.relatedFriendRequestId != null && (
+                                <div className="newsfeed-notification-panel__friend-actions">
+                                  <button
+                                    type="button"
+                                    className="newsfeed-notification-panel__friend-action-btn newsfeed-notification-panel__friend-action-btn--accept"
+                                    title="Accept friend request"
+                                    aria-label="Accept friend request"
+                                    onClick={(e) =>
+                                      void acceptFriendFromNotification(
+                                        e,
+                                        notification
+                                      )
+                                    }
+                                  >
+                                    <UserCheck size={18} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="newsfeed-notification-panel__friend-action-btn newsfeed-notification-panel__friend-action-btn--reject"
+                                    title="Decline friend request"
+                                    aria-label="Decline friend request"
+                                    onClick={(e) =>
+                                      void rejectFriendFromNotification(
+                                        e,
+                                        notification
+                                      )
+                                    }
+                                  >
+                                    <UserX size={18} />
+                                  </button>
+                                </div>
+                              )}
                           </div>
                         </div>
                         {!notification.isRead && (
@@ -2030,7 +1952,7 @@ const NewsFeed: React.FC = () => {
                         className="newsfeed-notification-panel__delete-btn"
                         onClick={(e) => {
                           e.stopPropagation();
-                          deleteNotification(notification.id);
+                          void deleteNotification(notification.id);
                         }}
                         aria-label="Delete notification"
                         title="Delete"

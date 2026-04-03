@@ -14,12 +14,12 @@
     grid-template-columns: 260px minmax(0, 1fr);
     gap: 24px;
     align-items: stretch;
-    padding-top: 146px;
+    padding-top: 66px;
 
     @media (max-width: 992px) {
       grid-template-columns: 1fr;
       gap: 16px;
-      padding-top: 112px;
+      padding-top: 32px;
     }
   }
 

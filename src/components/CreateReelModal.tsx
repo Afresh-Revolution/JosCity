@@ -16,6 +16,99 @@ interface CreateReelModalProps {
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
 const MAX_THUMBNAIL_SIZE = 5 * 1024 * 1024;
 
+const generateThumbnailFromVideo = async (videoFile: File): Promise<File | null> =>
+  new Promise((resolve) => {
+    const video = document.createElement("video");
+    const objectUrl = URL.createObjectURL(videoFile);
+    let settled = false;
+
+    const cleanup = () => {
+      URL.revokeObjectURL(objectUrl);
+      video.removeAttribute("src");
+      video.load();
+    };
+
+    const finish = (file: File | null) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      cleanup();
+      resolve(file);
+    };
+
+    const captureFrame = () => {
+      const width = video.videoWidth || 720;
+      const height = video.videoHeight || 1280;
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const context = canvas.getContext("2d");
+      if (!context) {
+        finish(null);
+        return;
+      }
+
+      context.drawImage(video, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            finish(null);
+            return;
+          }
+
+          finish(
+            new File([blob], `${videoFile.name.replace(/\.[^.]+$/, "")}-thumb.jpg`, {
+              type: "image/jpeg",
+            })
+          );
+        },
+        "image/jpeg",
+        0.88
+      );
+    };
+
+    video.preload = "auto";
+    video.muted = true;
+    video.playsInline = true;
+
+    video.addEventListener(
+      "loadedmetadata",
+      () => {
+        const duration = Number.isFinite(video.duration) ? video.duration : 0;
+        const targetTime =
+          duration > 0
+            ? Math.min(Math.max(duration * 0.18, 0.2), Math.max(duration - 0.15, 0.2))
+            : 0.2;
+
+        if (targetTime <= 0) {
+          captureFrame();
+          return;
+        }
+
+        try {
+          video.currentTime = targetTime;
+        } catch {
+          captureFrame();
+        }
+      },
+      { once: true }
+    );
+
+    video.addEventListener("seeked", captureFrame, { once: true });
+    video.addEventListener(
+      "error",
+      () => {
+        finish(null);
+      },
+      { once: true }
+    );
+
+    video.src = objectUrl;
+  });
+
 const CreateReelModal: React.FC<CreateReelModalProps> = ({
   isOpen,
   onClose,
@@ -157,12 +250,15 @@ const CreateReelModal: React.FC<CreateReelModalProps> = ({
     setError(null);
 
     try {
+      const resolvedThumbnail =
+        thumbnailFile || (await generateThumbnailFromVideo(videoFile));
+
       const createdReel = await reelsApi.createReel({
         title,
         caption,
         category,
         video: videoFile,
-        thumbnail: thumbnailFile,
+        thumbnail: resolvedThumbnail,
       });
 
       onCreated?.(createdReel);

@@ -230,6 +230,29 @@ const Reels: React.FC = () => {
     [videos]
   );
 
+  const handleGridVideoPreviewReady = useCallback(
+    (event: React.SyntheticEvent<HTMLVideoElement>) => {
+      const element = event.currentTarget;
+      if (element.dataset.previewReady === "true") {
+        return;
+      }
+
+      const duration = Number.isFinite(element.duration) ? element.duration : 0;
+      const previewTime =
+        duration > 0
+          ? Math.min(Math.max(duration * 0.18, 0.15), Math.max(duration - 0.12, 0.15))
+          : 0.15;
+
+      try {
+        element.dataset.previewReady = "true";
+        element.currentTime = previewTime;
+      } catch (error) {
+        console.warn("[reels] Could not prime reel preview frame", error);
+      }
+    },
+    []
+  );
+
   const sortVideos = useCallback(
     (videosToSort: VideoData[], sortBy: SortOption): VideoData[] => {
       const sorted = [...videosToSort];
@@ -580,9 +603,12 @@ const Reels: React.FC = () => {
                       <video
                         src={video.videoUrl}
                         className="reels-video-media"
+                        poster={video.thumbnail_url || video.thumbnailUrl || undefined}
                         muted
                         playsInline
-                        preload="metadata"
+                        preload="auto"
+                        onLoadedMetadata={handleGridVideoPreviewReady}
+                        onLoadedData={handleGridVideoPreviewReady}
                       />
                     ) : (
                       <div className="reels-video-placeholder">

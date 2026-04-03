@@ -30,11 +30,13 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
   onVideoUpdate,
 }) => {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(initialVideoIndex);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const videoRefs = useRef<{ [key: number]: HTMLVideoElement | null }>({});
   const containerRef = useRef<HTMLDivElement>(null);
   const viewedVideoIdsRef = useRef<Set<number>>(new Set());
+  const manuallyPausedVideoIdsRef = useRef<Set<number>>(new Set());
+  const controlsTimeoutRef = useRef<number | null>(null);
   const [playingVideoId, setPlayingVideoId] = useState<number | null>(null);
   const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
   const [selectedVideoForOptions, setSelectedVideoForOptions] = useState<
@@ -50,6 +52,20 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
 
   const currentVideo = videos[currentVideoIndex];
   const currentVideoRef = videoRefs.current[currentVideo?.id || -1];
+
+  const clearControlsTimeout = useCallback(() => {
+    if (controlsTimeoutRef.current != null) {
+      window.clearTimeout(controlsTimeoutRef.current);
+      controlsTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleControlsHide = useCallback(() => {
+    clearControlsTimeout();
+    controlsTimeoutRef.current = window.setTimeout(() => {
+      setShowControls(false);
+    }, 3000);
+  }, [clearControlsTimeout]);
 
   const getVideoById = useCallback(
     (videoId: number) => videos.find((video) => video.id === videoId),
@@ -98,13 +114,26 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setCurrentVideoIndex(initialVideoIndex);
-      setIsMuted(true);
+      setIsMuted(false);
       setShowControls(true);
+      manuallyPausedVideoIdsRef.current.clear();
+      clearControlsTimeout();
     }
-  }, [isOpen, initialVideoIndex]);
+  }, [clearControlsTimeout, initialVideoIndex, isOpen]);
 
   useEffect(() => {
-    if (isOpen && currentVideoRef && currentVideo) {
+    return () => {
+      clearControlsTimeout();
+    };
+  }, [clearControlsTimeout]);
+
+  useEffect(() => {
+    if (
+      isOpen &&
+      currentVideoRef &&
+      currentVideo &&
+      !manuallyPausedVideoIdsRef.current.has(currentVideo.id)
+    ) {
       Object.values(videoRefs.current).forEach((video) => {
         if (video) {
           video.pause();
@@ -118,9 +147,7 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
             setPlayingVideoId(currentVideo.id);
             setShowControls(true);
             recordView(currentVideo.id);
-            setTimeout(() => {
-              setShowControls(false);
-            }, 3000);
+            scheduleControlsHide();
           })
           .catch((error) => {
             console.log("Auto-play prevented:", error);
@@ -129,7 +156,14 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
           });
       }
     }
-  }, [currentVideo, currentVideoRef, currentVideoIndex, isOpen, recordView]);
+  }, [
+    currentVideo,
+    currentVideoRef,
+    currentVideoIndex,
+    isOpen,
+    recordView,
+    scheduleControlsHide,
+  ]);
 
   const handleVideoEnd = useCallback(() => {
     if (currentVideoIndex < videos.length - 1) {
@@ -165,7 +199,11 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
             );
             const video = videoRefs.current[videoId];
 
-            if (video && playingVideoId !== videoId) {
+            if (
+              video &&
+              playingVideoId !== videoId &&
+              !manuallyPausedVideoIdsRef.current.has(videoId)
+            ) {
               Object.values(videoRefs.current).forEach((item) => {
                 if (item) item.pause();
               });
@@ -176,9 +214,7 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
                   setPlayingVideoId(videoId);
                   setShowControls(true);
                   recordView(videoId);
-                  setTimeout(() => {
-                    setShowControls(false);
-                  }, 3000);
+                  scheduleControlsHide();
                 })
                 .catch((error) => {
                   console.log("Auto-play prevented on scroll:", error);
@@ -217,7 +253,7 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
     return () => {
       observer.disconnect();
     };
-  }, [isOpen, playingVideoId, recordView, videos]);
+  }, [isOpen, playingVideoId, recordView, scheduleControlsHide, videos]);
 
   const handlePlayPause = (videoId: number) => {
     const video = videoRefs.current[videoId];
@@ -226,6 +262,7 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
     }
 
     if (video.paused) {
+      manuallyPausedVideoIdsRef.current.delete(videoId);
       Object.values(videoRefs.current).forEach((item) => {
         if (item) item.pause();
       });
@@ -235,9 +272,7 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
           setPlayingVideoId(videoId);
           setShowControls(true);
           recordView(videoId);
-          setTimeout(() => {
-            setShowControls(false);
-          }, 3000);
+          scheduleControlsHide();
         })
         .catch((error) => {
           console.error("Error playing video:", error);
@@ -246,12 +281,11 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
       return;
     }
 
+    clearControlsTimeout();
+    manuallyPausedVideoIdsRef.current.add(videoId);
     video.pause();
     setPlayingVideoId(null);
     setShowControls(true);
-    setTimeout(() => {
-      setShowControls(false);
-    }, 3000);
   };
 
   const handleMuteToggle = () => {

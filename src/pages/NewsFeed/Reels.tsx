@@ -25,6 +25,8 @@ interface VideoData extends ReelItem {
 type SortOption = "recent" | "views" | "trending";
 
 const PAGE_SIZE = 12;
+const REELS_CACHE_KEY = "joscity.reels.cache.v1";
+const MAX_CACHED_REELS = 60;
 
 const mapReelToVideo = (reel: ReelItem): VideoData => ({
   ...reel,
@@ -47,6 +49,31 @@ const mergeUniqueVideos = (current: VideoData[], incoming: VideoData[]) => {
   return Array.from(byId.values());
 };
 
+const readCachedVideos = (): VideoData[] => {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const rawCache = window.localStorage.getItem(REELS_CACHE_KEY);
+    if (!rawCache) {
+      return [];
+    }
+
+    const parsed = JSON.parse(rawCache);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map((cachedReel) => mapReelToVideo(cachedReel as ReelItem))
+      .filter((video) => Boolean(video.id) && Boolean(video.videoUrl || video.thumbnail_url || video.thumbnailUrl));
+  } catch (error) {
+    console.warn("[reels] Could not read cached reels", error);
+    return [];
+  }
+};
+
 const Reels: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -58,7 +85,7 @@ const Reels: React.FC = () => {
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
-  const [videos, setVideos] = useState<VideoData[]>([]);
+  const [videos, setVideos] = useState<VideoData[]>(() => readCachedVideos());
   const [filteredVideos, setFilteredVideos] = useState<VideoData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -82,6 +109,31 @@ const Reels: React.FC = () => {
       document.documentElement.classList.remove("reels-page-active");
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      if (!videos.length) {
+        window.localStorage.removeItem(REELS_CACHE_KEY);
+        return;
+      }
+
+      window.localStorage.setItem(
+        REELS_CACHE_KEY,
+        JSON.stringify(
+          videos.slice(0, MAX_CACHED_REELS).map((video) => ({
+            ...video,
+            createdAt: video.createdAt?.toISOString() || null,
+          }))
+        )
+      );
+    } catch (error) {
+      console.warn("[reels] Could not cache reels", error);
+    }
+  }, [videos]);
 
   const categories = REEL_CATEGORIES;
 
@@ -120,9 +172,20 @@ const Reels: React.FC = () => {
 
         const nextVideos = response.data.map(mapReelToVideo);
 
-        setVideos((prev) =>
-          reset ? nextVideos : mergeUniqueVideos(prev, nextVideos)
-        );
+        setVideos((prev) => {
+          if (!reset) {
+            return mergeUniqueVideos(prev, nextVideos);
+          }
+
+          const shouldPreserveCachedVideos =
+            nextPage === 1 &&
+            selectedCategory === "All" &&
+            !searchQuery.trim();
+
+          return shouldPreserveCachedVideos
+            ? mergeUniqueVideos(nextVideos, prev)
+            : nextVideos;
+        });
         setHasMore(Boolean(response.pagination.hasMore));
         setPage(nextPage);
         setError(null);
@@ -139,7 +202,6 @@ const Reels: React.FC = () => {
         );
         setAutoLoadPaused(true);
         if (reset) {
-          setVideos([]);
           setHasMore(false);
         }
       } finally {
@@ -353,6 +415,7 @@ const Reels: React.FC = () => {
     setSortOption("recent");
     setError(null);
     setAutoLoadPaused(false);
+    setHasMore(true);
     setVideos((previous) => [
       nextVideo,
       ...previous.filter((video) => video.id !== nextVideo.id),

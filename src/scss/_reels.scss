@@ -20,7 +20,7 @@ html.reels-page-active {
 }
 
 .reels-page {
-  --reels-header-offset: 125px;
+  --reels-header-offset: 20px;
   min-height: 100vh;
   background-color: var(--bg-secondary);
   font-family: $font-family;
@@ -33,15 +33,19 @@ html.reels-page-active {
   transition: background-color 0.3s ease, color 0.3s ease;
 
   @media (max-width: 1200px) {
-    --reels-header-offset: 121px;
+    // --reels-header-offset: 120px;
   }
 
   @media (max-width: 768px) {
-    --reels-header-offset: 117px;
+    --reels-header-offset: 90px;
   }
 
   @media (max-width: 480px) {
-    --reels-header-offset: 113px;
+    --reels-header-offset: 58px;
+  }
+
+  @media (max-width: 360px) {
+    // --reels-header-offset: 94px;
   }
 
   .newsfeed-container {
@@ -745,58 +749,58 @@ html.reels-page-active {
 .reels-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 20px;
+  gap: 16px;
   width: 100%;
   align-content: start;
-  padding: 20px;
+  padding: 14px 16px 8px;
   box-sizing: border-box;
 
   @media (max-width: 1400px) {
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 18px;
-    padding: 18px;
+    gap: 16px;
+    padding: 14px 16px 8px;
   }
 
   @media (max-width: 1200px) {
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 16px;
-    padding: 18px;
+    gap: 14px;
+    padding: 14px 14px 8px;
   }
 
   @media (max-width: 992px) {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 14px;
-    padding: 16px;
+    gap: 12px;
+    padding: 12px 12px 6px;
   }
 
   @media (max-width: 768px) {
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 12px;
-    padding: 16px;
+    gap: 10px;
+    padding: 10px 10px 4px;
   }
 
   @media (max-width: 600px) {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 10px;
-    padding: 12px;
+    gap: 9px;
+    padding: 10px 10px 4px;
   }
 
   @media (max-width: 480px) {
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    padding: 12px;
+    gap: 8px;
+    padding: 8px 8px 4px;
   }
 
   @media (max-width: 360px) {
     grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-    padding: 10px;
+    gap: 6px;
+    padding: 8px 6px 4px;
   }
 }
 
 .reels-video-card {
   width: 100%;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 4 / 5;
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
@@ -875,7 +879,7 @@ html.reels-page-active {
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 12px;
+  padding: 10px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1330,7 +1334,8 @@ html.reels-page-active {
 
 .reel-video-modal__video-container {
   position: relative;
-  width: 100%;
+  width: min(100%, 460px);
+  max-width: calc(100% - 72px);
   height: 100%;
   background: #000;
   overflow: hidden;
@@ -1338,35 +1343,45 @@ html.reels-page-active {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  margin: 0 auto;
+
+  @media (max-width: 768px) {
+    width: min(100%, 420px);
+    max-width: calc(100% - 60px);
+  }
+
+  @media (max-width: 480px) {
+    max-width: calc(100% - 54px);
+  }
 }
 
 // Action Buttons (Like, Comment, Share)
 .reel-video-modal__actions {
   position: absolute;
-  right: 16px;
-  bottom: 100px;
+  right: 12px;
+  bottom: 84px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
   z-index: 20;
   align-items: center;
 
   @media (max-width: 768px) {
-    right: 12px;
-    bottom: 90px;
-    gap: 18px;
+    right: 10px;
+    bottom: 78px;
+    gap: 12px;
   }
 
   @media (max-width: 480px) {
-    right: 10px;
-    bottom: 80px;
-    gap: 16px;
+    right: 8px;
+    bottom: 72px;
+    gap: 10px;
   }
 
   @media (max-width: 360px) {
     right: 8px;
-    bottom: 70px;
-    gap: 14px;
+    bottom: 68px;
+    gap: 8px;
   }
 }
 
@@ -1384,9 +1399,9 @@ html.reels-page-active {
   transition: all 0.3s ease;
   -webkit-backdrop-filter: blur(10px);
           backdrop-filter: blur(10px);
-  min-width: 56px;
-  min-height: 56px;
-  gap: 4px;
+  min-width: 52px;
+  min-height: 52px;
+  gap: 2px;
 
   svg {
     transition: all 0.3s ease;
@@ -1530,32 +1545,32 @@ html.reels-page-active {
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 20px;
+  padding: 12px 14px;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
   z-index: 10;
   transition: opacity 0.3s ease;
 
   @media (max-width: 992px) {
-    padding: 18px;
-    gap: 14px;
+    padding: 12px 14px;
+    gap: 10px;
   }
 
   @media (max-width: 768px) {
-    padding: 16px;
-    gap: 12px;
+    padding: 10px 12px;
+    gap: 8px;
   }
 
   @media (max-width: 480px) {
-    padding: 16px;
-    gap: 12px;
+    padding: 10px;
+    gap: 8px;
   }
 
   @media (max-width: 360px) {
-    padding: 14px;
-    gap: 10px;
+    padding: 8px 10px;
+    gap: 8px;
   }
 }
 

@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X, Send, Heart } from "lucide-react";
+import { X, Send, Heart, Loader2 } from "lucide-react";
+import { reelsApi, ReelComment } from "../services/reelsApi";
 
-interface Comment {
-  id: number;
-  author: string;
-  text: string;
+interface LocalComment extends ReelComment {
   likes: number;
-  timestamp: string;
   isLiked?: boolean;
 }
 
@@ -19,6 +16,15 @@ interface ReelCommentModalProps {
   onCommentAdded?: () => void;
 }
 
+const normalizeComment = (comment: ReelComment): LocalComment => ({
+  ...comment,
+  likes: 0,
+  isLiked: false,
+});
+
+const getCommentAuthorName = (comment: LocalComment) =>
+  comment.author?.name || "Citizen";
+
 const ReelCommentModal: React.FC<ReelCommentModalProps> = ({
   isOpen,
   onClose,
@@ -27,9 +33,11 @@ const ReelCommentModal: React.FC<ReelCommentModalProps> = ({
   onCommentAdded,
 }) => {
   const [mounted, setMounted] = React.useState(false);
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState<LocalComment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -37,117 +45,103 @@ const ReelCommentModal: React.FC<ReelCommentModalProps> = ({
   }, []);
 
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-      // Load comments from localStorage or generate sample comments
-      const savedComments = localStorage.getItem(`reel_comments_${videoId}`);
-      if (savedComments) {
-        try {
-          setComments(JSON.parse(savedComments));
-        } catch (e) {
-          console.error("Error loading comments:", e);
-          generateSampleComments();
-        }
-      } else {
-        generateSampleComments();
-      }
-    } else {
+    if (!isOpen) {
       document.body.style.overflow = "";
+      return;
     }
+
+    document.body.style.overflow = "hidden";
+    setError(null);
+    setIsLoading(true);
+
+    reelsApi
+      .getComments(videoId)
+      .then((loadedComments) => {
+        setComments(loadedComments.map(normalizeComment));
+      })
+      .catch((loadError) => {
+        const message =
+          loadError instanceof Error
+            ? loadError.message
+            : "Failed to load comments.";
+        setError(message);
+        setComments([]);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
 
     return () => {
       document.body.style.overflow = "";
     };
   }, [isOpen, videoId]);
 
-  const generateSampleComments = () => {
-    const sampleComments: Comment[] = [
-      {
-        id: 1,
-        author: "John Doe",
-        text: "This is amazing! 🔥",
-        likes: 12,
-        timestamp: "2 hours ago",
-        isLiked: false,
-      },
-      {
-        id: 2,
-        author: "Jane Smith",
-        text: "Love this content!",
-        likes: 8,
-        timestamp: "5 hours ago",
-        isLiked: false,
-      },
-      {
-        id: 3,
-        author: "Mike Johnson",
-        text: "Great work! Keep it up!",
-        likes: 15,
-        timestamp: "1 day ago",
-        isLiked: false,
-      },
-    ];
-    setComments(sampleComments);
-  };
-
-  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
+  const handleOverlayClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) {
       onClose();
     }
   };
 
-  const handleSubmitComment = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmitComment = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!newComment.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
+    setError(null);
 
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      const createdComment = await reelsApi.addComment(videoId, newComment.trim());
+      const commentToInsert = normalizeComment(
+        createdComment || {
+          post_id: videoId,
+          user_id: 0,
+          created_at: new Date().toISOString(),
+          text: newComment.trim(),
+          time_ago: "just now",
+          author: {
+            id: 0,
+            name: "You",
+          },
+        }
+      );
 
-    const comment: Comment = {
-      id: Date.now(),
-      author: "You", // In real app, get from user context
-      text: newComment.trim(),
-      likes: 0,
-      timestamp: "Just now",
-      isLiked: false,
-    };
-
-    const updatedComments = [comment, ...comments];
-    setComments(updatedComments);
-    localStorage.setItem(
-      `reel_comments_${videoId}`,
-      JSON.stringify(updatedComments)
-    );
-    setNewComment("");
-    setIsSubmitting(false);
-    onCommentAdded?.();
+      setComments((previous) => [commentToInsert, ...previous]);
+      setNewComment("");
+      onCommentAdded?.();
+    } catch (submitError) {
+      const message =
+        submitError instanceof Error
+          ? submitError.message
+          : "Failed to post comment.";
+      setError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleLikeComment = (commentId: number) => {
-    setComments((prev) => {
-      const updated = prev.map((comment) => {
-        if (comment.id === commentId) {
-          const isLiked = comment.isLiked || false;
-          return {
-            ...comment,
-            isLiked: !isLiked,
-            likes: isLiked ? comment.likes - 1 : comment.likes + 1,
-          };
+    setComments((previous) =>
+      previous.map((comment) => {
+        const currentId = comment.id || comment.comment_id;
+        if (currentId !== commentId) {
+          return comment;
         }
-        return comment;
-      });
-      localStorage.setItem(`reel_comments_${videoId}`, JSON.stringify(updated));
-      return updated;
-    });
+
+        const isLiked = comment.isLiked || false;
+        return {
+          ...comment,
+          isLiked: !isLiked,
+          likes: isLiked ? Math.max(0, comment.likes - 1) : comment.likes + 1,
+        };
+      })
+    );
   };
 
   if (!mounted || !isOpen) return null;
 
   const modalContent = (
     <div className="reel-comment-modal-overlay" onClick={handleOverlayClick}>
-      <div className="reel-comment-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="reel-comment-modal" onClick={(event) => event.stopPropagation()}>
         <div className="reel-comment-modal__header">
           <h3 className="reel-comment-modal__title">
             Comments {videoTitle && `on "${videoTitle}"`}
@@ -163,47 +157,61 @@ const ReelCommentModal: React.FC<ReelCommentModalProps> = ({
 
         <div className="reel-comment-modal__content">
           <div className="reel-comment-modal__comments">
-            {comments.length === 0 ? (
+            {isLoading ? (
+              <div className="reels-loading">
+                <Loader2 size={24} className="reels-loading__spinner" />
+                <p>Loading comments...</p>
+              </div>
+            ) : error ? (
+              <div className="reels-error">
+                <p>{error}</p>
+              </div>
+            ) : comments.length === 0 ? (
               <div className="reel-comment-modal__empty">
                 <p>No comments yet. Be the first to comment!</p>
               </div>
             ) : (
-              comments.map((comment) => (
-                <div key={comment.id} className="reel-comment-modal__comment">
-                  <div className="reel-comment-modal__comment-avatar">
-                    {comment.author.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="reel-comment-modal__comment-content">
-                    <div className="reel-comment-modal__comment-header">
-                      <span className="reel-comment-modal__comment-author">
-                        {comment.author}
-                      </span>
-                      <span className="reel-comment-modal__comment-time">
-                        {comment.timestamp}
-                      </span>
+              comments.map((comment) => {
+                const commentId = comment.id || comment.comment_id || 0;
+                const authorName = getCommentAuthorName(comment);
+
+                return (
+                  <div key={commentId} className="reel-comment-modal__comment">
+                    <div className="reel-comment-modal__comment-avatar">
+                      {authorName.charAt(0).toUpperCase()}
                     </div>
-                    <p className="reel-comment-modal__comment-text">
-                      {comment.text}
-                    </p>
-                    <button
-                      className={`reel-comment-modal__comment-like ${
-                        comment.isLiked
-                          ? "reel-comment-modal__comment-like--liked"
-                          : ""
-                      }`}
-                      onClick={() => handleLikeComment(comment.id)}
-                      aria-label="Like comment"
-                    >
-                      <Heart
-                        size={16}
-                        fill={comment.isLiked ? "#e91e63" : "none"}
-                        color={comment.isLiked ? "#e91e63" : "currentColor"}
-                      />
-                      <span>{comment.likes}</span>
-                    </button>
+                    <div className="reel-comment-modal__comment-content">
+                      <div className="reel-comment-modal__comment-header">
+                        <span className="reel-comment-modal__comment-author">
+                          {authorName}
+                        </span>
+                        <span className="reel-comment-modal__comment-time">
+                          {comment.time_ago || "just now"}
+                        </span>
+                      </div>
+                      <p className="reel-comment-modal__comment-text">
+                        {comment.text || comment.comment}
+                      </p>
+                      <button
+                        className={`reel-comment-modal__comment-like ${
+                          comment.isLiked
+                            ? "reel-comment-modal__comment-like--liked"
+                            : ""
+                        }`}
+                        onClick={() => handleLikeComment(commentId)}
+                        aria-label="Like comment"
+                      >
+                        <Heart
+                          size={16}
+                          fill={comment.isLiked ? "#e91e63" : "none"}
+                          color={comment.isLiked ? "#e91e63" : "currentColor"}
+                        />
+                        <span>{comment.likes}</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -217,7 +225,7 @@ const ReelCommentModal: React.FC<ReelCommentModalProps> = ({
             className="reel-comment-modal__input"
             placeholder="Add a comment..."
             value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
+            onChange={(event) => setNewComment(event.target.value)}
             disabled={isSubmitting}
           />
           <button
@@ -237,4 +245,3 @@ const ReelCommentModal: React.FC<ReelCommentModalProps> = ({
 };
 
 export default ReelCommentModal;
-

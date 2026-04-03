@@ -37,6 +37,13 @@ interface HeroSlide {
 }
 
 // Fallback slides if API fails
+/** First non-empty URL from API arrays (Postgres may return null). */
+function firstNewsMediaUrl(urls: string[] | null | undefined): string | undefined {
+  if (!Array.isArray(urls)) return undefined;
+  const u = urls.find((x) => typeof x === "string" && x.trim().length > 0);
+  return u?.trim();
+}
+
 const fallbackSlides = [
   {
     id: "1",
@@ -413,38 +420,43 @@ function Hero() {
             </Link>
           ) : (
             <div className="landing-news__shell">
+              {(() => {
+                const item = topNews[newsIndex];
+                const videoSrc = firstNewsMediaUrl(item.video_urls);
+                const imageSrc = firstNewsMediaUrl(item.image_urls);
+                const hasMedia = Boolean(videoSrc || imageSrc);
+                return (
+                  <>
               <Link
-                key={topNews[newsIndex].id}
+                key={item.id}
                 to="/news"
                 className="landing-news__feature landing-news__feature--interactive"
                 aria-label="Open the full news section. Sign in if prompted."
               >
                 <div
                   className={`landing-news__feature-grid${
-                    !topNews[newsIndex].image_urls?.[0]
-                      ? " landing-news__feature-grid--text-only"
-                      : ""
+                    !hasMedia ? " landing-news__feature-grid--text-only" : ""
                   }`}
                 >
                   <div className="landing-news__copy">
                     <span className="landing-news__index" aria-hidden>
                       {String(newsIndex + 1).padStart(2, "0")}
                     </span>
-                    <h3 className="landing-news__h3">{topNews[newsIndex].title}</h3>
+                    <h3 className="landing-news__h3">{item.title}</h3>
                     <p className="landing-news__excerpt">
-                      {topNews[newsIndex].content.trim().length > 200
-                        ? `${topNews[newsIndex].content.trim().slice(0, 200).trim()}…`
-                        : topNews[newsIndex].content.trim()}
+                      {item.content.trim().length > 200
+                        ? `${item.content.trim().slice(0, 200).trim()}…`
+                        : item.content.trim()}
                     </p>
                     <div className="landing-news__meta">
-                      {topNews[newsIndex].is_featured && (
+                      {item.is_featured && (
                         <span className="landing-news__pill">Featured</span>
                       )}
                       <time
                         className="landing-news__time"
-                        dateTime={topNews[newsIndex].created_at}
+                        dateTime={item.created_at}
                       >
-                        {new Date(topNews[newsIndex].created_at).toLocaleDateString(undefined, {
+                        {new Date(item.created_at).toLocaleDateString(undefined, {
                           month: "short",
                           day: "numeric",
                           year: "numeric",
@@ -452,11 +464,32 @@ function Hero() {
                       </time>
                     </div>
                   </div>
-                  {topNews[newsIndex].image_urls?.[0] ? (
+                  {videoSrc ? (
+                    <div
+                      className="landing-news__media"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      role="presentation"
+                    >
+                      <div className="landing-news__media-frame landing-news__media-frame--video">
+                        <video
+                          controls
+                          playsInline
+                          preload="metadata"
+                          className="landing-news__video"
+                          aria-label={`Video: ${item.title}`}
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                        >
+                          <source src={videoSrc} />
+                        </video>
+                      </div>
+                    </div>
+                  ) : imageSrc ? (
                     <div className="landing-news__media">
                       <div className="landing-news__media-frame">
                         <img
-                          src={topNews[newsIndex].image_urls[0]}
+                          src={imageSrc}
                           alt=""
                           className="landing-news__image"
                           loading="lazy"
@@ -502,6 +535,9 @@ function Hero() {
                   <ChevronRight size={22} strokeWidth={2} />
                 </button>
               </div>
+                  </>
+                );
+              })()}
             </div>
           )}
 

@@ -1,13 +1,19 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { Play, Search, X, ArrowUpDown, Loader2 } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Play, Search, X, ArrowUpDown, Loader2, Plus } from "lucide-react";
 import "../../main.css";
+import CreateReelModal from "../../components/CreateReelModal";
 import ReelVideoModal from "../../components/ReelVideoModal";
 import ChatPanel from "../../components/ChatPanel";
 import FindFriendsModal from "../../components/FindFriendsModal";
 import NewsFeedHeader from "./NewsFeedHeader";
 import NewsFeedSidebar from "./NewsFeedSidebar";
-import { getProfileUsername } from "../../utils/userUtils";
+import {
+  getProfileUsername,
+  getUserAvatar as getCurrentUserAvatar,
+  getUserName as getCurrentUserName,
+} from "../../utils/userUtils";
+import { REEL_CATEGORIES } from "../../constants/reels";
 import { reelsApi, ReelItem } from "../../services/reelsApi";
 
 interface VideoData extends ReelItem {
@@ -42,9 +48,11 @@ const mergeUniqueVideos = (current: VideoData[], incoming: VideoData[]) => {
 };
 
 const Reels: React.FC = () => {
+  const location = useLocation();
   const navigate = useNavigate();
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreateReelModalOpen, setIsCreateReelModalOpen] = useState(false);
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
@@ -75,25 +83,17 @@ const Reels: React.FC = () => {
     };
   }, []);
 
-  const categories = [
-    "Causes",
-    "Art",
-    "Crafts",
-    "Dance",
-    "Drinks",
-    "Films",
-    "Fitness",
-    "Food",
-    "Game",
-    "Party",
-    "Health",
-    "Sport",
-    "Literature",
-    "Music",
-    "Party",
-    "Religion",
-    "Others",
-  ];
+  const categories = REEL_CATEGORIES;
+
+  useEffect(() => {
+    const routeState = location.state as { openCreateReel?: boolean } | null;
+    if (!routeState?.openCreateReel) {
+      return;
+    }
+
+    setIsCreateReelModalOpen(true);
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.pathname, location.state, navigate]);
 
   const loadVideosPage = useCallback(
     async (nextPage: number, reset: boolean) => {
@@ -345,6 +345,24 @@ const Reels: React.FC = () => {
     []
   );
 
+  const handleReelCreated = useCallback((createdReel: ReelItem) => {
+    const nextVideo = mapReelToVideo(createdReel);
+
+    setSelectedCategory("All");
+    setSearchQuery("");
+    setSortOption("recent");
+    setError(null);
+    setAutoLoadPaused(false);
+    setVideos((previous) => [
+      nextVideo,
+      ...previous.filter((video) => video.id !== nextVideo.id),
+    ]);
+    mainContentRef.current?.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }, []);
+
   return (
     <div className="reels-page">
       <NewsFeedHeader
@@ -359,6 +377,7 @@ const Reels: React.FC = () => {
         onMessageClick={() => setIsChatPanelOpen(true)}
         onCreatePost={() => navigate("/newsfeed")}
         onCreateStory={() => navigate("/newsfeed")}
+        onCreateReel={() => setIsCreateReelModalOpen(true)}
         onProfileClick={() =>
           navigate(`/profile/${encodeURIComponent(getProfileUsername())}`)
         }
@@ -416,6 +435,14 @@ const Reels: React.FC = () => {
                 <option value="trending">Trending</option>
               </select>
             </div>
+            <button
+              type="button"
+              className="reels-create-button"
+              onClick={() => setIsCreateReelModalOpen(true)}
+            >
+              <Plus size={16} />
+              <span>Create Reel</span>
+            </button>
           </div>
 
           <div className="reels-category-filter">
@@ -584,6 +611,14 @@ const Reels: React.FC = () => {
               {!isLoading && !videos.length && !error && (
                 <div className="reels-end-message">
                   <p>No reels available yet.</p>
+                  <button
+                    type="button"
+                    className="reels-create-button reels-create-button--empty"
+                    onClick={() => setIsCreateReelModalOpen(true)}
+                  >
+                    <Plus size={16} />
+                    <span>Create the first reel</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -597,6 +632,13 @@ const Reels: React.FC = () => {
         videos={filteredVideos}
         initialVideoIndex={getInitialVideoIndex()}
         onVideoUpdate={handleVideoUpdate}
+      />
+      <CreateReelModal
+        isOpen={isCreateReelModalOpen}
+        onClose={() => setIsCreateReelModalOpen(false)}
+        userName={getCurrentUserName()}
+        userAvatar={getCurrentUserAvatar() || undefined}
+        onCreated={handleReelCreated}
       />
       <ChatPanel
         isOpen={isChatPanelOpen}

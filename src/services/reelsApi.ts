@@ -321,6 +321,35 @@ const mapFeedPostToReel = (post: FeedFallbackPost): ReelItem => {
 };
 
 export const reelsApi = {
+  async createReel(payload: {
+    title?: string;
+    caption?: string;
+    category?: string;
+    video: File;
+    thumbnail?: File | null;
+  }): Promise<ReelItem> {
+    const formData = new FormData();
+    formData.append("title", payload.title?.trim() || "");
+    formData.append("text", payload.caption?.trim() || "");
+    formData.append("category", payload.category?.trim() || "Others");
+    formData.append("videos", payload.video);
+
+    if (payload.thumbnail) {
+      formData.append("thumbnail", payload.thumbnail);
+    }
+
+    const response = await reelsApiRequest<ReelItem>("/reels", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.data) {
+      throw new Error("The reel was created, but the server returned no data.");
+    }
+
+    return response.data;
+  },
+
   async getReels(params?: {
     page?: number;
     limit?: number;

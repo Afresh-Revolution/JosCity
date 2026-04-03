@@ -12,6 +12,7 @@ import {
   Clock,
   Users,
   Calendar,
+  Video,
 } from "lucide-react";
 import LazyImage from "../../components/LazyImage";
 import Avatar from "../../components/Avatar";
@@ -26,6 +27,7 @@ interface NewsFeedHeaderProps {
   onToggleRightSidebar?: () => void;
   onCreatePost?: () => void;
   onCreateStory?: () => void;
+  onCreateReel?: () => void;
   onAddFriend?: () => void;
   onOpenChat?: () => void;
   onOpenNotifications?: () => void;
@@ -49,6 +51,7 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
   onToggleRightSidebar,
   onCreatePost,
   onCreateStory,
+  onCreateReel,
   onAddFriend,
   onOpenChat,
   onOpenNotifications,
@@ -153,6 +156,18 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
     (onCreateStory ?? onCreateClick)?.();
   };
 
+  const handleCreateReel = () => {
+    setIsCreateMenuOpen(false);
+    if (onCreateReel) {
+      onCreateReel();
+      return;
+    }
+
+    navigate("/reels", {
+      state: { openCreateReel: true },
+    });
+  };
+
   const handleCreateGroup = () => {
     setIsCreateMenuOpen(false);
     navigate("/forums");
@@ -225,6 +240,13 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
                 >
                   <Clock size={18} />
                   <span>Create Story</span>
+                </button>
+                <button
+                  className="newsfeed-header__create-item"
+                  onClick={handleCreateReel}
+                >
+                  <Video size={18} />
+                  <span>Create Reel</span>
                 </button>
                 <button
                   className="newsfeed-header__create-item"

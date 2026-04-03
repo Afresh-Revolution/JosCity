@@ -23,6 +23,7 @@ import NewsFeedHeader from "./NewsFeedHeader";
 import StoriesSection from "./StoriesSection";
 import CreatePostInput from "./CreatePostInput";
 import CreatePostModal from "./CreatePostModal";
+import CreateReelModal from "../../components/CreateReelModal";
 import PostCard from "./PostCard";
 import TrendingSection from "./TrendingSection";
 import SuggestedFriends from "./SuggestedFriends";
@@ -131,6 +132,7 @@ const NewsFeed: React.FC = () => {
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [showGoodMorningCard, setShowGoodMorningCard] = useState(true);
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
+  const [isCreateReelModalOpen, setIsCreateReelModalOpen] = useState(false);
   const [isCreateStoryModalOpen, setIsCreateStoryModalOpen] = useState(false);
   const [isStoryPopupOpen, setIsStoryPopupOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1460,6 +1462,10 @@ const NewsFeed: React.FC = () => {
     setIsCreatePostModalOpen(true);
   };
 
+  const handleCreateReel = () => {
+    setIsCreateReelModalOpen(true);
+  };
+
   const handleCreateStory = () => {
     setIsStoryPopupOpen(true);
   };
@@ -1481,6 +1487,7 @@ const NewsFeed: React.FC = () => {
         onToggleRightSidebar={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
         onCreatePost={handleCreatePost}
         onCreateStory={handleCreateStory}
+        onCreateReel={handleCreateReel}
         onAddFriend={() => setIsAddFriendModalOpen(true)}
         onOpenChat={() => openChatPanel()}
         onOpenNotifications={() => setIsNotificationPanelOpen(true)}
@@ -2011,6 +2018,19 @@ const NewsFeed: React.FC = () => {
           userName={userName}
           userAvatar={getUserAvatar()}
           onPost={handleNewPost}
+        />
+      )}
+
+      {isAuthenticated() && userName && (
+        <CreateReelModal
+          isOpen={isCreateReelModalOpen}
+          onClose={() => setIsCreateReelModalOpen(false)}
+          userName={userName}
+          userAvatar={getUserAvatar()}
+          onCreated={() => {
+            setIsCreateReelModalOpen(false);
+            navigate("/reels");
+          }}
         />
       )}
 

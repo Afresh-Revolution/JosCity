@@ -1251,24 +1251,35 @@
 
   // Modifier: No aside - Standard 2-column side-by-side layout (sidebar and main)
   &--no-aside {
+    // Tighter under navbar than default 3-column layout (-115px)
+    margin-top: 0;
+    padding-top: calc(129px - 115px);
     grid-template-columns: 260px minmax(0, 1fr); // 2-column layout: sidebar, main (realistic sidebar width)
     gap: 24px; // Consistent gap between sidebar and main
 
     @media (max-width: 1200px) {
+      margin-top: 0;
+      padding-top: calc(119px - 115px);
       grid-template-columns: 240px minmax(0, 1fr); // 2-column layout on medium screens
       gap: 20px;
     }
 
     @media (max-width: 992px) {
+      margin-top: 0;
+      padding-top: calc(102px - 115px);
       grid-template-columns: 1fr; // Single column on tablets
       gap: 16px;
     }
 
     @media (max-width: 768px) {
+      margin-top: 0;
+      padding-top: calc(98px - 115px);
       gap: 12px;
     }
 
     @media (max-width: 480px) {
+      margin-top: 0;
+      padding-top: calc(94px - 115px);
       gap: 10px;
     }
 
@@ -6355,6 +6366,7 @@
       &__add-icon {
         width: 24px;
         height: 24px;
+        top: 76px; // 90px wrapper - 14px = 76px (centered at bottom)
       }
     }
 
@@ -6662,6 +6674,12 @@
     &__name {
       max-width: 80px;
       font-size: 10px;
+    }
+
+    &__add-icon {
+      top: 66px; // 80px wrapper - 14px = 66px
+      width: 22px;
+      height: 22px;
     }
   }
 

@@ -360,11 +360,25 @@ const Business: React.FC = () => {
     e: React.MouseEvent,
     n: FeedPanelNotification
   ) => {
+    e.preventDefault();
     e.stopPropagation();
     if (n.relatedFriendRequestId == null) return;
     try {
       const res = await feedApi.acceptFriendRequest(n.relatedFriendRequestId);
-      if (res.success) await fetchNotifications();
+      if (res.success) {
+        await fetchNotifications();
+        const data = res.data as { conversation_id?: number | null } | undefined;
+        const cid =
+          data?.conversation_id != null ? Number(data.conversation_id) : undefined;
+        if (cid != null && Number.isFinite(cid)) {
+          handleFriendAdded(n.userId, n.userName, cid);
+          setSelectedChatId(cid);
+          setIsChatPanelOpen(true);
+          setIsNotificationPanelOpen(false);
+        } else {
+          handleFriendAdded(n.userId, n.userName);
+        }
+      }
     } catch {
       await fetchNotifications();
     }
@@ -374,6 +388,7 @@ const Business: React.FC = () => {
     e: React.MouseEvent,
     n: FeedPanelNotification
   ) => {
+    e.preventDefault();
     e.stopPropagation();
     if (n.relatedFriendRequestId == null) return;
     try {
@@ -698,7 +713,11 @@ const Business: React.FC = () => {
   }, [chatConversations, selectedChatId]);
 
   // Handle friend added
-  const handleFriendAdded = (friendId: number, friendName: string) => {
+  const handleFriendAdded = (
+    friendId: number,
+    friendName: string,
+    conversationId?: number
+  ) => {
     // Add friend to friends list
     addFriend(friendId);
     
@@ -715,7 +734,7 @@ const Business: React.FC = () => {
       const existingChat = prev.find((chat) => chat.userId === friendId);
       if (!existingChat) {
         const newChat: ChatConversation = {
-          id: Date.now(),
+          id: conversationId ?? Date.now(),
           userId: friendId,
           userName: friendName,
           userAvatar: "", // Avatar will be fetched from user data
@@ -726,6 +745,11 @@ const Business: React.FC = () => {
           messages: [],
         };
         return [...prev, newChat];
+      }
+      if (conversationId != null && existingChat.id !== conversationId) {
+        return prev.map((chat) =>
+          chat.userId === friendId ? { ...chat, id: conversationId } : chat
+        );
       }
       return prev;
     });
@@ -1679,7 +1703,12 @@ const Business: React.FC = () => {
                             </span>
                             {notification.type === "friend_request" &&
                               notification.relatedFriendRequestId != null && (
-                                <div className="newsfeed-notification-panel__friend-actions">
+                                <div
+                                  className="newsfeed-notification-panel__friend-actions"
+                                  role="group"
+                                  aria-label="Friend request actions"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   <button
                                     type="button"
                                     className="newsfeed-notification-panel__friend-action-btn newsfeed-notification-panel__friend-action-btn--accept"

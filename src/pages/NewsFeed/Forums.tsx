@@ -649,11 +649,44 @@ const Forums: React.FC = () => {
     e: React.MouseEvent,
     n: FeedPanelNotification
   ) => {
+    e.preventDefault();
     e.stopPropagation();
     if (n.relatedFriendRequestId == null) return;
     try {
       const res = await feedApi.acceptFriendRequest(n.relatedFriendRequestId);
-      if (res.success) await fetchNotifications();
+      if (res.success) {
+        await fetchNotifications();
+        const data = res.data as { conversation_id?: number | null } | undefined;
+        const cid =
+          data?.conversation_id != null ? Number(data.conversation_id) : undefined;
+        if (cid != null && Number.isFinite(cid)) {
+          setChatConversations((prev) => {
+            const existing = prev.find((c) => c.userId === n.userId);
+            if (existing) {
+              return prev.map((c) =>
+                c.userId === n.userId ? { ...c, id: cid } : c
+              );
+            }
+            return [
+              ...prev,
+              {
+                id: cid,
+                userId: n.userId,
+                userName: n.userName,
+                userAvatar: n.userAvatar,
+                lastMessage: "",
+                lastMessageTime: "",
+                unreadCount: 0,
+                isOnline: true,
+                messages: [],
+              },
+            ];
+          });
+          setSelectedChatId(cid);
+          setIsChatPanelOpen(true);
+          setIsNotificationPanelOpen(false);
+        }
+      }
     } catch {
       await fetchNotifications();
     }
@@ -663,6 +696,7 @@ const Forums: React.FC = () => {
     e: React.MouseEvent,
     n: FeedPanelNotification
   ) => {
+    e.preventDefault();
     e.stopPropagation();
     if (n.relatedFriendRequestId == null) return;
     try {
@@ -2450,7 +2484,12 @@ const Forums: React.FC = () => {
                             </span>
                             {notification.type === "friend_request" &&
                               notification.relatedFriendRequestId != null && (
-                                <div className="newsfeed-notification-panel__friend-actions">
+                                <div
+                                  className="newsfeed-notification-panel__friend-actions"
+                                  role="group"
+                                  aria-label="Friend request actions"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   <button
                                     type="button"
                                     className="newsfeed-notification-panel__friend-action-btn newsfeed-notification-panel__friend-action-btn--accept"

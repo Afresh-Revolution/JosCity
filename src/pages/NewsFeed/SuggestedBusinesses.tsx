@@ -34,6 +34,9 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
   const [businessStatuses, setBusinessStatuses] = useState<
     Record<number, "none" | "sent" | "pending" | "friends">
   >({});
+  const [sentRequestIdsByReceiver, setSentRequestIdsByReceiver] = useState<
+    Record<number, number>
+  >({});
   const [isSeeAllModalOpen, setIsSeeAllModalOpen] = useState(false);
   const userLocation = getUserLocation();
   const userRange = getUserRange();
@@ -50,20 +53,25 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
         ]);
 
         const statuses: Record<number, "none" | "sent" | "pending" | "friends"> = {};
+        const sentMap: Record<number, number> = {};
         if (friendsRes.success) {
           friendsRes.data.forEach((friend) => {
             statuses[friend.user_id] = "friends";
           });
         }
         if (requestsRes.success) {
-          requestsRes.data.sent.forEach((request) => {
-            statuses[request.receiver_id] = "sent";
-          });
+          requestsRes.data.sent.forEach(
+            (request: { receiver_id: number; request_id: number }) => {
+              statuses[request.receiver_id] = "sent";
+              sentMap[request.receiver_id] = request.request_id;
+            }
+          );
           requestsRes.data.received.forEach((request) => {
             if (!statuses[request.sender_id]) statuses[request.sender_id] = "pending";
           });
         }
         setBusinessStatuses(statuses);
+        setSentRequestIdsByReceiver(sentMap);
       } catch {
         // ignore status bootstrap errors
       }
@@ -110,11 +118,35 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
   const handleAddBusiness = async (business: Business) => {
     try {
       const response = await friendApi.sendFriendRequest(business.id);
-      if (response.success) {
+      if (response.success && response.data?.request_id != null) {
+        setBusinessStatuses((prev) => ({ ...prev, [business.id]: "sent" }));
+        setSentRequestIdsByReceiver((prev) => ({
+          ...prev,
+          [business.id]: response.data.request_id,
+        }));
+      } else if (response.success) {
         setBusinessStatuses((prev) => ({ ...prev, [business.id]: "sent" }));
       }
     } catch (error) {
       console.error("Error sending friend request:", error);
+    }
+  };
+
+  const handleCancelSentRequest = async (business: Business) => {
+    const rid = sentRequestIdsByReceiver[business.id];
+    if (rid == null) return;
+    try {
+      const res = await friendApi.cancelFriendRequest(rid);
+      if (res.success) {
+        setBusinessStatuses((prev) => ({ ...prev, [business.id]: "none" }));
+        setSentRequestIdsByReceiver((prev) => {
+          const next = { ...prev };
+          delete next[business.id];
+          return next;
+        });
+      }
+    } catch {
+      alert("Could not cancel friend request. Please try again.");
     }
   };
 
@@ -144,7 +176,7 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
         ) : (
           displayedBusinesses.map((business) => {
             const status = businessStatuses[business.id] || "none";
-            const isActionDisabled = status !== "none";
+            const isActionDisabled = status !== "none" && status !== "sent";
             return (
               <div
                 key={business.id}
@@ -172,32 +204,45 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
                     </p>
                   )}
                 </div>
-                <button
-                  className={`newsfeed-suggested-friends__add-btn ${
-                    isActionDisabled
-                      ? "newsfeed-suggested-friends__add-btn--added"
-                      : ""
-                  }`}
-                  onClick={() => !isActionDisabled && void handleAddBusiness(business)}
-                  disabled={isActionDisabled}
-                  title={
-                    status === "friends"
-                      ? "Already friends"
-                      : status === "sent"
-                        ? "Request sent"
+                {status === "sent" &&
+                sentRequestIdsByReceiver[business.id] != null ? (
+                  <button
+                    type="button"
+                    className="newsfeed-suggested-friends__add-btn newsfeed-suggested-friends__add-btn--cancel"
+                    onClick={() => void handleCancelSentRequest(business)}
+                    title="Cancel friend request"
+                    aria-label="Cancel friend request"
+                  >
+                    <X size={18} />
+                  </button>
+                ) : (
+                  <button
+                    className={`newsfeed-suggested-friends__add-btn ${
+                      isActionDisabled
+                        ? "newsfeed-suggested-friends__add-btn--added"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      !isActionDisabled && void handleAddBusiness(business)
+                    }
+                    disabled={isActionDisabled}
+                    title={
+                      status === "friends"
+                        ? "Already friends"
                         : status === "pending"
                           ? "Incoming request pending"
                           : "Add business"
-                  }
-                >
-                  {status === "friends" ? (
-                    <Check size={18} />
-                  ) : status === "sent" || status === "pending" ? (
-                    <Clock size={18} />
-                  ) : (
-                    <Building2 size={18} />
-                  )}
-                </button>
+                    }
+                  >
+                    {status === "friends" ? (
+                      <Check size={18} />
+                    ) : status === "pending" ? (
+                      <Clock size={18} />
+                    ) : (
+                      <Building2 size={18} />
+                    )}
+                  </button>
+                )}
               </div>
             );
           })
@@ -234,7 +279,7 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
               ) : (
                 filteredBusinesses.map((business) => {
                   const status = businessStatuses[business.id] || "none";
-                  const isActionDisabled = status !== "none";
+                  const isActionDisabled = status !== "none" && status !== "sent";
                   return (
                     <div
                       key={business.id}
@@ -262,34 +307,45 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
                           </p>
                         )}
                       </div>
-                      <button
-                        className={`newsfeed-suggested-friends__add-btn ${
-                          isActionDisabled
-                            ? "newsfeed-suggested-friends__add-btn--added"
-                            : ""
-                        }`}
-                        onClick={() =>
-                          !isActionDisabled && void handleAddBusiness(business)
-                        }
-                        disabled={isActionDisabled}
-                        title={
-                          status === "friends"
-                            ? "Already friends"
-                            : status === "sent"
-                              ? "Request sent"
+                      {status === "sent" &&
+                      sentRequestIdsByReceiver[business.id] != null ? (
+                        <button
+                          type="button"
+                          className="newsfeed-suggested-friends__add-btn newsfeed-suggested-friends__add-btn--cancel"
+                          onClick={() => void handleCancelSentRequest(business)}
+                          title="Cancel friend request"
+                          aria-label="Cancel friend request"
+                        >
+                          <X size={18} />
+                        </button>
+                      ) : (
+                        <button
+                          className={`newsfeed-suggested-friends__add-btn ${
+                            isActionDisabled
+                              ? "newsfeed-suggested-friends__add-btn--added"
+                              : ""
+                          }`}
+                          onClick={() =>
+                            !isActionDisabled && void handleAddBusiness(business)
+                          }
+                          disabled={isActionDisabled}
+                          title={
+                            status === "friends"
+                              ? "Already friends"
                               : status === "pending"
                                 ? "Incoming request pending"
                                 : "Add business"
-                        }
-                      >
-                        {status === "friends" ? (
-                          <Check size={18} />
-                        ) : status === "sent" || status === "pending" ? (
-                          <Clock size={18} />
-                        ) : (
-                          <Building2 size={18} />
-                        )}
-                      </button>
+                          }
+                        >
+                          {status === "friends" ? (
+                            <Check size={18} />
+                          ) : status === "pending" ? (
+                            <Clock size={18} />
+                          ) : (
+                            <Building2 size={18} />
+                          )}
+                        </button>
+                      )}
                     </div>
                   );
                 })

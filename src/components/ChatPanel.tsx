@@ -6,9 +6,11 @@ import { getUserData } from "../utils/userUtils";
 import chatService, {
   type ChatConversation,
   type ChatMessage,
+  normalizeChatConversation,
   normalizeChatMessage,
   normalizeMessageNotification,
 } from "../services/chatService";
+import { feedApi } from "../services/feedApi";
 
 export interface ChatPanelPopupPayload {
   messageId?: number;
@@ -139,13 +141,60 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const loadConversations = useCallback(async () => {
     try {
-      const result = await chatService.getUserConversations();
-      setConversations(sortConversations(result.conversations));
+      const [convResult, friendsResult] = await Promise.all([
+        chatService.getUserConversations(1, 50),
+        feedApi.getMyFriends().catch(() => ({
+          success: false as const,
+          data: [] as Array<{
+            user_id: number;
+            user_firstname?: string;
+            user_lastname?: string;
+            user_picture?: string;
+          }>,
+        })),
+      ]);
+
+      const fromApi = sortConversations(convResult.conversations);
+      const friends =
+        friendsResult.success && Array.isArray(friendsResult.data)
+          ? friendsResult.data
+          : [];
+
+      const byOtherId = new Map<number, ChatConversation>();
+      for (const c of fromApi) {
+        if (c.otherUserId != null) {
+          byOtherId.set(c.otherUserId, c);
+        }
+      }
+
+      const placeholders: ChatConversation[] = [];
+      for (const f of friends) {
+        const fid = f.user_id;
+        if (fid == null || fid === userId) continue;
+        if (byOtherId.has(fid)) continue;
+        const name =
+          [f.user_firstname, f.user_lastname].filter(Boolean).join(" ").trim() ||
+          "Friend";
+        placeholders.push({
+          conversationId: -fid,
+          conversationType: "direct",
+          conversationName: name,
+          otherUserId: fid,
+          otherUsername: name,
+          otherAvatar: f.user_picture || "",
+          lastMessageContent: "",
+          lastMessageAt: undefined,
+          unreadCount: 0,
+          isOnline: false,
+        });
+      }
+
+      setConversations(sortConversations([...fromApi, ...placeholders]));
       setChatError(null);
     } catch (error) {
       setChatError(error instanceof Error ? error.message : "Unable to load chats.");
     }
-  }, []);
+  }, [userId]);
 
   const markConversationRead = useCallback(
     async (conversationId: number) => {
@@ -173,6 +222,59 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const openConversation = useCallback(
     async (conversationId: number) => {
+      if (conversationId < 0) {
+        const friendId = -conversationId;
+        const placeholder = conversations.find(
+          (c) => c.conversationId === conversationId
+        );
+        setSelectedConversationId(conversationId);
+        setMessages([]);
+        setIsLoading(true);
+        setChatError(null);
+        try {
+          const { conversation: raw } =
+            await chatService.createDirectConversation(friendId);
+          let normalized = normalizeChatConversation(raw);
+          if (!normalized) {
+            throw new Error("Could not open this chat.");
+          }
+          if (placeholder) {
+            normalized = {
+              ...normalized,
+              conversationName: placeholder.conversationName,
+              otherUsername: placeholder.otherUsername,
+              otherAvatar: placeholder.otherAvatar,
+              otherUserId: placeholder.otherUserId ?? friendId,
+            };
+          }
+          const realId = normalized.conversationId;
+          setConversations((prev) =>
+            sortConversations([
+              ...prev.filter(
+                (c) => c.conversationId !== conversationId && c.conversationId !== realId
+              ),
+              normalized,
+            ])
+          );
+          setSelectedConversationId(realId);
+          const result = await chatService.getConversation(realId);
+          setMessages(result.messages);
+          setTypingUsers([]);
+          chatService.joinConversation(realId);
+          await markConversationRead(realId);
+        } catch (error) {
+          setSelectedConversationId(null);
+          setChatError(
+            error instanceof Error
+              ? error.message
+              : "Unable to open this conversation."
+          );
+        } finally {
+          setIsLoading(false);
+        }
+        return;
+      }
+
       setIsLoading(true);
       setSelectedConversationId(conversationId);
       try {
@@ -192,7 +294,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         setIsLoading(false);
       }
     },
-    [markConversationRead]
+    [conversations, markConversationRead]
   );
 
   useEffect(() => {
@@ -372,7 +474,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const handleInputChange = (value: string) => {
     setMessageInput(value);
-    if (!selectedConversationId) return;
+    if (!selectedConversationId || selectedConversationId < 0) return;
 
     if (value.trim()) {
       chatService.startTyping(selectedConversationId);
@@ -391,7 +493,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   };
 
   const handleSendMessage = async () => {
-    if (!selectedConversationId || !messageInput.trim()) return;
+    if (!selectedConversationId || selectedConversationId < 0 || !messageInput.trim()) {
+      return;
+    }
 
     const outgoingMessage = messageInput.trim();
     setIsSending(true);

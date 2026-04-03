@@ -26,7 +26,7 @@ import {
   type UsersResponse,
 } from "../services/adminApi";
 import ConfirmationModal from "../components/ConfirmationModal";
-// Citizen count is now fetched from API
+import { fetchRegisteredCitizensCount } from "../utils/citizenCountUtils";
 import "../main.css";
 import "../scss/_admin.scss";
 
@@ -214,7 +214,6 @@ const AdminUsers: React.FC = () => {
       if (action === "delete" && result?.success) {
         // Only refresh if user was approved (only approved users are counted)
         if (result.was_approved || result.account_status === "approved" || result.user_approved === "1" || result.user_approved === 1) {
-          const { fetchRegisteredCitizensCount } = await import("../utils/citizenCountUtils");
           await fetchRegisteredCitizensCount();
           // Dispatch event to update count in other components
           window.dispatchEvent(new Event("citizenCountUpdated"));

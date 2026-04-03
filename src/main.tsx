@@ -40,6 +40,7 @@ import PWAProvider from "./components/PWAProvider";
 import Business from "./pages/NewsFeed/Business";
 import ProtectedRoute from "./components/ProtectedRoute";
 import News from "./pages/NewsFeed/News";
+import Reels from "./pages/NewsFeed/Reels";
 
 /** Logged-in user areas (sidebar / feed); redirects to sign-in if no session. */
 function UserRoute({ children }: { children: React.ReactNode }) {
@@ -167,7 +168,7 @@ if (rootElement) {
                     path="/reels"
                     element={
                       <UserRoute>
-                        <ComingSoonSection />
+                        <Reels />
                       </UserRoute>
                     }
                   />

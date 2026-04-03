@@ -20,6 +20,10 @@ declare module "virtual:pwa-register/react" {
   };
 }
 
+declare module "workbox-core" {
+  export function clientsClaim(): void;
+}
+
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }

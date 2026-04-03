@@ -187,6 +187,7 @@ const Reels: React.FC = () => {
 
     // Sort videos
     const sorted = sortVideos(filtered, sortOption);
+    
     setFilteredVideos(sorted);
   }, [selectedCategory, videos, searchQuery, sortOption, sortVideos]);
 

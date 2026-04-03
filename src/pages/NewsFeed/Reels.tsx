@@ -1,181 +1,306 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { Play, Search, X, ArrowUpDown, Loader2 } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Play, Search, X, ArrowUpDown, Loader2, Plus } from "lucide-react";
 import "../../main.css";
+import CreateReelModal from "../../components/CreateReelModal";
 import ReelVideoModal from "../../components/ReelVideoModal";
 import ChatPanel from "../../components/ChatPanel";
 import FindFriendsModal from "../../components/FindFriendsModal";
 import NewsFeedHeader from "./NewsFeedHeader";
 import NewsFeedSidebar from "./NewsFeedSidebar";
-import { getProfileUsername } from "../../utils/userUtils";
+import {
+  getProfileUsername,
+  getUserAvatar as getCurrentUserAvatar,
+  getUserName as getCurrentUserName,
+} from "../../utils/userUtils";
+import { REEL_CATEGORIES } from "../../constants/reels";
+import { reelsApi, ReelItem } from "../../services/reelsApi";
 
-interface VideoData {
-  id: number;
-  views: string;
-  title?: string;
+interface VideoData extends ReelItem {
   videoUrl?: string;
-  category?: string;
   createdAt?: Date;
   viewCount?: number;
 }
 
 type SortOption = "recent" | "views" | "trending";
 
-// Sample video thumbnails data with video URLs
-const initialVideos: VideoData[] = [
-  {
-    id: 1,
-    views: "345",
-    title: "Reel Video 1",
-    videoUrl:
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-    category: "Films",
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-    viewCount: 345,
-  },
-  {
-    id: 2,
-    views: "1.2K",
-    title: "Reel Video 2",
-    videoUrl:
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-    category: "Art",
-    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
-    viewCount: 1200,
-  },
-  {
-    id: 3,
-    views: "856",
-    title: "Reel Video 3",
-    videoUrl:
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-    category: "Music",
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-    viewCount: 856,
-  },
-  {
-    id: 4,
-    views: "2.5K",
-    title: "Reel Video 4",
-    videoUrl:
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-    category: "Dance",
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-    viewCount: 2500,
-  },
-];
+const PAGE_SIZE = 12;
+const REELS_CACHE_KEY = "joscity.reels.cache.v1";
+const MAX_CACHED_REELS = 60;
+
+const mapReelToVideo = (reel: ReelItem): VideoData => ({
+  ...reel,
+  title: reel.title || "Untitled Reel",
+  videoUrl: reel.video_url || reel.videoUrl || undefined,
+  category: reel.category || "Others",
+  createdAt: reel.created_at ? new Date(reel.created_at) : undefined,
+  viewCount: reel.views_count || 0,
+});
+
+const mergeUniqueVideos = (current: VideoData[], incoming: VideoData[]) => {
+  const byId = new Map<number, VideoData>();
+  current.forEach((video) => byId.set(video.id, video));
+  incoming.forEach((video) =>
+    byId.set(video.id, {
+      ...byId.get(video.id),
+      ...video,
+    })
+  );
+  return Array.from(byId.values());
+};
+
+const readCachedVideos = (): VideoData[] => {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const rawCache = window.localStorage.getItem(REELS_CACHE_KEY);
+    if (!rawCache) {
+      return [];
+    }
+
+    const parsed = JSON.parse(rawCache);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map((cachedReel) => mapReelToVideo(cachedReel as ReelItem))
+      .filter((video) => Boolean(video.id) && Boolean(video.videoUrl || video.thumbnail_url || video.thumbnailUrl));
+  } catch (error) {
+    console.warn("[reels] Could not read cached reels", error);
+    return [];
+  }
+};
 
 const Reels: React.FC = () => {
+  const location = useLocation();
   const navigate = useNavigate();
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreateReelModalOpen, setIsCreateReelModalOpen] = useState(false);
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
-  const [videos, setVideos] = useState<VideoData[]>([]);
+  const [videos, setVideos] = useState<VideoData[]>(() => readCachedVideos());
   const [filteredVideos, setFilteredVideos] = useState<VideoData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [autoLoadPaused, setAutoLoadPaused] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortOption, setSortOption] = useState<SortOption>("recent");
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
   const observerTarget = useRef<HTMLDivElement>(null);
   const mainContentRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const activeRequestIdRef = useRef(0);
 
   useEffect(() => {
-    // Add class to body and html to hide scrollbars
     document.body.classList.add("reels-page-active");
     document.documentElement.classList.add("reels-page-active");
 
-    // Cleanup: remove class when component unmounts
     return () => {
       document.body.classList.remove("reels-page-active");
       document.documentElement.classList.remove("reels-page-active");
     };
   }, []);
 
-  const categories = [
-    "Causes",
-    "Art",
-    "Crafts",
-    "Dance",
-    "Drinks",
-    "Films",
-    "Fitness",
-    "Food",
-    "Game",
-    "Party",
-    "Health",
-    "Sport",
-    "Literature",
-    "Music",
-    "Party",
-    "Religion",
-    "Others",
-  ];
-
-  // Initialize videos on mount
   useEffect(() => {
-    setVideos(initialVideos);
-  }, []);
-
-  // Get category count
-  const getCategoryCount = useCallback((category: string): number => {
-    if (category === "All") {
-      return videos.length;
+    if (typeof window === "undefined") {
+      return;
     }
-    return videos.filter((video) => video.category === category).length;
+
+    try {
+      if (!videos.length) {
+        window.localStorage.removeItem(REELS_CACHE_KEY);
+        return;
+      }
+
+      window.localStorage.setItem(
+        REELS_CACHE_KEY,
+        JSON.stringify(
+          videos.slice(0, MAX_CACHED_REELS).map((video) => ({
+            ...video,
+            createdAt: video.createdAt?.toISOString() || null,
+          }))
+        )
+      );
+    } catch (error) {
+      console.warn("[reels] Could not cache reels", error);
+    }
   }, [videos]);
 
-  // Sort videos function
-  const sortVideos = useCallback((videosToSort: VideoData[], sortBy: SortOption): VideoData[] => {
-    const sorted = [...videosToSort];
-    switch (sortBy) {
-      case "recent":
-        return sorted.sort((a, b) => {
-          const dateA = a.createdAt?.getTime() || 0;
-          const dateB = b.createdAt?.getTime() || 0;
-          return dateB - dateA; // Newest first
-        });
-      case "views":
-        return sorted.sort((a, b) => {
-          const viewsA = a.viewCount || 0;
-          const viewsB = b.viewCount || 0;
-          return viewsB - viewsA; // Most views first
-        });
-      case "trending":
-        // Trending: combination of recent views and recency
-        return sorted.sort((a, b) => {
-          const dateA = a.createdAt?.getTime() || 0;
-          const dateB = b.createdAt?.getTime() || 0;
-          const viewsA = a.viewCount || 0;
-          const viewsB = b.viewCount || 0;
-          // Trending score: views per day
-          const daysA = Math.max(1, (Date.now() - dateA) / (24 * 60 * 60 * 1000));
-          const daysB = Math.max(1, (Date.now() - dateB) / (24 * 60 * 60 * 1000));
-          const scoreA = viewsA / daysA;
-          const scoreB = viewsB / daysB;
-          return scoreB - scoreA;
-        });
-      default:
-        return sorted;
-    }
-  }, []);
+  const categories = REEL_CATEGORIES;
 
-  // Filter and sort videos
+  useEffect(() => {
+    const routeState = location.state as { openCreateReel?: boolean } | null;
+    if (!routeState?.openCreateReel) {
+      return;
+    }
+
+    setIsCreateReelModalOpen(true);
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.pathname, location.state, navigate]);
+
+  const loadVideosPage = useCallback(
+    async (nextPage: number, reset: boolean) => {
+      const requestId = ++activeRequestIdRef.current;
+
+      setIsLoading(true);
+      if (reset) {
+        setError(null);
+      }
+      setAutoLoadPaused(false);
+
+      try {
+        const response = await reelsApi.getReels({
+          page: nextPage,
+          limit: PAGE_SIZE,
+          category: selectedCategory === "All" ? undefined : selectedCategory,
+          search: searchQuery.trim() || undefined,
+          sort: sortOption,
+        });
+
+        if (requestId !== activeRequestIdRef.current) {
+          return;
+        }
+
+        const nextVideos = response.data.map(mapReelToVideo);
+
+        setVideos((prev) => {
+          if (!reset) {
+            return mergeUniqueVideos(prev, nextVideos);
+          }
+
+          const shouldPreserveCachedVideos =
+            nextPage === 1 &&
+            selectedCategory === "All" &&
+            !searchQuery.trim();
+
+          return shouldPreserveCachedVideos
+            ? mergeUniqueVideos(nextVideos, prev)
+            : nextVideos;
+        });
+        setHasMore(Boolean(response.pagination.hasMore));
+        setPage(nextPage);
+        setError(null);
+        setAutoLoadPaused(false);
+      } catch (err) {
+        if (requestId !== activeRequestIdRef.current) {
+          return;
+        }
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load more videos. Please try again."
+        );
+        setAutoLoadPaused(true);
+        if (reset) {
+          setHasMore(false);
+        }
+      } finally {
+        if (requestId === activeRequestIdRef.current) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [searchQuery, selectedCategory, sortOption]
+  );
+
+  useEffect(() => {
+    setPage(1);
+    setHasMore(true);
+    setAutoLoadPaused(false);
+    void loadVideosPage(1, true);
+  }, [loadVideosPage]);
+
+  const getCategoryCount = useCallback(
+    (category: string): number => {
+      if (category === "All") {
+        return videos.length;
+      }
+      return videos.filter((video) => video.category === category).length;
+    },
+    [videos]
+  );
+
+  const handleGridVideoPreviewReady = useCallback(
+    (event: React.SyntheticEvent<HTMLVideoElement>) => {
+      const element = event.currentTarget;
+      if (element.dataset.previewReady === "true") {
+        return;
+      }
+
+      const duration = Number.isFinite(element.duration) ? element.duration : 0;
+      const previewTime =
+        duration > 0
+          ? Math.min(Math.max(duration * 0.18, 0.15), Math.max(duration - 0.12, 0.15))
+          : 0.15;
+
+      try {
+        element.dataset.previewReady = "true";
+        element.currentTime = previewTime;
+      } catch (error) {
+        console.warn("[reels] Could not prime reel preview frame", error);
+      }
+    },
+    []
+  );
+
+  const sortVideos = useCallback(
+    (videosToSort: VideoData[], sortBy: SortOption): VideoData[] => {
+      const sorted = [...videosToSort];
+      switch (sortBy) {
+        case "recent":
+          return sorted.sort((a, b) => {
+            const dateA = a.createdAt?.getTime() || 0;
+            const dateB = b.createdAt?.getTime() || 0;
+            return dateB - dateA;
+          });
+        case "views":
+          return sorted.sort((a, b) => {
+            const viewsA = a.viewCount || 0;
+            const viewsB = b.viewCount || 0;
+            return viewsB - viewsA;
+          });
+        case "trending":
+          return sorted.sort((a, b) => {
+            const dateA = a.createdAt?.getTime() || 0;
+            const dateB = b.createdAt?.getTime() || 0;
+            const viewsA = a.viewCount || 0;
+            const viewsB = b.viewCount || 0;
+            const daysA = Math.max(
+              1,
+              (Date.now() - dateA) / (24 * 60 * 60 * 1000)
+            );
+            const daysB = Math.max(
+              1,
+              (Date.now() - dateB) / (24 * 60 * 60 * 1000)
+            );
+            const scoreA = viewsA / daysA;
+            const scoreB = viewsB / daysB;
+            return scoreB - scoreA;
+          });
+        default:
+          return sorted;
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     let filtered = videos;
 
-    // Filter by category
     if (selectedCategory !== "All") {
       filtered = filtered.filter((video) => video.category === selectedCategory);
     }
 
-    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -185,62 +310,25 @@ const Reels: React.FC = () => {
       );
     }
 
-    // Sort videos
     const sorted = sortVideos(filtered, sortOption);
-    
     setFilteredVideos(sorted);
   }, [selectedCategory, videos, searchQuery, sortOption, sortVideos]);
 
-  // Load more videos function
   const loadMoreVideos = useCallback(() => {
-    if (isLoading || !hasMore) return;
+    if (isLoading || !hasMore || autoLoadPaused || !!error) return;
+    void loadVideosPage(page + 1, false);
+  }, [autoLoadPaused, error, hasMore, isLoading, loadVideosPage, page]);
 
-    setIsLoading(true);
-    setError(null);
-
-    // Simulate API call delay
-    setTimeout(() => {
-      try {
-        const categories = ["Films", "Art", "Music", "Dance", "Fitness", "Food", "Sport"];
-        const newVideos: VideoData[] = Array.from({ length: 4 }, (_, i) => {
-          const viewCount = Math.floor(Math.random() * 5000);
-          const daysAgo = Math.floor(Math.random() * 7);
-          return {
-            id: videos.length + i + 1,
-            views: viewCount > 1000 ? `${(viewCount / 1000).toFixed(1)}K` : `${viewCount}`,
-            title: `Reel Video ${videos.length + i + 1}`,
-            videoUrl: [
-              "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-              "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-              "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-              "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-            ][i % 4],
-            category: categories[Math.floor(Math.random() * categories.length)],
-            createdAt: new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000),
-            viewCount: viewCount,
-          };
-        });
-
-        setVideos((prev) => [...prev, ...newVideos]);
-        setIsLoading(false);
-
-        // Stop loading after 20 videos (for demo purposes)
-        if (videos.length + newVideos.length >= 20) {
-          setHasMore(false);
-        }
-      } catch (err) {
-        setError("Failed to load more videos. Please try again.");
-        setIsLoading(false);
-        console.error("Error loading videos:", err);
-      }
-    }, 500);
-  }, [videos.length, isLoading, hasMore]);
-
-  // Intersection Observer for infinite scroll
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoading) {
+        if (
+          entries[0].isIntersecting &&
+          hasMore &&
+          !isLoading &&
+          !error &&
+          !autoLoadPaused
+        ) {
           loadMoreVideos();
         }
       },
@@ -256,8 +344,9 @@ const Reels: React.FC = () => {
       if (currentTarget) {
         observer.unobserve(currentTarget);
       }
+      observer.disconnect();
     };
-  }, [loadMoreVideos, hasMore, isLoading]);
+  }, [autoLoadPaused, error, loadMoreVideos, hasMore, isLoading]);
 
   const handleVideoClick = (video: VideoData) => {
     setSelectedVideo(video);
@@ -269,14 +358,12 @@ const Reels: React.FC = () => {
     setSelectedVideo(null);
   };
 
-  // Get the initial video index when opening modal
   const getInitialVideoIndex = () => {
     if (!selectedVideo) return 0;
     const index = filteredVideos.findIndex((v) => v.id === selectedVideo.id);
     return index >= 0 ? index : 0;
   };
 
-  // Clear filters
   const handleClearFilters = () => {
     setSelectedCategory("All");
     setSearchQuery("");
@@ -285,14 +372,85 @@ const Reels: React.FC = () => {
     }
   };
 
-  // Handle manual load more
   const handleLoadMore = () => {
-    loadMoreVideos();
+    const retryPage = videos.length > 0 ? page + 1 : 1;
+    const shouldReset = videos.length === 0;
+    void loadVideosPage(retryPage, shouldReset);
   };
+
+  const handleVideoUpdate = useCallback(
+    (videoId: number, updates: Partial<ReelItem>) => {
+      setVideos((prev) =>
+        prev.map((video) => {
+          if (video.id !== videoId) {
+            return video;
+          }
+
+          const merged = {
+            ...video,
+            ...updates,
+          };
+
+          return {
+            ...merged,
+            videoUrl:
+              merged.videoUrl || merged.video_url || video.videoUrl || undefined,
+            createdAt: merged.created_at
+              ? new Date(merged.created_at)
+              : video.createdAt,
+            viewCount:
+              typeof merged.views_count === "number"
+                ? merged.views_count
+                : video.viewCount,
+          };
+        })
+      );
+
+      setSelectedVideo((prev) =>
+        prev && prev.id === videoId
+          ? {
+              ...prev,
+              ...updates,
+              videoUrl:
+                (updates.videoUrl as string | undefined) ||
+                (updates.video_url as string | undefined) ||
+                prev.videoUrl,
+              createdAt:
+                typeof updates.created_at === "string"
+                  ? new Date(updates.created_at)
+                  : prev.createdAt,
+              viewCount:
+                typeof updates.views_count === "number"
+                  ? updates.views_count
+                  : prev.viewCount,
+            }
+          : prev
+      );
+    },
+    []
+  );
+
+  const handleReelCreated = useCallback((createdReel: ReelItem) => {
+    const nextVideo = mapReelToVideo(createdReel);
+
+    setSelectedCategory("All");
+    setSearchQuery("");
+    setSortOption("recent");
+    setError(null);
+    setAutoLoadPaused(false);
+    setHasMore(true);
+    setVideos((previous) => [
+      nextVideo,
+      ...previous.filter((video) => video.id !== nextVideo.id),
+    ]);
+    mainContentRef.current?.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }, []);
 
   return (
     <div className="reels-page">
-      {/* Top Navigation Bar */}
       <NewsFeedHeader
         isLeftSidebarOpen={isLeftSidebarOpen}
         onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
@@ -305,12 +463,12 @@ const Reels: React.FC = () => {
         onMessageClick={() => setIsChatPanelOpen(true)}
         onCreatePost={() => navigate("/newsfeed")}
         onCreateStory={() => navigate("/newsfeed")}
+        onCreateReel={() => setIsCreateReelModalOpen(true)}
         onProfileClick={() =>
           navigate(`/profile/${encodeURIComponent(getProfileUsername())}`)
         }
       />
 
-      {/* Mobile Overlay */}
       {isLeftSidebarOpen && (
         <div
           className="newsfeed-overlay"
@@ -318,17 +476,13 @@ const Reels: React.FC = () => {
         />
       )}
 
-      {/* Container for sidebar and main content */}
       <div className="newsfeed-container newsfeed-container--no-aside">
-        {/* Navigation Menu Sidebar */}
         <NewsFeedSidebar
           isOpen={isLeftSidebarOpen}
           onClose={() => setIsLeftSidebarOpen(false)}
         />
 
-        {/* Main Content Area */}
         <main className="reels-main" ref={mainContentRef}>
-          {/* Search and Sort Bar */}
           <div className="reels-search-sort">
             <div className="reels-search">
               <Search size={18} className="reels-search__icon" />
@@ -367,16 +521,25 @@ const Reels: React.FC = () => {
                 <option value="trending">Trending</option>
               </select>
             </div>
+            <button
+              type="button"
+              className="reels-create-button"
+              onClick={() => setIsCreateReelModalOpen(true)}
+            >
+              <Plus size={16} />
+              <span>Create Reel</span>
+            </button>
           </div>
 
-          {/* Horizontal Category Filter Bar */}
           <div className="reels-category-filter">
             <div className="reels-category-filter__wrapper">
               <div className="reels-category-filter__fade reels-category-filter__fade--left"></div>
               <div className="reels-category-filter__scroll">
                 <button
                   className={`reels-category-filter__item ${
-                    selectedCategory === "All" ? "reels-category-filter__item--active" : ""
+                    selectedCategory === "All"
+                      ? "reels-category-filter__item--active"
+                      : ""
                   }`}
                   onClick={() => setSelectedCategory("All")}
                 >
@@ -389,7 +552,7 @@ const Reels: React.FC = () => {
                 </button>
                 {categories.map((category, index) => (
                   <button
-                    key={index}
+                    key={`${category}-${index}`}
                     className={`reels-category-filter__item ${
                       selectedCategory === category
                         ? "reels-category-filter__item--active"
@@ -420,74 +583,85 @@ const Reels: React.FC = () => {
             )}
           </div>
 
-          {/* Scrollable Content Area */}
           <div className="reels-content">
-            {/* Video Grid */}
             <div className="reels-grid">
-            {filteredVideos.map((video) => (
-              <div
-                key={video.id}
-                className="reels-video-card"
-                onClick={() => handleVideoClick(video)}
-              >
-                <div className="reels-video-thumbnail">
-                  {/* Placeholder for video thumbnail - you can replace with actual image */}
-                  <div className="reels-video-placeholder">
-                    <svg
-                      width="100%"
-                      height="100%"
-                      viewBox="0 0 300 400"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      {/* Background */}
-                      <rect width="300" height="400" fill="#f5f5f5" />
-                      {/* Garment shape */}
-                      <path
-                        d="M150 50 L200 150 L200 350 L100 350 L100 150 Z"
-                        fill="white"
-                        stroke="#ddd"
-                        strokeWidth="2"
+              {filteredVideos.map((video) => (
+                <div
+                  key={video.id}
+                  className="reels-video-card"
+                  onClick={() => handleVideoClick(video)}
+                >
+                  <div className="reels-video-thumbnail">
+                    {video.thumbnail_url || video.thumbnailUrl ? (
+                      <img
+                        src={video.thumbnail_url || video.thumbnailUrl || ""}
+                        alt={video.title}
+                        className="reels-video-media"
+                        loading="lazy"
                       />
-                      {/* Hanger */}
-                      <line
-                        x1="150"
-                        y1="50"
-                        x2="150"
-                        y2="30"
-                        stroke="#8b7355"
-                        strokeWidth="3"
-                        strokeLinecap="round"
+                    ) : video.videoUrl ? (
+                      <video
+                        src={video.videoUrl}
+                        className="reels-video-media"
+                        poster={video.thumbnail_url || video.thumbnailUrl || undefined}
+                        muted
+                        playsInline
+                        preload="auto"
+                        onLoadedMetadata={handleGridVideoPreviewReady}
+                        onLoadedData={handleGridVideoPreviewReady}
                       />
-                      <path
-                        d="M130 30 Q150 20 170 30"
-                        stroke="#8b7355"
-                        strokeWidth="3"
-                        fill="none"
-                        strokeLinecap="round"
-                      />
-                      {/* Textured pattern on garment */}
-                      <circle cx="150" cy="200" r="2" fill="#e0e0e0" />
-                      <circle cx="140" cy="220" r="2" fill="#e0e0e0" />
-                      <circle cx="160" cy="220" r="2" fill="#e0e0e0" />
-                      <circle cx="150" cy="240" r="2" fill="#e0e0e0" />
-                      <circle cx="140" cy="260" r="2" fill="#e0e0e0" />
-                      <circle cx="160" cy="260" r="2" fill="#e0e0e0" />
-                    </svg>
-                  </div>
-                  {/* Play button overlay */}
-                  <div className="reels-video-overlay">
-                    <div className="reels-play-icon">
-                      <Play size={24} fill="white" />
+                    ) : (
+                      <div className="reels-video-placeholder">
+                        <svg
+                          width="100%"
+                          height="100%"
+                          viewBox="0 0 300 400"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <rect width="300" height="400" fill="#f5f5f5" />
+                          <path
+                            d="M150 50 L200 150 L200 350 L100 350 L100 150 Z"
+                            fill="white"
+                            stroke="#ddd"
+                            strokeWidth="2"
+                          />
+                          <line
+                            x1="150"
+                            y1="50"
+                            x2="150"
+                            y2="30"
+                            stroke="#8b7355"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                          />
+                          <path
+                            d="M130 30 Q150 20 170 30"
+                            stroke="#8b7355"
+                            strokeWidth="3"
+                            fill="none"
+                            strokeLinecap="round"
+                          />
+                          <circle cx="150" cy="200" r="2" fill="#e0e0e0" />
+                          <circle cx="140" cy="220" r="2" fill="#e0e0e0" />
+                          <circle cx="160" cy="220" r="2" fill="#e0e0e0" />
+                          <circle cx="150" cy="240" r="2" fill="#e0e0e0" />
+                          <circle cx="140" cy="260" r="2" fill="#e0e0e0" />
+                          <circle cx="160" cy="260" r="2" fill="#e0e0e0" />
+                        </svg>
+                      </div>
+                    )}
+                    <div className="reels-video-overlay">
+                      <div className="reels-play-icon">
+                        <Play size={24} fill="white" />
+                      </div>
+                      <span className="reels-video-views">{video.views}</span>
                     </div>
-                    <span className="reels-video-views">{video.views}</span>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
 
-            {/* Loading indicator, error, and infinite scroll trigger */}
             <div ref={observerTarget} className="reels-scroll-trigger">
               {error && (
                 <div className="reels-error">
@@ -507,7 +681,7 @@ const Reels: React.FC = () => {
                   <p>Loading more reels...</p>
                 </div>
               )}
-              {!isLoading && hasMore && (
+              {!isLoading && hasMore && !error && !autoLoadPaused && (
                 <div className="reels-load-more">
                   <button
                     className="reels-load-more__button"
@@ -518,9 +692,22 @@ const Reels: React.FC = () => {
                   </button>
                 </div>
               )}
-              {!hasMore && videos.length > 4 && (
+              {!isLoading && !hasMore && videos.length > 0 && (
                 <div className="reels-end-message">
                   <p>You've reached the end!</p>
+                </div>
+              )}
+              {!isLoading && !videos.length && !error && (
+                <div className="reels-end-message">
+                  <p>No reels available yet.</p>
+                  <button
+                    type="button"
+                    className="reels-create-button reels-create-button--empty"
+                    onClick={() => setIsCreateReelModalOpen(true)}
+                  >
+                    <Plus size={16} />
+                    <span>Create the first reel</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -528,12 +715,19 @@ const Reels: React.FC = () => {
         </main>
       </div>
 
-      {/* Video Player Modal */}
       <ReelVideoModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         videos={filteredVideos}
         initialVideoIndex={getInitialVideoIndex()}
+        onVideoUpdate={handleVideoUpdate}
+      />
+      <CreateReelModal
+        isOpen={isCreateReelModalOpen}
+        onClose={() => setIsCreateReelModalOpen(false)}
+        userName={getCurrentUserName()}
+        userAvatar={getCurrentUserAvatar() || undefined}
+        onCreated={handleReelCreated}
       />
       <ChatPanel
         isOpen={isChatPanelOpen}

@@ -11,6 +11,7 @@ import {
   Newspaper,
 } from "lucide-react";
 import AdminBroadcastStrip from "../components/AdminBroadcastStrip";
+import NewsArticleShareButton from "../components/NewsArticleShareButton";
 import { newsApi, type NewsPost } from "../services/newsApi";
 import { preloadImage } from "../utils/imagePreloader";
 import {
@@ -427,11 +428,22 @@ function Hero() {
                 const hasMedia = Boolean(videoSrc || imageSrc);
                 return (
                   <>
-              <Link
+              <div
                 key={item.id}
-                to="/news"
                 className="landing-news__feature landing-news__feature--interactive"
+                role="link"
+                tabIndex={0}
                 aria-label="Open the full news section. Sign in if prompted."
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest(".landing-news__share")) return;
+                  navigate("/news");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" && e.key !== " ") return;
+                  if ((e.target as HTMLElement).closest(".landing-news__share")) return;
+                  e.preventDefault();
+                  navigate("/news");
+                }}
               >
                 <div
                   className={`landing-news__feature-grid${
@@ -452,16 +464,24 @@ function Hero() {
                       {item.is_featured && (
                         <span className="landing-news__pill">Featured</span>
                       )}
-                      <time
-                        className="landing-news__time"
-                        dateTime={item.created_at}
-                      >
-                        {new Date(item.created_at).toLocaleDateString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </time>
+                      <div className="landing-news__meta-dateline">
+                        <time
+                          className="landing-news__time"
+                          dateTime={item.created_at}
+                        >
+                          {new Date(item.created_at).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </time>
+                        <NewsArticleShareButton
+                          articleId={item.id}
+                          title={item.title}
+                          className="landing-news__share"
+                          iconSize={16}
+                        />
+                      </div>
                     </div>
                   </div>
                   {videoSrc ? (
@@ -500,7 +520,7 @@ function Hero() {
                     </div>
                   ) : null}
                 </div>
-              </Link>
+              </div>
 
               <div className="landing-news__controls">
                 <button

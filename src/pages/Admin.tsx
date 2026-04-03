@@ -255,7 +255,6 @@ const Admin: React.FC = () => {
               </button>
               <div className="admin-header__logo">
                 <img src={primaryLogo} alt="JOSCity Logo" />
-                <span>JOSCity</span>
               </div>
             </div>
             <div className="admin-header__actions">

@@ -623,7 +623,14 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
       }
 
       const group = groups.get(key)!;
-      group.stories.push(story);
+
+      // Use ALL stories for this user from storiesByUser map so we never lose any
+      const allStories = storiesByUser.get(key);
+      if (allStories && allStories.length > 0) {
+        group.stories = allStories;
+      } else if (!group.stories.find((s) => s.id === story.id)) {
+        group.stories.push(story);
+      }
 
       // Sort stories by creation date (most recent first)
       group.stories.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -648,16 +655,22 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
       const bTime = b.mostRecentStory?.createdAt || 0;
       return bTime - aTime;
     });
-  }, [filteredStories]);
+  }, [filteredStories, storiesByUser]);
 
   // Check if user is logged in (has a valid currentUser)
   const isLoggedIn = currentUser && currentUser !== "User";
 
   const handleUserStoryClick = (userGroup: UserStoryGroup) => {
-    // Set all stories for this user to start viewing
-    // All stories for this user will be passed to StoryViewer
-    if (userGroup.stories.length > 0) {
-      setViewingStories(userGroup.stories);
+    // Use storiesByUser to get ALL stories for this user (not just the latest)
+    const allUserStories =
+      storiesByUser.get(userGroup.userName) ||
+      userGroup.stories;
+    if (allUserStories.length > 0) {
+      // Sort newest first so viewer starts at the most recent
+      const sorted = [...allUserStories].sort(
+        (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+      );
+      setViewingStories(sorted);
       setCurrentStoryIndex(0);
     }
   };
@@ -669,10 +682,14 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
         {isLoggedIn &&
           (() => {
             try {
-              // Get user's own stories for preview
-              const userStories = filteredStories
-                .filter((s) => s.userName === (userName || currentUser))
-                .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+              // Get user's own stories for preview — use storiesByUser for full list
+              const ownUserKey = userName || currentUser || "";
+              const userStories = (
+                storiesByUser.get(ownUserKey) ||
+                filteredStories.filter(
+                  (s) => s.userName === ownUserKey
+                )
+              ).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
               const mostRecentUserStory =
                 userStories.length > 0 ? userStories[0] : null;
               const hasUserStories = userStories.length > 0;

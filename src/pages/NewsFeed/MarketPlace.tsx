@@ -124,7 +124,7 @@ const MarketPlace: React.FC = () => {
   }, [allProducts]);
 
   // API removed - cart functions disabled
-  const handleAddToCart = async (_productId: string) => {
+  const handleAddToCart = async () => {
     setError("Cart functionality disabled (API removed)");
   };
 
@@ -359,7 +359,7 @@ const MarketPlace: React.FC = () => {
                           </span>
                           <button
                             className="marketplace-product-card__add-btn"
-                            onClick={() => handleAddToCart(product.id)}
+                            onClick={() => void handleAddToCart()}
                           >
                             Add to Cart
                           </button>

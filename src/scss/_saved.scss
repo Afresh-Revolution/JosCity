@@ -78,56 +78,62 @@
   }
 }
 
-// Top Header
+// Top Header (match app newsfeed bar — solid green, full width)
 .newsfeed-header {
-  // Very light glassmorphism effect with subtle green tint
-  background: rgba(13, 74, 31, 0.15);
-  -webkit-backdrop-filter: blur(10px) saturate(150%);
-  backdrop-filter: blur(10px) saturate(150%);
-  box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.05),
-    0 0 0 1px rgba(13, 74, 31, 0.1) inset;
+  background: #1a5d3a;
+  background-color: #1a5d3a;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
   padding: 12px 0;
   position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 1000;
   width: 100%;
+  max-width: none;
   box-sizing: border-box;
   grid-column: 1 / -1; // Span all columns
+
+  @media (max-width: 768px) {
+    top: 15px; // PWA: below status chrome
+  }
   height: auto;
 
-  // Large screens
+  // Large screens (7% shorter than prior breakpoints)
   @media (min-width: 1400px) {
-    height: 92px;
+    height: calc(92px * 0.93 - 10px);
   }
 
   // Medium-large screens
   @media (max-width: 1399px) and (min-width: 1201px) {
-    height: 88px;
+    height: calc(88px * 0.93 - 10px);
   }
 
   // Medium screens
   @media (max-width: 1200px) {
-    height: 80px;
+    height: calc(80px * 0.93 - 10px);
   }
 
   // Tablets
   @media (max-width: 992px) {
-    height: 68px;
+    height: calc(68px * 0.93 - 10px);
   }
 
   // Small tablets and phones
   @media (max-width: 768px) {
-    height: 64px;
+    height: calc(64px * 0.93 - 10px);
   }
 
   // Small phones
   @media (max-width: 480px) {
-    height: 60px;
+    height: calc(60px * 0.93 - 10px);
   }
 
   // Very small phones
   @media (max-width: 360px) {
-    height: 56px;
+    height: calc(56px * 0.93 - 10px);
   }
 
   &__container {

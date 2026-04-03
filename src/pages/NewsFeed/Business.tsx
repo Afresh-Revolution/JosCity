@@ -892,7 +892,6 @@ const Business: React.FC = () => {
               onClick={() => navigate("/")}
             >
               <LazyImage src={primaryLogo} alt="JOSCity Logo" />
-              <span>JosCity</span>
             </div>
           </div>
           <div className="newsfeed-header__actions">

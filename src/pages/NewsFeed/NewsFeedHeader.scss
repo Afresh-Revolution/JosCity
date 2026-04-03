@@ -1,18 +1,22 @@
 // NewsFeed Header Styles
 .newsfeed-header {
-  // Very light glassmorphism effect with subtle green tint
-  background: rgba(13, 74, 31, 0.15);
-  -webkit-backdrop-filter: blur(10px) saturate(150%);
-  backdrop-filter: blur(10px) saturate(150%);
-  box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.05),
-    0 0 0 1px rgba(13, 74, 31, 0.1) inset;
-  padding: 12px 0;
+  background: #1a5d3a;
+  background-color: #1a5d3a;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  min-height: calc(80px * 0.93 - 10px);
+  height: calc(80px * 0.93 - 10px);
+  padding: 0;
   position: fixed;
-  top: 37px; // PWA: 37px lower on all pages
+  top: 37px; // PWA strip below status / browser UI
   left: 0;
   right: 0;
   z-index: 1000;
   width: 100%;
+  max-width: none;
   box-sizing: border-box;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   transform: translateY(0);
@@ -21,12 +25,15 @@
    // Desktop - fixed positioning only on larger screens
    @media (min-width: 601px) {
     position: fixed;
-    top: 37px; // PWA: 37px lower
+    top: 37px;
     left: 0;
     right: 0;
     z-index: 1000;
   }
 
+  @media (max-width: 768px) {
+    top: calc(37px + 15px); // extra clearance for PWA on small screens
+  }
 
   @media (max-width: 600px) {
     // .newsfeed-header--hidden {
@@ -73,27 +80,26 @@
     gap: 20px;
     width: 100%;
     box-sizing: border-box;
-    min-height: 64px;
+    min-height: calc(80px * 0.93 - 10px);
+    height: 100%;
 
     @media (max-width: 1200px) {
       padding: 0 16px;
       gap: 16px;
-      min-height: 60px;
+      min-height: calc(80px * 0.93 - 10px);
     }
 
     @media (max-width: 768px) {
       padding: 0 12px;
       gap: 12px;
-      min-height: 56px;
+      min-height: calc(80px * 0.93 - 10px);
     }
 
     @media (max-width: 480px) {
       padding: 0 10px;
       gap: 8px;
-      min-height: 52px;
+      min-height: calc(80px * 0.93 - 10px);
     }
-
-    
   }
 
   &__left {
@@ -116,7 +122,7 @@
     display: none;
     background: none;
     border: none;
-    color: #333;
+    color: #fff;
     cursor: pointer;
     padding: 8px;
     border-radius: 8px;
@@ -124,16 +130,16 @@
     flex-shrink: 0;
 
     &:hover {
-      background-color: rgba(0, 0, 0, 0.05);
+      background-color: rgba(255, 255, 255, 0.12);
     }
 
     &:active {
-      background-color: rgba(0, 0, 0, 0.1);
+      background-color: rgba(255, 255, 255, 0.2);
     }
 
     svg {
       flex-shrink: 0;
-      color: #333;
+      color: #fff;
       width: 24px;
       height: 24px;
     }
@@ -149,11 +155,11 @@
     }
 
     @media (max-width: 480px) {
-      padding: 4px;
+      padding: 6px;
 
       svg {
-        width: 20px;
-        height: 20px;
+        width: 22px;
+        height: 22px;
       }
     }
   }
@@ -164,7 +170,7 @@
     gap: 12px;
     font-size: 22px;
     font-weight: 700;
-    color: #333;
+    color: #fff;
     cursor: pointer;
     transition: all 0.3s ease;
     padding: 4px 8px;
@@ -216,7 +222,7 @@
     }
 
     span {
-      color: #333;
+      color: #fff;
       font-weight: 700;
       letter-spacing: 0.5px;
       white-space: nowrap;
@@ -225,7 +231,7 @@
     }
 
     &:hover span {
-      color: #0d4a1f;
+      color: rgba(255, 255, 255, 0.85);
     }
 
     @media (max-width: 768px) {
@@ -280,7 +286,7 @@
     display: none;
     background: none;
     border: none;
-    color: #000;
+    color: #fff;
     cursor: pointer;
     padding: 8px;
     border-radius: 50%;
@@ -288,16 +294,16 @@
     flex-shrink: 0;
 
     &:hover {
-      background-color: rgba(0, 0, 0, 0.05);
+      background-color: rgba(255, 255, 255, 0.12);
     }
 
     &:active {
-      background-color: rgba(0, 0, 0, 0.1);
+      background-color: rgba(255, 255, 255, 0.2);
     }
 
     svg {
       flex-shrink: 0;
-      color: #000;
+      color: #fff;
       width: 20px;
       height: 20px;
     }
@@ -313,11 +319,11 @@
     }
 
     @media (max-width: 480px) {
-      padding: 4px;
+      padding: 6px;
 
       svg {
-        width: 18px;
-        height: 18px;
+        width: 20px;
+        height: 20px;
       }
     }
   }
@@ -325,7 +331,7 @@
   &__icon-btn {
     background: none;
     border: none;
-    color: #000;
+    color: #fff;
     cursor: pointer;
     padding: 8px;
     border-radius: 50%;
@@ -337,11 +343,11 @@
     flex-shrink: 0;
 
     &:hover {
-      background-color: rgba(0, 0, 0, 0.05);
+      background-color: rgba(255, 255, 255, 0.12);
     }
 
     svg {
-      color: #000;
+      color: #fff;
       flex-shrink: 0;
     }
 
@@ -356,7 +362,7 @@
     }
 
     @media (max-width: 480px) {
-      padding: 4px;
+      padding: 6px;
     }
   }
 
@@ -469,7 +475,7 @@
     font-size: 10px;
     font-weight: 700;
     padding: 0 5px;
-    border: 2px solid #0d4a1f;
+    border: 2px solid #1a5d3a;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     z-index: 10;
     line-height: 1;
@@ -503,7 +509,7 @@
   &__join-btn {
     padding: 8px 16px;
     background: transparent;
-    color: #000;
+    color: #fff;
     border: none;
     border-radius: 8px;
     font-size: 14px;
@@ -517,11 +523,11 @@
     white-space: nowrap;
 
     &:hover {
-      background-color: rgba(0, 0, 0, 0.05);
+      background-color: rgba(255, 255, 255, 0.12);
     }
 
     span {
-      color: #000;
+      color: #fff;
     }
 
     @media (max-width: 768px) {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { X, Heart, Eye, Trash2 } from "lucide-react";
-import LazyImage from "../../components/LazyImage";
 import Avatar from "../../components/Avatar";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import { getUserName } from "../../utils/userUtils";
@@ -244,7 +244,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
   }
 
   if (isExpired) {
-    return (
+    return createPortal(
       <div className="story-viewer-overlay" onClick={onClose}>
         <div className="story-viewer" onClick={(e) => e.stopPropagation()}>
           <div className="story-viewer__expired">
@@ -254,7 +254,8 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
             </button>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
@@ -282,7 +283,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
     }
   };
 
-  return (
+  return createPortal(
     <div className="story-viewer-overlay" onClick={handleOverlayClick}>
       <div className="story-viewer" onClick={handleStoryClick}>
         {/* Progress indicators at top (Instagram style) */}
@@ -429,7 +430,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
 
           {currentStory.type === "photo" && (
             <div className="story-viewer__media" style={{ cursor: "pointer" }}>
-              <LazyImage
+              <img
                 src={currentStory.content}
                 alt={currentStory.caption || "Story"}
                 className="story-viewer__image"
@@ -685,7 +686,8 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
         type="delete"
         isLoading={isDeleting}
       />
-    </div>
+    </div>,
+    document.body
   );
 };
 

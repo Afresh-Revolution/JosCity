@@ -899,7 +899,6 @@ const Forums: React.FC = () => {
             </button>
             <div className="newsfeed-header__logo" onClick={() => navigate("/")}>
               <LazyImage src={primaryLogo} alt="JOSCity Logo" />
-              <span>JOSCity</span>
             </div>
           </div>
           <div className="newsfeed-header__actions">

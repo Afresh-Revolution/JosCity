@@ -7,8 +7,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #000 !important; // Always black background
-  z-index: 2000;
+  background-color: #000 !important;
+  z-index: 9999; // above navbar and everything else
   display: flex;
   align-items: center;
   justify-content: center;
@@ -21,9 +21,9 @@
   position: relative;
   width: 100%;
   height: 100vh;
+  height: 100dvh;
   max-width: 100%;
-  max-height: 100vh;
-  background-color: #000 !important; // Always black background
+  background-color: #000 !important;
   border-radius: 0;
   overflow: hidden;
   display: flex;
@@ -335,26 +335,29 @@
     }
   }
 
-  // Content
+  // Content area – fills all space between header and bottom actions
   &__content {
-    flex: 1;
+    position: absolute;
+    inset: 0; // completely fills the viewer
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    position: relative;
-    min-height: 0;
   }
 
   &__text-content {
-    flex: 1;
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 2rem;
+    padding: 80px 2rem 80px; // space for header + bottom bar
+    box-sizing: border-box;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   }
 
   &__media {
-    flex: 1;
+    position: absolute;
+    inset: 0; // truly full screen
     display: flex;
     align-items: center;
     justify-content: center;
@@ -364,9 +367,13 @@
 
   &__image,
   &__video {
+    display: block;
     width: 100%;
-    height: 100%;
+    height: auto;
+    max-height: 100vh;
+    max-height: 100dvh;
     object-fit: contain;
+    flex-shrink: 0;
   }
 
   &__caption {

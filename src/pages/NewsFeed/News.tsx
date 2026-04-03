@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search } from "lucide-react";
 import "../../main.css";
 import "../../scss/_newsfeed.scss";
@@ -10,9 +10,11 @@ import ChatPanel from "../../components/ChatPanel";
 import FindFriendsModal from "../../components/FindFriendsModal";
 import { getProfileUsername } from "../../utils/userUtils";
 import { newsApi, type NewsPost } from "../../services/newsApi";
+import NewsArticleShareButton from "../../components/NewsArticleShareButton";
 
 const News: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
@@ -41,6 +43,22 @@ const News: React.FC = () => {
 
     load();
   }, []);
+
+  const articleParam = searchParams.get("article");
+
+  useEffect(() => {
+    if (loading || items.length === 0 || !articleParam) return;
+    const id = Number(articleParam);
+    if (!Number.isFinite(id)) return;
+    const el = document.getElementById(`news-article-${id}`);
+    if (!el) return;
+    const t = window.setTimeout(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.classList.add("news-main__card--highlight");
+      window.setTimeout(() => el.classList.remove("news-main__card--highlight"), 2200);
+    }, 100);
+    return () => window.clearTimeout(t);
+  }, [loading, items, articleParam]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -182,6 +200,7 @@ const News: React.FC = () => {
 
                 return (
                   <article
+                    id={`news-article-${item.id}`}
                     key={item.id}
                     className={`news-main__card${
                       item.is_featured ? " news-main__card--featured" : ""
@@ -194,9 +213,17 @@ const News: React.FC = () => {
                         )}
                         <h3 className="news-main__card-title">{item.title}</h3>
                       </div>
-                      <time className="news-main__card-time" dateTime={item.created_at}>
-                        {new Date(item.created_at).toLocaleString()}
-                      </time>
+                      <div className="news-main__card-dateline">
+                        <time className="news-main__card-time" dateTime={item.created_at}>
+                          {new Date(item.created_at).toLocaleString()}
+                        </time>
+                        <NewsArticleShareButton
+                          articleId={item.id}
+                          title={item.title}
+                          className="news-main__card-share"
+                          iconSize={17}
+                        />
+                      </div>
                     </header>
 
                     {(images.length > 0 || videos.length > 0) && (

@@ -270,7 +270,6 @@ const Scheduled: React.FC = () => {
               onClick={() => navigate("/")}
             >
               <LazyImage src={primaryLogo} alt="JOSCity Logo" />
-              <span>JOSCity</span>
             </div>
           </div>
           <div className="newsfeed-header__actions">

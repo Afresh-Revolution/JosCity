@@ -1546,6 +1546,51 @@
     opacity: 0.9;
   }
 
+  &__meta-dateline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  &__share {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0.28rem;
+    border: none;
+    border-radius: 8px;
+    background: rgba(52, 184, 106, 0.12);
+    color: #0d4a1f;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
+
+    &:hover {
+      background: rgba(52, 184, 106, 0.22);
+      color: #063a18;
+    }
+
+    &:active {
+      transform: scale(0.96);
+    }
+
+    &:focus-visible {
+      outline: 2px solid #34b86a;
+      outline-offset: 2px;
+    }
+
+    [data-theme="dark"] & {
+      background: rgba(52, 184, 106, 0.16);
+      color: #b8f5cf;
+
+      &:hover {
+        background: rgba(52, 184, 106, 0.26);
+        color: #d8ffe8;
+      }
+    }
+  }
+
   &__media {
     position: relative;
     min-height: 0;

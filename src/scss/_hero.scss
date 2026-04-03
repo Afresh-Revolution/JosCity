@@ -1579,6 +1579,21 @@
     transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
+  &__media-frame--video {
+    aspect-ratio: auto;
+    min-height: 0;
+  }
+
+  &__video {
+    display: block;
+    width: 100%;
+    max-height: min(52vh, 380px);
+    object-fit: contain;
+    vertical-align: middle;
+    background: #0f172a;
+    border-radius: inherit;
+  }
+
   &__media-frame:hover &__image {
     transform: scale(1.06);
   }

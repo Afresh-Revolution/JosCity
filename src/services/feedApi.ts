@@ -631,6 +631,14 @@ export const feedApi = {
   },
 
   // ========== Posts ==========
+  viewPost: async (
+    postId: number
+  ): Promise<{ success: boolean; views?: number; message: string }> => {
+    return apiRequest(`/feed/posts/${postId}/view`, {
+      method: "POST",
+    }) as any;
+  },
+
   createPost: async (data: {
     caption?: string;
     images?: File[];

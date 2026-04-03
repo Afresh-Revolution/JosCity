@@ -938,6 +938,14 @@ export const feedApi = {
     }) as any;
   },
 
+  cancelFriendRequest: async (
+    requestId: number
+  ): Promise<{ success: boolean; message: string }> => {
+    return apiRequest(`/friends/request/${requestId}`, {
+      method: "DELETE",
+    }) as any;
+  },
+
   removeFriend: async (
     userId: number
   ): Promise<{ success: boolean; message: string }> => {

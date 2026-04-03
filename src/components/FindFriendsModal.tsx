@@ -14,6 +14,8 @@ interface FindFriendsModalProps {
 interface FriendStatus {
   userId: number;
   status: "none" | "pending" | "friends" | "sent";
+  /** friend_requests.request_id when status is "sent" */
+  outgoingRequestId?: number;
 }
 
 const FindFriendsModal: React.FC<FindFriendsModalProps> = ({
@@ -103,6 +105,7 @@ const FindFriendsModal: React.FC<FindFriendsModalProps> = ({
         statusMap.set(req.receiver_id, {
           userId: req.receiver_id,
           status: "sent",
+          outgoingRequestId: req.request_id,
         });
       });
 
@@ -124,20 +127,41 @@ const FindFriendsModal: React.FC<FindFriendsModalProps> = ({
     try {
       const response = await friendApi.sendFriendRequest(userId);
       if (response.success) {
-        // Update friend status
+        const rid = response.data?.request_id;
         setFriendStatuses((prev) => {
           const existing = prev.find((s) => s.userId === userId);
           if (existing) {
             return prev.map((s) =>
-              s.userId === userId ? { ...s, status: "sent" } : s
+              s.userId === userId
+                ? {
+                    ...s,
+                    status: "sent",
+                    outgoingRequestId: rid ?? s.outgoingRequestId,
+                  }
+                : s
             );
           }
-          return [...prev, { userId, status: "sent" }];
+          return [...prev, { userId, status: "sent", outgoingRequestId: rid }];
         });
       }
     } catch (error) {
       console.error("Error sending friend request:", error);
       alert("Failed to send friend request. Please try again.");
+    }
+  };
+
+  const handleCancelSent = async (userId: number, requestId: number) => {
+    try {
+      const res = await friendApi.cancelFriendRequest(requestId);
+      if (res.success) {
+        setFriendStatuses((prev) =>
+          prev.map((s) =>
+            s.userId === userId ? { ...s, status: "none", outgoingRequestId: undefined } : s
+          )
+        );
+      }
+    } catch {
+      alert("Could not cancel friend request. Please try again.");
     }
   };
 
@@ -253,16 +277,31 @@ const FindFriendsModal: React.FC<FindFriendsModalProps> = ({
                         <UserPlus size={18} />
                       </button>
                     )}
-                    {status === "sent" && (
-                      <button
-                        className="newsfeed-add-friend-modal__add-btn"
-                        disabled
-                        aria-label="Friend request sent"
-                        title="Friend request sent"
-                      >
-                        <Clock size={18} />
-                      </button>
-                    )}
+                    {status === "sent" &&
+                      (() => {
+                        const st = friendStatuses.find((s) => s.userId === user.user_id);
+                        const rid = st?.outgoingRequestId;
+                        return rid != null ? (
+                          <button
+                            type="button"
+                            className="newsfeed-add-friend-modal__add-btn newsfeed-add-friend-modal__add-btn--cancel"
+                            onClick={() => void handleCancelSent(user.user_id, rid)}
+                            aria-label="Cancel friend request"
+                            title="Cancel friend request"
+                          >
+                            <X size={18} />
+                          </button>
+                        ) : (
+                          <button
+                            className="newsfeed-add-friend-modal__add-btn"
+                            disabled
+                            aria-label="Friend request sent"
+                            title="Friend request sent"
+                          >
+                            <Clock size={18} />
+                          </button>
+                        );
+                      })()}
                     {status === "friends" && (
                       <button
                         className="newsfeed-add-friend-modal__add-btn"

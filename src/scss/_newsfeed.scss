@@ -2435,6 +2435,21 @@
         height: 16px;
       }
     }
+
+    &--cancel {
+      color: #c62828;
+      border-color: rgba(198, 40, 40, 0.45);
+      background-color: rgba(198, 40, 40, 0.08);
+
+      svg {
+        color: #c62828;
+      }
+
+      &:hover {
+        background-color: rgba(198, 40, 40, 0.15);
+        border-color: rgba(198, 40, 40, 0.55);
+      }
+    }
   }
 
   &__empty {
@@ -3798,6 +3813,9 @@
     align-items: center;
     gap: 8px;
     margin-top: 10px;
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
   }
 
   &__friend-action-btn {
@@ -5998,6 +6016,18 @@
         color: white;
         border-color: #0d4a1f;
         cursor: default;
+      }
+
+      &--cancel {
+        color: #c62828;
+        border-color: rgba(198, 40, 40, 0.45);
+        background-color: rgba(198, 40, 40, 0.08);
+
+        &:hover {
+          background-color: rgba(198, 40, 40, 0.18);
+          color: #b71c1c;
+          border-color: rgba(198, 40, 40, 0.6);
+        }
       }
     }
 

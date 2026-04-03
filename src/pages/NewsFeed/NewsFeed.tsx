@@ -995,11 +995,20 @@ const NewsFeed: React.FC = () => {
     e: React.MouseEvent,
     n: FeedPanelNotification
   ) => {
+    e.preventDefault();
     e.stopPropagation();
     if (n.relatedFriendRequestId == null) return;
     try {
       const res = await feedApi.acceptFriendRequest(n.relatedFriendRequestId);
-      if (res.success) await fetchNotifications();
+      if (res.success) {
+        await fetchNotifications();
+        const data = res.data as { conversation_id?: number | null } | undefined;
+        const cid = data?.conversation_id;
+        if (cid != null && Number.isFinite(Number(cid))) {
+          setIsNotificationPanelOpen(false);
+          openChatPanel(Number(cid));
+        }
+      }
     } catch {
       await fetchNotifications();
     }
@@ -1009,6 +1018,7 @@ const NewsFeed: React.FC = () => {
     e: React.MouseEvent,
     n: FeedPanelNotification
   ) => {
+    e.preventDefault();
     e.stopPropagation();
     if (n.relatedFriendRequestId == null) return;
     try {
@@ -1911,7 +1921,12 @@ const NewsFeed: React.FC = () => {
                             </span>
                             {notification.type === "friend_request" &&
                               notification.relatedFriendRequestId != null && (
-                                <div className="newsfeed-notification-panel__friend-actions">
+                                <div
+                                  className="newsfeed-notification-panel__friend-actions"
+                                  role="group"
+                                  aria-label="Friend request actions"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   <button
                                     type="button"
                                     className="newsfeed-notification-panel__friend-action-btn newsfeed-notification-panel__friend-action-btn--accept"

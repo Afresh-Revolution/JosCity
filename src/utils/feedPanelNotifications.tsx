@@ -63,26 +63,32 @@ export function mapApiRowToFeedPanelNotification(n: {
   const isAdminBroadcast =
     item.node_type === "admin_notification" || !!item.created_by_admin;
   const rawType = String(item.notification_type || "normal").toLowerCase();
+  const nodeTypeLower = String(item.node_type || "").toLowerCase();
+  const actionLower = String(n.action || "").toLowerCase();
+
+  // Only pending incoming requests use action exactly "friend_request".
+  // "friend_request_accepted" etc. must NOT show accept/reject (would 404).
+  const isActionableFriendRequest =
+    nodeTypeLower === "friend_request" && actionLower === "friend_request";
+
   const typeForFeed: FeedPanelNotification["type"] = isAdminBroadcast
     ? rawType === "danger"
       ? "danger"
       : "mention"
     : item.notification_type === "danger"
       ? "danger"
-      : n.action?.toLowerCase().includes("like") ||
-          n.action?.toLowerCase().includes("react")
-        ? "like"
-        : n.action?.toLowerCase().includes("comment")
-          ? "comment"
-          : n.action?.toLowerCase().includes("friend_request")
-            ? "friend_request"
-            : n.action?.toLowerCase().includes("share")
+      : isActionableFriendRequest
+        ? "friend_request"
+        : actionLower.includes("like") || actionLower.includes("react")
+          ? "like"
+          : actionLower.includes("comment")
+            ? "comment"
+            : actionLower.includes("share")
               ? "share"
               : "mention";
 
   const relatedFriendRequestId =
-    (typeForFeed === "friend_request" || item.node_type === "friend_request") &&
-    n.node_id != null
+    isActionableFriendRequest && n.node_id != null
       ? Number(n.node_id)
       : undefined;
 

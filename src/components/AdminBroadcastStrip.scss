@@ -102,6 +102,164 @@
   background: rgba(239, 68, 68, 0.14);
 }
 
+.admin-broadcast-strip--newsfeed-composer {
+  margin: 0 !important;
+  padding: 0 !important;
+  max-width: 100%;
+}
+
+.admin-broadcast-strip--dashboard .admin-broadcast-strip__inner {
+  align-items: stretch;
+}
+
+.admin-broadcast-strip__alert-card {
+  flex: 1 1 100%;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.admin-broadcast-strip__alert-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.75rem 1rem;
+  color: #fff;
+}
+
+.admin-broadcast-strip__alert-header-icon {
+  flex-shrink: 0;
+  display: flex;
+  margin-top: 0.1rem;
+}
+
+.admin-broadcast-strip__alert-headline {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.admin-broadcast-strip__alert-header--warning {
+  background: linear-gradient(90deg, #d97706, #fbbf24);
+}
+
+.admin-broadcast-strip__alert-header--danger {
+  background: linear-gradient(90deg, #b91c1c, #f87171);
+}
+
+.admin-broadcast-strip__alert-footer {
+  padding: 0.65rem 1rem;
+  background: var(--card-bg, #0f172a);
+  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
+.admin-broadcast-strip__alert-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-broadcast-strip__alert-btn {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-broadcast-strip__alert-btn--review.admin-broadcast-strip__alert-btn--warning {
+  background: linear-gradient(90deg, #b45309, #d97706);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.25);
+
+  &:hover {
+    filter: brightness(1.06);
+  }
+}
+
+.admin-broadcast-strip__alert-btn--review.admin-broadcast-strip__alert-btn--danger {
+  background: linear-gradient(90deg, #991b1b, #dc2626);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.25);
+
+  &:hover {
+    filter: brightness(1.06);
+  }
+}
+
+.admin-broadcast-strip__alert-btn--dismiss {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary, #f1f5f9);
+  border-color: var(--border-color, rgba(255, 255, 255, 0.2));
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+.admin-broadcast-strip__chip-outer {
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 100%;
+  border-radius: 999px;
+  overflow: hidden;
+  flex: 0 1 auto;
+  box-sizing: border-box;
+}
+
+.admin-broadcast-strip__chip-outer .admin-broadcast-strip__chip {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: none;
+  max-width: calc(100% - 2.5rem);
+}
+
+.admin-broadcast-strip__chip-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.35rem;
+  padding: 0 0.35rem;
+  border: none;
+  cursor: pointer;
+  color: var(--text-primary, #0f172a);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.admin-broadcast-strip__chip-outer--normal .admin-broadcast-strip__chip-dismiss {
+  background: rgba(148, 163, 184, 0.2);
+  border-left: 1px solid rgba(148, 163, 184, 0.45);
+}
+
+.admin-broadcast-strip__chip-outer--info .admin-broadcast-strip__chip-dismiss {
+  background: rgba(59, 130, 246, 0.2);
+  border-left: 1px solid rgba(59, 130, 246, 0.45);
+}
+
+.admin-broadcast-strip__chip-outer--success .admin-broadcast-strip__chip-dismiss {
+  background: rgba(34, 197, 94, 0.2);
+  border-left: 1px solid rgba(34, 197, 94, 0.45);
+}
+
+.admin-broadcast-strip__chip-dismiss:hover {
+  filter: brightness(1.05);
+}
+
+.admin-broadcast-strip__chip-dismiss:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.6);
+  outline-offset: 0;
+}
+
+[data-theme="dark"] .admin-broadcast-strip__chip-dismiss {
+  color: var(--text-primary, #f1f5f9);
+}
+
 // Second-highest stacking: below app chrome at 99999 (e.g. theme toggle), above modals ~10000
 .admin-broadcast-panel-overlay {
   position: fixed;

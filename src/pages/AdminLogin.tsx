@@ -50,8 +50,10 @@ function AdminLogin() {
     setIsLoading(true);
 
     try {
+      const normalizedEmail = formData.email.toLowerCase().trim();
+
       // Validate form
-      if (!formData.email || !formData.password) {
+      if (!normalizedEmail || !formData.password) {
         setError("Please fill in all fields");
         setIsLoading(false);
         return;
@@ -69,9 +71,10 @@ function AdminLogin() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            email: formData.email,
+            email: normalizedEmail,
             password: formData.password,
           }),
+          timeout: 30000,
         }
       );
 
@@ -87,7 +90,9 @@ function AdminLogin() {
 
       if (!response.ok) {
         setError(
-          data.message || "Login failed. Please check your credentials."
+          data.message ||
+            data.error ||
+            `Login failed: ${response.status} ${response.statusText}`
         );
         setIsLoading(false);
         return;

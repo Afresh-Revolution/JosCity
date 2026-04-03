@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import "../../main.css";
+import "../../scss/_newsfeed.scss";
+import "../../scss/_marketplace.scss";
 import NewsFeedSidebar from "./NewsFeedSidebar";
 import NewsFeedHeader from "./NewsFeedHeader";
 import ChatPanel from "../../components/ChatPanel";
@@ -36,6 +38,7 @@ const News: React.FC = () => {
         setLoading(false);
       }
     };
+
     load();
   }, []);
 
@@ -51,23 +54,22 @@ const News: React.FC = () => {
 
   return (
     <div className="news-page">
-      {/* Top Navigation Bar */}
       <NewsFeedHeader
         isLeftSidebarOpen={isLeftSidebarOpen}
         onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
+        unreadNotificationsCount={0}
+        unreadMessagesCount={unreadMessagesCount}
         showRightSidebarToggle={false}
+        onNotificationClick={() => setIsNotificationPanelOpen(true)}
+        onMessageClick={() => setIsChatPanelOpen(true)}
+        onAddFriendClick={() => setIsAddFriendModalOpen(true)}
         onCreatePost={() => navigate("/newsfeed")}
         onCreateStory={() => navigate("/newsfeed")}
-        onAddFriend={() => setIsAddFriendModalOpen(true)}
-        onOpenChat={() => setIsChatPanelOpen(true)}
-        onOpenNotifications={() => setIsNotificationPanelOpen(true)}
         onProfileClick={() =>
           navigate(`/profile/${encodeURIComponent(getProfileUsername())}`)
         }
-        unreadMessagesCount={unreadMessagesCount}
       />
 
-      {/* Overlay for mobile sidebar */}
       {isLeftSidebarOpen && (
         <div
           className="newsfeed-overlay"
@@ -81,9 +83,7 @@ const News: React.FC = () => {
           onClose={() => setIsLeftSidebarOpen(false)}
         />
 
-        {/* Main Content Area */}
         <main className="newsfeed-main news-main">
-          {/* News Banner Section */}
           <div className="news-banner">
             <div className="news-banner__content">
               <div className="news-banner__left">
@@ -133,6 +133,7 @@ const News: React.FC = () => {
                   </div>
                 </div>
               </div>
+
               <div className="news-banner__right">
                 <div className="news-banner__text">
                   <h1 className="news-banner__title">News</h1>
@@ -151,7 +152,9 @@ const News: React.FC = () => {
               </div>
             </div>
           </div>
+
           <h2 className="news-main__section-title">News</h2>
+
           {loading ? (
             <div className="news-main__empty">
               <p className="news-main__empty-text">Loading latest news...</p>
@@ -170,12 +173,19 @@ const News: React.FC = () => {
           ) : (
             <div className="news-main__list">
               {filtered.map((item) => {
-                const images = Array.isArray(item.image_urls) ? item.image_urls.filter(Boolean) : [];
-                const videos = Array.isArray(item.video_urls) ? item.video_urls.filter(Boolean) : [];
+                const images = Array.isArray(item.image_urls)
+                  ? item.image_urls.filter(Boolean)
+                  : [];
+                const videos = Array.isArray(item.video_urls)
+                  ? item.video_urls.filter(Boolean)
+                  : [];
+
                 return (
                   <article
                     key={item.id}
-                    className={`news-main__card${item.is_featured ? " news-main__card--featured" : ""}`}
+                    className={`news-main__card${
+                      item.is_featured ? " news-main__card--featured" : ""
+                    }`}
                   >
                     <header className="news-main__card-header">
                       <div className="news-main__card-heading-row">
@@ -195,14 +205,21 @@ const News: React.FC = () => {
                           <figure key={`${item.id}-img-${i}`} className="news-main__card-figure">
                             <img
                               src={url}
-                              alt={images.length > 1 ? `${item.title} — image ${i + 1}` : item.title}
+                              alt={
+                                images.length > 1
+                                  ? `${item.title} image ${i + 1}`
+                                  : item.title
+                              }
                               className="news-main__card-image"
                               loading="lazy"
                             />
                           </figure>
                         ))}
                         {videos.map((url, i) => (
-                          <figure key={`${item.id}-vid-${i}`} className="news-main__card-figure news-main__card-figure--video">
+                          <figure
+                            key={`${item.id}-vid-${i}`}
+                            className="news-main__card-figure news-main__card-figure--video"
+                          >
                             <video controls className="news-main__card-video" preload="metadata">
                               <source src={url} />
                             </video>
@@ -237,6 +254,7 @@ const News: React.FC = () => {
           )}
         </main>
       </div>
+
       <ChatPanel
         isOpen={isChatPanelOpen}
         onClose={() => setIsChatPanelOpen(false)}
@@ -246,6 +264,7 @@ const News: React.FC = () => {
         isOpen={isAddFriendModalOpen}
         onClose={() => setIsAddFriendModalOpen(false)}
       />
+
       {isNotificationPanelOpen && (
         <div
           className="newsfeed-notification-panel-overlay"

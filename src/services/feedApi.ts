@@ -631,6 +631,14 @@ export const feedApi = {
   },
 
   // ========== Posts ==========
+  viewPost: async (
+    postId: number
+  ): Promise<{ success: boolean; views?: number; message: string }> => {
+    return apiRequest(`/feed/posts/${postId}/view`, {
+      method: "POST",
+    }) as any;
+  },
+
   createPost: async (data: {
     caption?: string;
     images?: File[];
@@ -862,6 +870,24 @@ export const feedApi = {
   markAllNotificationsRead: async (): Promise<{ success: boolean }> => {
     return apiRequest("/notifications/read-all", {
       method: "PATCH",
+    }) as Promise<{ success: boolean }>;
+  },
+
+  /** Delete every notification row for the current user (to_user_id = self). */
+  deleteAllNotifications: async (): Promise<{
+    success: boolean;
+    deleted?: number;
+  }> => {
+    return apiRequest("/notifications/all", {
+      method: "DELETE",
+    }) as Promise<{ success: boolean; deleted?: number }>;
+  },
+
+  deleteNotificationById: async (
+    notificationId: number
+  ): Promise<{ success: boolean }> => {
+    return apiRequest(`/notifications/${notificationId}`, {
+      method: "DELETE",
     }) as Promise<{ success: boolean }>;
   },
 

@@ -557,36 +557,59 @@ export const feedApi = {
     return apiRequest(`/feed/feeds?${query}`) as any;
   },
 
-  /** Trending hashtags (top N by post count). Never throws: on 404 or error returns empty data so UI can use fallback. */
+  /** Trending hashtags (top N by post count). Never throws: on error returns empty data so UI can use fallback. */
   getTrendingHashtags: async (limit: number = 3): Promise<{
     success: boolean;
     data: Array<{ hashtag: string; posts: number }>;
   }> => {
     const query = new URLSearchParams({ limit: String(limit) }).toString();
-    const token =
-      localStorage.getItem("token") || localStorage.getItem("authToken");
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
+    const empty = { success: true as const, data: [] as Array<{ hashtag: string; posts: number }> };
     try {
-      const response = await fetch(apiUrl(`/feed/trending-hashtags?${query}`), {
-        method: "GET",
-        headers,
-        signal: AbortSignal.timeout(10000),
+      const json = (await apiRequest(`/feed/trending-hashtags?${query}`)) as {
+        data?: Array<Record<string, unknown>>;
+      };
+      const raw = Array.isArray(json?.data) ? json.data : [];
+      const data = raw.map((item) => {
+        const hashtag =
+          typeof item.hashtag === "string"
+            ? item.hashtag
+            : typeof item.label === "string"
+              ? item.label
+              : typeof item.name === "string"
+                ? `#${item.name}`
+                : "";
+        const posts = Number(
+          item.posts ?? item.posts_count ?? item.count ?? 0
+        );
+        return { hashtag, posts };
       });
-      if (!response.ok) {
-        return { success: true, data: [] };
-      }
-      const json = await response.json().catch(() => ({}));
-      const data = Array.isArray(json?.data) ? json.data : [];
       return { success: true, data };
     } catch {
-      return { success: true, data: [] };
+      try {
+        const json = (await apiRequest(`/users/trending-hashtags?${query}`)) as {
+          data?: Array<Record<string, unknown>>;
+        };
+        const raw = Array.isArray(json?.data) ? json.data : [];
+        const data = raw.map((item) => {
+          const hashtag =
+            typeof item.hashtag === "string"
+              ? item.hashtag
+              : typeof item.name === "string"
+                ? `#${item.name}`
+                : "";
+          const posts = Number(
+            item.posts ?? item.posts_count ?? item.count ?? 0
+          );
+          return { hashtag, posts };
+        });
+        return { success: true, data };
+      } catch {
+        return empty;
+      }
     }
   },
 
-  /** Feed posts filtered by hashtag. Never throws: on 404 or error returns empty data. */
+  /** Feed posts filtered by hashtag. Never throws: on error returns empty data. */
   getFeedsByHashtag: async (
     hashtag: string,
     params?: { page?: number; limit?: number }
@@ -607,23 +630,15 @@ export const feedApi = {
       page: String(params?.page ?? 1),
       limit: String(limit),
     }).toString();
-    const token =
-      localStorage.getItem("token") || localStorage.getItem("authToken");
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
     try {
-      const response = await fetch(
-        apiUrl(`/feed/by-hashtag/${encodeURIComponent(tag)}?${query}`),
-        { method: "GET", headers, signal: AbortSignal.timeout(15000) }
-      );
-      if (!response.ok) return empty;
-      const json = await response.json().catch(() => ({}));
-      const data = Array.isArray((json as { data?: unknown[] }).data)
-        ? (json as { data: unknown[] }).data
-        : [];
-      const pagination = (json as { pagination?: { page: number; limit: number; hasMore: boolean } }).pagination ?? empty.pagination;
+      const json = (await apiRequest(
+        `/feed/by-hashtag/${encodeURIComponent(tag)}?${query}`
+      )) as {
+        data?: unknown[];
+        pagination?: { page: number; limit: number; hasMore: boolean };
+      };
+      const data = Array.isArray(json?.data) ? json.data : [];
+      const pagination = json.pagination ?? empty.pagination;
       return { success: true, data, pagination };
     } catch {
       return empty;

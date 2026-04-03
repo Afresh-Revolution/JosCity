@@ -13,6 +13,7 @@ import {
 import ReelOptionsMenu from "./ReelOptionsMenu";
 import ReelCommentModal from "./ReelCommentModal";
 import { reelsApi, ReelItem } from "../services/reelsApi";
+import { feedApi } from "../services/feedApi";
 
 interface ReelVideoModalProps {
   isOpen: boolean;
@@ -506,31 +507,36 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
       return;
     }
 
-    await runWithVideoLock(videoId, async () => {
-      await reelsApi.shareReel(videoId);
-      onVideoUpdate?.(videoId, {
-        shares_count: (video.shares_count || 0) + 1,
-        user_shared: true,
+    if (video.user_shared) {
+      alert("This reel is already on your timeline.");
+      return;
+    }
+
+    try {
+      await runWithVideoLock(videoId, async () => {
+        const response = await feedApi.sharePost(videoId);
+
+        onVideoUpdate?.(videoId, {
+          shares_count: (video.shares_count || 0) + 1,
+          user_shared: true,
+        });
+
+        window.dispatchEvent(
+          new CustomEvent("feedPostShared", {
+            detail: response.data,
+          })
+        );
+
+        alert("Reel reshared to your timeline.");
       });
-
-      const shareUrl = `${window.location.origin}/reels`;
-      const shareData = {
-        title: video.title || "Check out this reel!",
-        text: `Watch this reel: ${video.title || "Reel"}`,
-        url: shareUrl,
-      };
-
-      try {
-        if (navigator.share) {
-          await navigator.share(shareData);
-        } else {
-          await navigator.clipboard.writeText(shareUrl);
-          alert("Link copied to clipboard!");
-        }
-      } catch (error) {
-        console.log("Share cancelled or failed:", error);
-      }
-    });
+    } catch (error) {
+      console.error("Error resharing reel:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to reshare this reel to your timeline."
+      );
+    }
   };
 
   const handleOpenOptions = (videoId: number) => {
@@ -643,15 +649,26 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
                     </button>
 
                     <button
-                      className="reel-video-modal__action-btn"
+                      className={`reel-video-modal__action-btn ${
+                        video.user_shared
+                          ? "reel-video-modal__action-btn--shared"
+                          : ""
+                      }`}
                       onClick={(event) => {
                         event.stopPropagation();
                         void handleShare(video.id);
                       }}
-                      aria-label="Share"
+                      aria-label={
+                        video.user_shared
+                          ? "Shared to timeline"
+                          : "Reshare to timeline"
+                      }
                       disabled={actionLoadingIds.includes(video.id)}
                     >
-                      <Share2 size={28} color="white" />
+                      <Share2
+                        size={28}
+                        color={video.user_shared ? "#4caf50" : "white"}
+                      />
                       <span className="reel-video-modal__action-count">
                         {video.shares_count || 0}
                       </span>
@@ -693,7 +710,8 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
                         {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
                       </button>
                       <span className="reel-video-modal__views">
-                        {video.views} views
+                        {video.views}{" "}
+                        {Number(video.views_count || 0) === 1 ? "view" : "views"}
                       </span>
                     </div>
                   )}

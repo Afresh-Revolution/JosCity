@@ -1431,6 +1431,14 @@ html.reels-page-active {
     }
   }
 
+  &--shared {
+    background: rgba(76, 175, 80, 0.28);
+
+    &:hover {
+      background: rgba(76, 175, 80, 0.42);
+    }
+  }
+
   @-webkit-keyframes like-pulse {
     0% {
       transform: scale(1);

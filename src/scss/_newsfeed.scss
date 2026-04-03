@@ -3278,6 +3278,51 @@
     margin-top: 2px;
   }
 
+  &__friend-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  &__friend-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.15s;
+
+    &:hover {
+      transform: scale(1.05);
+    }
+
+    &--accept {
+      color: #2e7d32;
+      border-color: rgba(46, 125, 50, 0.35);
+      background: rgba(46, 125, 50, 0.08);
+
+      &:hover {
+        background: rgba(46, 125, 50, 0.18);
+      }
+    }
+
+    &--reject {
+      color: #c62828;
+      border-color: rgba(198, 40, 40, 0.35);
+      background: rgba(198, 40, 40, 0.06);
+
+      &:hover {
+        background: rgba(198, 40, 40, 0.14);
+      }
+    }
+  }
+
   &__unread-dot {
     width: 8px;
     height: 8px;

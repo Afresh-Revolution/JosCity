@@ -20,6 +20,7 @@ html.reels-page-active {
 }
 
 .reels-page {
+  --reels-header-offset: 125px;
   min-height: 100vh;
   background-color: var(--bg-secondary);
   font-family: $font-family;
@@ -31,11 +32,27 @@ html.reels-page-active {
   color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
 
+  @media (max-width: 1200px) {
+    --reels-header-offset: 121px;
+  }
+
+  @media (max-width: 768px) {
+    --reels-header-offset: 117px;
+  }
+
+  @media (max-width: 480px) {
+    --reels-header-offset: 113px;
+  }
+
+  .newsfeed-container {
+    padding-top: var(--reels-header-offset);
+  }
+
   // Make sidebar a hamburger menu on all screen sizes
   .newsfeed-sidebar {
     // On all screen sizes, make it fixed and hidden by default
     position: fixed;
-    top: 64px;
+    top: var(--reels-header-offset);
     left: 0;
     bottom: 0;
     width: 280px;
@@ -49,7 +66,7 @@ html.reels-page-active {
     border-bottom-right-radius: 12px;
     overflow-y: auto;
     overflow-x: hidden;
-    height: calc(100vh - 64px);
+    height: calc(100vh - var(--reels-header-offset));
     padding: 16px;
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
     background-color: var(--card-bg);
@@ -125,7 +142,7 @@ html.reels-page-active {
   margin: 0 auto;
   padding: 0;
   gap: 0;
-  min-height: calc(100vh - 64px);
+  min-height: calc(100vh - var(--reels-header-offset));
 
   @media (max-width: 1200px) {
     max-width: 100%;
@@ -137,15 +154,15 @@ html.reels-page-active {
 
   @media (max-width: 768px) {
     flex-direction: column;
-    min-height: calc(100vh - 64px);
+    min-height: calc(100vh - var(--reels-header-offset));
   }
 
   @media (max-width: 480px) {
-    min-height: calc(100vh - 64px);
+    min-height: calc(100vh - var(--reels-header-offset));
   }
 
   @media (max-width: 360px) {
-    min-height: calc(100vh - 64px);
+    min-height: calc(100vh - var(--reels-header-offset));
   }
 }
 
@@ -158,9 +175,9 @@ html.reels-page-active {
   box-shadow: 2px 0 4px var(--shadow-light);
   position: -webkit-sticky;
   position: sticky;
-  top: 64px;
+  top: var(--reels-header-offset);
   align-self: flex-start;
-  max-height: calc(100vh - 64px);
+  max-height: calc(100vh - var(--reels-header-offset));
   overflow-y: auto;
   overflow-x: hidden;
   box-sizing: border-box;
@@ -309,8 +326,8 @@ html.reels-page-active {
   flex: 1;
   background-color: var(--bg-secondary);
   padding: 0;
-  min-height: calc(100vh - 64px);
-  max-height: calc(100vh - 64px);
+  min-height: calc(100vh - var(--reels-header-offset));
+  max-height: calc(100vh - var(--reels-header-offset));
   box-sizing: border-box;
   transition: background-color 0.3s ease;
   overflow-y: auto;
@@ -368,15 +385,15 @@ html.reels-page-active {
   }
 
   @media (max-width: 768px) {
-    max-height: calc(100vh - 64px);
+    max-height: calc(100vh - var(--reels-header-offset));
   }
 
   @media (max-width: 480px) {
-    max-height: calc(100vh - 64px);
+    max-height: calc(100vh - var(--reels-header-offset));
   }
 
   @media (max-width: 360px) {
-    max-height: calc(100vh - 64px);
+    max-height: calc(100vh - var(--reels-header-offset));
   }
 }
 

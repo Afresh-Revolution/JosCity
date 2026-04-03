@@ -65,7 +65,10 @@ export default defineConfig({
         ],
         categories: ["social", "lifestyle"],
       },
-      devOptions: { enabled: true },
+      devOptions: {
+        enabled: true,
+        type: "classic",
+      },
     }),
   ],
   server: {

@@ -116,6 +116,8 @@ interface FeedFallbackPost {
 const getAuthToken = () =>
   localStorage.getItem("token") || localStorage.getItem("authToken");
 
+let reelsListRouteAvailable: boolean | null = null;
+
 const getErrorMessage = (value: unknown, fallback: string): string => {
   if (typeof value === "string" && value.trim()) {
     return value;
@@ -369,7 +371,12 @@ export const reelsApi = {
     query.set("sort", params?.sort ?? "recent");
 
     try {
+      if (reelsListRouteAvailable === false) {
+        throw new Error("Reels API route was not found on the server.");
+      }
+
       const response = await reelsApiRequest<ReelItem[]>(`/reels?${query.toString()}`);
+      reelsListRouteAvailable = true;
 
       return {
         success: true,
@@ -388,6 +395,13 @@ export const reelsApi = {
         },
       };
     } catch (primaryError) {
+      if (
+        primaryError instanceof Error &&
+        primaryError.message.includes("Reels API route was not found")
+      ) {
+        reelsListRouteAvailable = false;
+      }
+
       console.warn("[reelsApi] Primary reels endpoint failed, falling back to feed", {
         error: primaryError,
       });

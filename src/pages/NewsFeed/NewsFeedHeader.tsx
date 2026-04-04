@@ -42,6 +42,7 @@ interface NewsFeedHeaderProps {
   onCreateClick?: () => void;
   onMessageClick?: () => void;
   onAddFriendClick?: () => void;
+  
 }
 
 const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({

@@ -7,6 +7,12 @@ import {
   getUserRange,
 } from "../../utils/locationUtils";
 import { friendApi } from "../../services/friendApi";
+import { userApi, type User } from "../../services/userApi";
+
+type UserWithBusinessFields = User & {
+  business_name?: string;
+  business_type?: string;
+};
 
 interface Business {
   id: number;
@@ -27,6 +33,25 @@ interface SuggestedBusinessesProps {
   onBusinessAdded?: (businessId: number, businessName: string) => void;
 }
 
+function userToBusiness(user: User): Business {
+  const u = user as UserWithBusinessFields;
+  const name =
+    u.business_name?.trim() ||
+    (u.user_firstname && u.user_lastname
+      ? `${u.user_firstname} ${u.user_lastname}`
+      : u.user_email || `Business ${u.user_id}`);
+  return {
+    id: u.user_id,
+    name,
+    avatar: u.user_picture || "",
+    mutualFriends: 0,
+    location: u.user_location,
+    isApproved: true,
+    isLoggedIn: true,
+    businessType: u.business_type,
+  };
+}
+
 const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
   businesses,
   onBusinessAdded: _onBusinessAdded,
@@ -38,8 +63,62 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
     Record<number, number>
   >({});
   const [isSeeAllModalOpen, setIsSeeAllModalOpen] = useState(false);
+  const [fetchedBusinesses, setFetchedBusinesses] = useState<Business[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const userLocation = getUserLocation();
   const userRange = getUserRange();
+
+  useEffect(() => {
+    try {
+      const userData = localStorage.getItem("user");
+      if (userData) {
+        const user = JSON.parse(userData) as { user_id?: number };
+        setCurrentUserId(user.user_id ?? null);
+      }
+    } catch {
+      setCurrentUserId(null);
+    }
+  }, []);
+
+  // When parent does not supply a list, load nearby users and keep only business accounts
+  useEffect(() => {
+    if (businesses.length > 0) return;
+
+    let cancelled = false;
+    const run = async () => {
+      setIsLoadingSuggestions(true);
+      try {
+        const rangeKm = userRange || 500;
+        const response = await userApi.getNearbyUsers(rangeKm);
+        if (cancelled) return;
+        if (response.success && Array.isArray(response.data)) {
+          const onlyBusiness = response.data
+            .filter(
+              (u: User) =>
+                u.user_id !== currentUserId &&
+                (u.account_type || "").toLowerCase() === "business"
+            )
+            .map((u: User) => userToBusiness(u));
+          setFetchedBusinesses(onlyBusiness);
+        } else {
+          setFetchedBusinesses([]);
+        }
+      } catch {
+        if (!cancelled) setFetchedBusinesses([]);
+      } finally {
+        if (!cancelled) setIsLoadingSuggestions(false);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [businesses.length, userRange, currentUserId]);
+
+  const allBusinesses =
+    businesses.length > 0 ? businesses : fetchedBusinesses;
 
   // Load real friendship/request statuses
   useEffect(() => {
@@ -82,15 +161,19 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
 
   // Filter businesses based on criteria
   const filteredBusinesses = useMemo(() => {
+    if (isLoadingSuggestions && businesses.length === 0) {
+      return [];
+    }
+
     let filtered: Business[] = [];
 
     if (!userLocation) {
       // If user location not set, show all approved and logged in businesses
-      filtered = businesses.filter(
+      filtered = allBusinesses.filter(
         (business) => business.isApproved && business.isLoggedIn
       );
     } else {
-      filtered = businesses.filter((business) => {
+      filtered = allBusinesses.filter((business) => {
         // Must be approved and logged in
         if (!business.isApproved || !business.isLoggedIn) {
           return false;
@@ -108,7 +191,13 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
     }
 
     return filtered;
-  }, [businesses, userLocation, userRange]);
+  }, [
+    allBusinesses,
+    userLocation,
+    userRange,
+    isLoadingSuggestions,
+    businesses.length,
+  ]);
 
   // Limit to 4 businesses for main display
   const displayedBusinesses = useMemo(() => {
@@ -164,7 +253,11 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
         )}
       </div>
       <div className="newsfeed-suggested-friends__list">
-        {filteredBusinesses.length === 0 ? (
+        {isLoadingSuggestions && businesses.length === 0 ? (
+          <div className="newsfeed-suggested-friends__empty">
+            <p>Loading suggested businesses…</p>
+          </div>
+        ) : filteredBusinesses.length === 0 ? (
           <div className="newsfeed-suggested-friends__empty">
             <p>No suggested businesses found</p>
             <p className="newsfeed-suggested-friends__empty-subtitle">

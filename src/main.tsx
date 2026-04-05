@@ -36,6 +36,9 @@ import NavbarThemeToggle from "./components/NavbarThemeToggle";
 import Maintenance from "./pages/Maintenance";
 // import RoutingDisabled from "./pages/RoutingDisabled";
 import ComingSoonSection from "./pages/NewsFeed/ComingSoonSection";
+import Scheduled from "./pages/NewsFeed/Scheduled";
+import Saved from "./pages/NewsFeed/Saved";
+import People from "./components/People";
 import PWAProvider from "./components/PWAProvider";
 import Business from "./pages/NewsFeed/Business";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -144,7 +147,7 @@ if (rootElement) {
                     path="/people"
                     element={
                       <UserRoute>
-                        <ComingSoonSection />
+                        <People />
                       </UserRoute>
                     }
                   />
@@ -241,7 +244,7 @@ if (rootElement) {
                     path="/scheduled"
                     element={
                       <UserRoute>
-                        <ComingSoonSection />
+                        <Scheduled />
                       </UserRoute>
                     }
                   />
@@ -249,7 +252,7 @@ if (rootElement) {
                     path="/saved"
                     element={
                       <UserRoute>
-                        <ComingSoonSection />
+                        <Saved />
                       </UserRoute>
                     }
                   />

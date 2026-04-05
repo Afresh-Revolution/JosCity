@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import NavBar from "../NavBar";
 import {
   SquarePlus,
   MessageCircle,
@@ -26,7 +25,11 @@ import primaryLogo from "../../image/primary-logo.png";
 import LazyImage from "../../components/LazyImage";
 import SearchBar from "../../components/SearchBar";
 import Avatar from "../../components/Avatar";
-import { getProfileUsername, getUserData, getUserName } from "../../utils/userUtils";
+import {
+  getProfileUsername,
+  getUserName,
+  isAuthenticated,
+} from "../../utils/userUtils";
 import { createEvent, updateEvent, deleteEvent, getEvents, type Event } from "../../api/events";
 import "../../scss/_eventspage.scss";
 import "../../scss/_searchbar.scss";
@@ -95,10 +98,6 @@ const EventsPage: React.FC = () => {
 
   // Image upload error state
   const [imageError, setImageError] = useState<string>("");
-
-  // Only business accounts can create events
-  const userData = getUserData();
-  const isBusinessAccount = (userData?.account_type || "").toLowerCase() === "business";
 
   // User event lists (Going, Interested, etc.)
   const [userEventLists, setUserEventLists] = useState<{
@@ -251,6 +250,10 @@ const EventsPage: React.FC = () => {
   };
 
   const handleCreateEventClick = () => {
+    if (!isAuthenticated()) {
+      navigate("/signin");
+      return;
+    }
     setIsCreateEventModalOpen(true);
   };
 
@@ -568,9 +571,8 @@ const EventsPage: React.FC = () => {
   };
 
   return (
-    <div className="events-page-wrapper">
-      <NavBar />
-      <div className="eventspage eventspage--below-navbar">
+    <div className="events-page-wrapper events-page">
+      <div className="eventspage eventspage--with-fixed-header">
       {/* Page header (below main site navbar) */}
       <header className="newsfeed-header">
         <div className="newsfeed-header__container">
@@ -700,15 +702,19 @@ const EventsPage: React.FC = () => {
               </button>
             ))}
           </div>
-          {isBusinessAccount && (
-            <button
-              className="eventspage-tabs__create-btn"
-              onClick={handleCreateEventClick}
-            >
-              <Plus size={18} />
-              <span>Create Events</span>
-            </button>
-          )}
+          <button
+            type="button"
+            className="eventspage-tabs__create-btn"
+            onClick={handleCreateEventClick}
+            title={
+              isAuthenticated()
+                ? "Create a new event"
+                : "Sign in to create an event"
+            }
+          >
+            <Plus size={18} />
+            <span>Add event</span>
+          </button>
         </div>
       </div>
 

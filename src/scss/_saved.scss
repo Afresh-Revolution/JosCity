@@ -854,10 +854,11 @@
   overflow-x: hidden;
   align-items: start;
 
-  // 2-column layout when there's no aside (right sidebar)
+  // Left nav + main only (no right aside): main fills remaining width
   &--no-aside {
-    grid-template-columns: 1fr; // Single column for main content
-    grid-column: 2; // Position container in second column of parent grid (to the right of sidebar)
+    grid-template-columns: 260px minmax(0, 1fr);
+    align-items: start;
+    grid-column: 2; // Second column of .newsfeed-page grid
     max-width: 100%;
     padding: 20px 24px;
     position: relative;
@@ -868,34 +869,36 @@
     }
 
     @media (max-width: 1200px) {
+      grid-template-columns: 240px minmax(0, 1fr);
       padding: 16px 20px;
       position: absolute;
     }
 
     @media (max-width: 992px) {
+      grid-template-columns: 1fr;
       grid-column: 1; // Full width on mobile
-      padding: 0 16px 16px 16px; // Remove top padding to align to top
+      padding: 0 16px 16px 16px;
       position: relative;
       margin-top: 0;
       align-self: start;
     }
 
     @media (max-width: 768px) {
-      padding: 0 12px 12px 12px; // Remove top padding to align to top
+      padding: 0 12px 12px 12px;
       position: absolute;
       margin-top: 0;
       align-self: start;
     }
 
     @media (max-width: 480px) {
-      padding: 0 10px 10px 10px; // Remove top padding to align to top
+      padding: 0 10px 10px 10px;
       position: absolute;
       margin-top: 0;
       align-self: start;
     }
 
     @media (max-width: 360px) {
-      padding: 0 8px 8px 8px; // Remove top padding to align to top
+      padding: 0 8px 8px 8px;
       position: absolute;
       margin-top: 0;
       align-self: start;
@@ -907,6 +910,10 @@
     grid-template-columns: 240px minmax(0, 1fr) 280px;
     gap: 20px;
     padding: 16px 20px;
+
+    &--no-aside {
+      grid-template-columns: 240px minmax(0, 1fr);
+    }
   }
 
   @media (max-width: 992px) {
@@ -914,6 +921,10 @@
     padding: 16px;
     gap: 16px;
     max-width: 100vw;
+
+    &--no-aside {
+      grid-template-columns: 1fr;
+    }
   }
 
   @media (max-width: 768px) {
@@ -975,6 +986,20 @@
   @media (max-width: 360px) {
     gap: 8px;
     margin: 0 auto; // Center on extra small mobile
+  }
+}
+
+// Saved has no right aside: stretch main across the free column (not feed-width cap)
+.newsfeed-container--no-aside .newsfeed-main {
+  grid-column: 2;
+  max-width: none;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  justify-self: stretch;
+
+  @media (max-width: 992px) {
+    grid-column: 1 / -1;
   }
 }
 

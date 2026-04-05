@@ -854,7 +854,7 @@
   overflow-x: hidden;
   align-items: start;
 
-  // Left nav + main only (no right aside): main fills remaining width
+  // Left nav + main only (no right aside): fixed nav column, capped feed width
   &--no-aside {
     grid-template-columns: 260px minmax(0, 1fr);
     align-items: start;
@@ -989,17 +989,38 @@
   }
 }
 
-// Saved has no right aside: stretch main across the free column (not feed-width cap)
+// Saved has no right aside: lock nav column on desktop (mobile drawer keeps its own widths)
+.newsfeed-container--no-aside .newsfeed-sidebar {
+  @media (min-width: 993px) {
+    min-width: 260px;
+    max-width: 260px;
+    width: 260px;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 1200px) and (min-width: 993px) {
+    min-width: 240px;
+    max-width: 240px;
+    width: 240px;
+  }
+}
+
 .newsfeed-container--no-aside .newsfeed-main {
   grid-column: 2;
-  max-width: none;
+  max-width: min(680px, 100%);
   width: 100%;
   min-width: 0;
   margin: 0;
-  justify-self: stretch;
+  justify-self: start;
+
+  @media (min-width: 1400px) {
+    max-width: min(720px, 100%);
+  }
 
   @media (max-width: 992px) {
     grid-column: 1 / -1;
+    max-width: 100%;
+    justify-self: stretch;
   }
 }
 

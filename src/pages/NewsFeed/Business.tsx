@@ -998,17 +998,6 @@ const Business: React.FC = () => {
         </div>
       </header>
 
-      {/* Mobile Overlay */}
-      {(isLeftSidebarOpen || isRightSidebarOpen) && (
-        <div
-          className="newsfeed-overlay"
-          onClick={() => {
-            setIsLeftSidebarOpen(false);
-            setIsRightSidebarOpen(false);
-          }}
-        />
-      )}
-
       {/* Main Content */}
       <div className="newsfeed-container">
         {/* Left Sidebar */}
@@ -1091,6 +1080,18 @@ const Business: React.FC = () => {
           onHashtagClick={(hashtag) => setSearchQuery(hashtag)}
           suggestedSection="businesses"
         />
+
+        {/* Below nav panels in stacking order: dims main; left/right panels stay above */}
+        {(isLeftSidebarOpen || isRightSidebarOpen) && (
+          <div
+            className="newsfeed-overlay newsfeed-overlay--in-container"
+            onClick={() => {
+              setIsLeftSidebarOpen(false);
+              setIsRightSidebarOpen(false);
+            }}
+            aria-hidden="true"
+          />
+        )}
       </div>
 
       {/* Add Friend Modal */}

@@ -59,7 +59,7 @@ const FindFriendsModal: React.FC<FindFriendsModalProps> = ({
         // Still fetch users, backend can handle location filtering
       }
 
-      const response = await userApi.getNearbyUsers(500);
+      const response = await userApi.getNearbyUsers({ rangeKm: 500 });
       if (response.success && response.data) {
         // Filter out current user
         const filteredUsers = response.data.filter(

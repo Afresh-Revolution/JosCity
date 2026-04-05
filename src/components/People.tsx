@@ -1,7 +1,8 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   UserPlus,
+  Check,
   X,
   Calendar,
   Bookmark,
@@ -19,6 +20,7 @@ import {
   AlertCircle,
   SlidersHorizontal,
   Smile,
+  MapPin,
 } from "lucide-react";
 import NewsFeedHeader from "../pages/NewsFeed/NewsFeedHeader";
 import Avatar from "./Avatar";
@@ -31,8 +33,13 @@ import {
 import {
   userApi,
   type ApprovedDirectoryUser,
+  type User as NearbyApiUser,
 } from "../services/userApi";
-import { friendApi } from "../services/friendApi";
+import {
+  friendApi,
+  type Friend,
+  type FriendRequest,
+} from "../services/friendApi";
 import "../main.css";
 import "../scss/_emojipicker.scss";
 import "../scss/_newsfeed.scss";
@@ -48,6 +55,8 @@ interface User {
   accountType?: string;
   profileSlug?: string;
   businessType?: string;
+  address?: string;
+  distanceKm?: number;
 }
 
 function mapDirectoryUser(u: ApprovedDirectoryUser): User {
@@ -65,25 +74,87 @@ function mapDirectoryUser(u: ApprovedDirectoryUser): User {
     accountType: u.account_type || "personal",
     profileSlug: u.user_name?.trim() || undefined,
     businessType: u.business_type?.trim() || undefined,
+    address: u.address?.trim() || undefined,
   };
+}
+
+function mapNearbyApiUser(
+  u: NearbyApiUser,
+  profileSlugFallback?: string
+): User {
+  const isBiz = (u.account_type || "").toLowerCase() === "business";
+  const name =
+    isBiz && u.business_name?.trim()
+      ? u.business_name.trim()
+      : [u.user_firstname, u.user_lastname].filter(Boolean).join(" ").trim() ||
+        u.user_email ||
+        `User ${u.user_id}`;
+  const slug =
+    u.user_name?.trim() || profileSlugFallback || undefined;
+  return {
+    id: u.user_id,
+    name,
+    avatar: u.user_picture?.trim() || "/placeholder-avatar.png",
+    accountType: u.account_type || "personal",
+    profileSlug: slug,
+    businessType: u.business_type?.trim() || undefined,
+    address: u.address?.trim() || undefined,
+    distanceKm: typeof u.distance === "number" ? u.distance : undefined,
+  };
+}
+
+function textMatchesUser(user: User, rawQuery: string) {
+  const q = rawQuery.toLowerCase().trim();
+  if (!q) return true;
+  const hay = [user.name, user.address, user.businessType, user.profileSlug]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return hay.includes(q);
 }
 
 const People: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const activeTab = useMemo(() => {
+    const p = location.pathname;
+    if (p === "/request") return "friend-requests";
+    if (p === "/sent-requests") return "sent-requests";
+    if (p === "/my-friends") return "my-friends";
+    return "find";
+  }, [location.pathname]);
+
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("find");
   const [distance, setDistance] = useState(100);
   const [searchQuery, setSearchQuery] = useState("");
   const [showNotification, setShowNotification] = useState(false);
   const [isSearchEmojiPickerOpen, setIsSearchEmojiPickerOpen] = useState(false);
+  const [allApprovedUsers, setAllApprovedUsers] = useState<User[]>([]);
   const [directoryUsers, setDirectoryUsers] = useState<User[]>([]);
   const [directoryLoading, setDirectoryLoading] = useState(true);
   const [directoryError, setDirectoryError] = useState<string | null>(null);
+  const [useLocationFilter, setUseLocationFilter] = useState(false);
+  const [myCoords, setMyCoords] = useState<{ lat: number; lng: number } | null>(
+    null
+  );
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const useLocationFilterRef = useRef(false);
   const [friendStatuses, setFriendStatuses] = useState<
     Record<number, "none" | "sent" | "pending" | "friends">
   >({});
   const [addActionLoading, setAddActionLoading] = useState<number | null>(null);
+  const [incomingRequests, setIncomingRequests] = useState<FriendRequest[]>([]);
+  const [outgoingRequests, setOutgoingRequests] = useState<FriendRequest[]>(
+    []
+  );
+  const [friendsList, setFriendsList] = useState<Friend[]>([]);
+  const [friendGraphLoading, setFriendGraphLoading] = useState(true);
+  const [requestActionId, setRequestActionId] = useState<number | null>(null);
+  const [removeFriendUserId, setRemoveFriendUserId] = useState<number | null>(
+    null
+  );
 
   // Handle profile navigation
   const handleProfileClick = () => {
@@ -91,11 +162,9 @@ const People: React.FC = () => {
     navigate(`/profile/${encodeURIComponent(username)}`);
   };
   const [filterQuery, setFilterQuery] = useState("");
-  const [filterState, setFilterState] = useState("Any");
-  const [filterGender, setFilterGender] = useState("Any");
-  const [filterRelationship, setFilterRelationship] = useState("Any");
-  const [filterOnlineStatus, setFilterOnlineStatus] = useState("Any");
-  const [filterVerifiedStatus, setFilterVerifiedStatus] = useState("Any");
+  const [filterAccountType, setFilterAccountType] = useState<
+    "any" | "personal" | "business"
+  >("any");
   const [isFilterQueryEmojiPickerOpen, setIsFilterQueryEmojiPickerOpen] =
     useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -106,8 +175,13 @@ const People: React.FC = () => {
   });
 
   useEffect(() => {
+    useLocationFilterRef.current = useLocationFilter;
+  }, [useLocationFilter]);
+
+  useEffect(() => {
     const loadDirectory = async () => {
       if (!isAuthenticated()) {
+        setAllApprovedUsers([]);
         setDirectoryUsers([]);
         setDirectoryLoading(false);
         return;
@@ -117,15 +191,21 @@ const People: React.FC = () => {
       try {
         const res = await userApi.getApprovedUsers({ page: 1, limit: 100 });
         if (!res.success || !Array.isArray(res.data)) {
-          setDirectoryUsers([]);
+          setAllApprovedUsers([]);
+          if (!useLocationFilterRef.current) setDirectoryUsers([]);
           return;
         }
-        setDirectoryUsers(res.data.map(mapDirectoryUser));
+        const mapped = res.data.map(mapDirectoryUser);
+        setAllApprovedUsers(mapped);
+        if (!useLocationFilterRef.current) {
+          setDirectoryUsers(mapped);
+        }
       } catch (e) {
         setDirectoryError(
           e instanceof Error ? e.message : "Could not load people."
         );
-        setDirectoryUsers([]);
+        setAllApprovedUsers([]);
+        if (!useLocationFilterRef.current) setDirectoryUsers([]);
       } finally {
         setDirectoryLoading(false);
       }
@@ -134,42 +214,110 @@ const People: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const loadFriendStatuses = async () => {
-      if (!isAuthenticated()) return;
+    if (!isAuthenticated() || !myCoords || !useLocationFilter) return;
+    let cancelled = false;
+    setNearbyLoading(true);
+    void (async () => {
       try {
-        const [friendsRes, requestsRes] = await Promise.all([
-          friendApi.getFriends().catch(() => ({ success: false as const, data: [] })),
-          friendApi
-            .getPendingRequests()
-            .catch(() => ({
-              success: false as const,
-              data: { sent: [], received: [] },
-            })),
-        ]);
-        const statuses: Record<number, "none" | "sent" | "pending" | "friends"> =
-          {};
-        if (friendsRes.success && Array.isArray(friendsRes.data)) {
-          friendsRes.data.forEach((f: { user_id: number }) => {
-            statuses[f.user_id] = "friends";
-          });
-        }
-        if (requestsRes.success && requestsRes.data) {
-          requestsRes.data.sent.forEach(
-            (r: { receiver_id: number }) => {
-              statuses[r.receiver_id] = "sent";
-            }
+        const res = await userApi.getNearbyUsers({
+          rangeKm: Math.max(distance, 1),
+          latitude: myCoords.lat,
+          longitude: myCoords.lng,
+        });
+        if (cancelled) return;
+        if (res.success && Array.isArray(res.data)) {
+          setDirectoryError(null);
+          const slugMap = new Map(
+            allApprovedUsers.map((u) => [u.id, u.profileSlug])
           );
-          requestsRes.data.received.forEach((r: { sender_id: number }) => {
-            if (!statuses[r.sender_id]) statuses[r.sender_id] = "pending";
-          });
+          setDirectoryUsers(
+            res.data.map((row) =>
+              mapNearbyApiUser(row, slugMap.get(row.user_id) || undefined)
+            )
+          );
+        } else {
+          setDirectoryUsers([]);
         }
-        setFriendStatuses(statuses);
-      } catch {
-        // ignore
+      } catch (e) {
+        if (!cancelled) {
+          setDirectoryError(
+            e instanceof Error ? e.message : "Could not load nearby people."
+          );
+          setDirectoryUsers([]);
+        }
+      } finally {
+        if (!cancelled) setNearbyLoading(false);
       }
+    })();
+    return () => {
+      cancelled = true;
     };
-    void loadFriendStatuses();
+  }, [myCoords, useLocationFilter, distance, allApprovedUsers]);
+
+  const syncFriendGraph = useCallback(async () => {
+    if (!isAuthenticated()) {
+      setFriendStatuses({});
+      setIncomingRequests([]);
+      setOutgoingRequests([]);
+      setFriendsList([]);
+      return;
+    }
+    try {
+      const [friendsRes, requestsRes] = await Promise.all([
+        friendApi.getFriends().catch(() => ({ success: false as const, data: [] })),
+        friendApi.getPendingRequests().catch(() => ({
+          success: false as const,
+          data: { sent: [] as FriendRequest[], received: [] as FriendRequest[] },
+        })),
+      ]);
+      const statuses: Record<number, "none" | "sent" | "pending" | "friends"> =
+        {};
+      if (friendsRes.success && Array.isArray(friendsRes.data)) {
+        friendsRes.data.forEach((f: Friend) => {
+          statuses[f.user_id] = "friends";
+        });
+        setFriendsList(friendsRes.data);
+      } else {
+        setFriendsList([]);
+      }
+      if (requestsRes.success && requestsRes.data) {
+        const pendingSent = requestsRes.data.sent.filter(
+          (r) => r.status === "pending"
+        );
+        const pendingReceived = requestsRes.data.received.filter(
+          (r) => r.status === "pending"
+        );
+        pendingSent.forEach((r) => {
+          if (!statuses[r.receiver_id]) statuses[r.receiver_id] = "sent";
+        });
+        pendingReceived.forEach((r) => {
+          if (!statuses[r.sender_id]) statuses[r.sender_id] = "pending";
+        });
+        setOutgoingRequests(pendingSent);
+        setIncomingRequests(pendingReceived);
+      } else {
+        setOutgoingRequests([]);
+        setIncomingRequests([]);
+      }
+      setFriendStatuses(statuses);
+    } catch {
+      setIncomingRequests([]);
+      setOutgoingRequests([]);
+      setFriendsList([]);
+    }
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      setFriendGraphLoading(true);
+      await syncFriendGraph();
+      if (alive) setFriendGraphLoading(false);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [syncFriendGraph]);
 
   const handleAddFriend = async (user: User) => {
     if (!isAuthenticated()) {
@@ -183,10 +331,8 @@ const People: React.FC = () => {
     setAddActionLoading(user.id);
     try {
       const res = await friendApi.sendFriendRequest(user.id);
-      if (res.success && res.data?.request_id != null) {
-        setFriendStatuses((prev) => ({ ...prev, [user.id]: "sent" }));
-      } else if (res.success) {
-        setFriendStatuses((prev) => ({ ...prev, [user.id]: "sent" }));
+      if (res.success) {
+        await syncFriendGraph();
       } else {
         alert("Could not send friend request.");
       }
@@ -197,11 +343,155 @@ const People: React.FC = () => {
     }
   };
 
+  const profileSlugForUserId = useCallback(
+    (userId: number) =>
+      allApprovedUsers.find((u) => u.id === userId)?.profileSlug,
+    [allApprovedUsers]
+  );
+
+  const requestBrowserLocation = useCallback(() => {
+    setLocationError(null);
+    if (!navigator.geolocation) {
+      setLocationError("Location is not supported in this browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocationError(null);
+        setMyCoords({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        });
+        setUseLocationFilter(true);
+      },
+      (err: GeolocationPositionError) => {
+        setLocationError(
+          err.code === 1
+            ? "Location permission denied. Enable it in your browser settings to filter by distance."
+            : err.message || "Could not read your location."
+        );
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 60_000 }
+    );
+  }, []);
+
+  const stopUsingLocation = useCallback(() => {
+    setMyCoords(null);
+    setUseLocationFilter(false);
+    setNearbyLoading(false);
+    setLocationError(null);
+    setDirectoryUsers(allApprovedUsers);
+  }, [allApprovedUsers]);
+
+  const handleAcceptRequest = async (requestId: number) => {
+    setRequestActionId(requestId);
+    try {
+      const res = await friendApi.acceptFriendRequest(requestId);
+      if (res.success) await syncFriendGraph();
+      else alert("Could not accept request.");
+    } catch {
+      alert("Could not accept request.");
+    } finally {
+      setRequestActionId(null);
+    }
+  };
+
+  const handleRejectRequest = async (requestId: number) => {
+    setRequestActionId(requestId);
+    try {
+      const res = await friendApi.rejectFriendRequest(requestId);
+      if (res.success) await syncFriendGraph();
+      else alert("Could not decline request.");
+    } catch {
+      alert("Could not decline request.");
+    } finally {
+      setRequestActionId(null);
+    }
+  };
+
+  const handleCancelOutgoing = async (requestId: number) => {
+    setRequestActionId(requestId);
+    try {
+      const res = await friendApi.cancelFriendRequest(requestId);
+      if (res.success) await syncFriendGraph();
+      else alert("Could not cancel request.");
+    } catch {
+      alert("Could not cancel request.");
+    } finally {
+      setRequestActionId(null);
+    }
+  };
+
+  const handleRemoveFriend = async (userId: number) => {
+    if (!window.confirm("Remove this person from your friends?")) return;
+    setRemoveFriendUserId(userId);
+    try {
+      const res = await friendApi.removeFriend(userId);
+      if (res.success) await syncFriendGraph();
+      else alert("Could not remove friend.");
+    } catch {
+      alert("Could not remove friend.");
+    } finally {
+      setRemoveFriendUserId(null);
+    }
+  };
+
   const openProfile = (user: User) => {
     const slug = user.profileSlug?.trim();
     if (slug) {
       navigate(`/profile/${encodeURIComponent(slug)}`);
     }
+  };
+
+  const userFromFriend = (f: Friend): User => ({
+    id: f.user_id,
+    name:
+      [f.user_firstname, f.user_lastname].filter(Boolean).join(" ").trim() ||
+      `User ${f.user_id}`,
+    avatar: f.user_picture?.trim() || "/placeholder-avatar.png",
+    profileSlug: profileSlugForUserId(f.user_id),
+  });
+
+  const userFromIncomingRequest = (r: FriendRequest): User => {
+    const s = r.sender;
+    const id = r.sender_id;
+    if (s) {
+      return {
+        id: s.user_id,
+        name:
+          [s.user_firstname, s.user_lastname].filter(Boolean).join(" ").trim() ||
+          `User ${s.user_id}`,
+        avatar: s.user_picture?.trim() || "/placeholder-avatar.png",
+        profileSlug: profileSlugForUserId(s.user_id),
+      };
+    }
+    return {
+      id,
+      name: `User ${id}`,
+      avatar: "/placeholder-avatar.png",
+      profileSlug: profileSlugForUserId(id),
+    };
+  };
+
+  const userFromOutgoingRequest = (r: FriendRequest): User => {
+    const rec = r.receiver;
+    const id = r.receiver_id;
+    if (rec) {
+      return {
+        id: rec.user_id,
+        name:
+          [rec.user_firstname, rec.user_lastname].filter(Boolean).join(" ").trim() ||
+          `User ${rec.user_id}`,
+        avatar: rec.user_picture?.trim() || "/placeholder-avatar.png",
+        profileSlug: profileSlugForUserId(rec.user_id),
+      };
+    }
+    return {
+      id,
+      name: `User ${id}`,
+      avatar: "/placeholder-avatar.png",
+      profileSlug: profileSlugForUserId(id),
+    };
   };
 
   const renderPersonCard = (user: User) => {
@@ -252,7 +542,13 @@ const People: React.FC = () => {
           <p className="people-user-card__meta" style={{ marginTop: 4 }}>
             {accountLabel}
             {user.businessType ? ` · ${user.businessType}` : ""}
+            {user.distanceKm != null && (
+              <span>{` · ${user.distanceKm} km away`}</span>
+            )}
           </p>
+          {user.address?.trim() && (
+            <p className="people-user-card__location">{user.address.trim()}</p>
+          )}
           {user.mutualFriends !== undefined && user.mutualFriends > 0 && (
             <p className="people-user-card__mutual">
               {user.mutualFriends} mutual friend
@@ -288,45 +584,32 @@ const People: React.FC = () => {
     );
   };
 
-  // Filter users based on search query and all filters
   const filteredUsers = useMemo(() => {
     let users = directoryUsers;
 
-    // Apply main search query
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      users = users.filter((user) =>
-        user.name.toLowerCase().includes(query)
-      );
+      users = users.filter((user) => textMatchesUser(user, searchQuery));
     }
 
-    // Apply filter query
     if (filterQuery.trim()) {
-      const query = filterQuery.toLowerCase().trim();
-      users = users.filter((user) =>
-        user.name.toLowerCase().includes(query)
-      );
+      users = users.filter((user) => textMatchesUser(user, filterQuery));
     }
 
-    // Apply distance filter (if user has location data, this would filter by distance)
-    // For now, we'll just return all users that match other filters
-    // In a real implementation, this would filter by actual distance calculation
-
-    // Note: Gender, Relationship Type, Online Status, and Verified Status filters
-    // would require additional user data fields that aren't in the mock data
-    // These filters are set up and ready for when real API data is integrated
+    if (filterAccountType !== "any") {
+      users = users.filter((user) => {
+        const t = (user.accountType || "personal").toLowerCase();
+        return filterAccountType === "business"
+          ? t === "business"
+          : t !== "business";
+      });
+    }
 
     return users;
   }, [
     directoryUsers,
     searchQuery,
     filterQuery,
-    distance,
-    filterState,
-    filterGender,
-    filterRelationship,
-    filterOnlineStatus,
-    filterVerifiedStatus,
+    filterAccountType,
   ]);
 
   // Show notification when no users are found
@@ -342,6 +625,9 @@ const People: React.FC = () => {
       setShowNotification(false);
     }
   }, [searchQuery, filteredUsers.length]);
+
+  const findListLoading =
+    directoryLoading || (useLocationFilter && nearbyLoading);
 
   return (
     <div className="people-page">
@@ -660,7 +946,7 @@ const People: React.FC = () => {
             className={`people-tabs__tab ${
               activeTab === "find" ? "people-tabs__tab--active" : ""
             }`}
-            onClick={() => setActiveTab("find")}
+            onClick={() => navigate("/people")}
           >
             Find
           </button>
@@ -669,76 +955,434 @@ const People: React.FC = () => {
             className={`people-tabs__tab ${
               activeTab === "friend-requests" ? "people-tabs__tab--active" : ""
             }`}
-            onClick={() => {
-              setActiveTab("friend-requests");
-              navigate("/request");
-            }}
+            onClick={() => navigate("/request")}
           >
             Friend Requests
+            {incomingRequests.length > 0 && (
+              <span className="people-tabs__badge">
+                {incomingRequests.length}
+              </span>
+            )}
           </button>
           <button
             type="button"
             className={`people-tabs__tab ${
               activeTab === "sent-requests" ? "people-tabs__tab--active" : ""
             }`}
-            onClick={() => {
-              setActiveTab("sent-requests");
-              navigate("/sent-requests");
-            }}
+            onClick={() => navigate("/sent-requests")}
           >
             Sent Requests
+            {outgoingRequests.length > 0 && (
+              <span className="people-tabs__badge">
+                {outgoingRequests.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            className={`people-tabs__tab ${
+              activeTab === "my-friends" ? "people-tabs__tab--active" : ""
+            }`}
+            onClick={() => navigate("/my-friends")}
+          >
+            My Friends
+            {friendsList.length > 0 && (
+              <span className="people-tabs__badge">{friendsList.length}</span>
+            )}
           </button>
         </div>
 
         {/* Main Content Area */}
         <main className="people-main" ref={mainContentRef}>
-          {/* Search Results Section */}
-          {searchQuery.trim() && (
+          {activeTab === "find" && (
+            <>
+              {searchQuery.trim() && (
+                <div className="people-section">
+                  <h2 className="people-section__title">
+                    Search Results{" "}
+                    {filteredUsers.length > 0 && `(${filteredUsers.length})`}
+                  </h2>
+                  {findListLoading && (
+                    <div className="people-section__empty">
+                      <p className="people-section__empty-text">
+                        Loading…
+                      </p>
+                    </div>
+                  )}
+                  {!findListLoading && filteredUsers.length > 0 && (
+                    <div className="people-search-results">
+                      {filteredUsers.map((user) => renderPersonCard(user))}
+                    </div>
+                  )}
+                  {!findListLoading && filteredUsers.length === 0 && (
+                    <div className="people-section__empty people-section__empty--search">
+                      <p className="people-section__empty-text people-section__empty-text--search">
+                        No users found matching "{searchQuery}"
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!searchQuery.trim() && (
+                <div className="people-section">
+                  <h2 className="people-section__title">
+                    Community
+                    {filteredUsers.length > 0 &&
+                      ` (${filteredUsers.length})`}
+                  </h2>
+                  {findListLoading && (
+                    <div className="people-section__empty">
+                      <p className="people-section__empty-text">
+                        Loading people…
+                      </p>
+                    </div>
+                  )}
+                  {!findListLoading && directoryError && (
+                    <div className="people-section__empty">
+                      <p className="people-section__empty-text">
+                        {directoryError}
+                      </p>
+                    </div>
+                  )}
+                  {!findListLoading &&
+                    !directoryError &&
+                    filteredUsers.length === 0 && (
+                      <div className="people-section__empty">
+                        <p className="people-section__empty-text">
+                          {useLocationFilter
+                            ? "No members with a saved location are within this distance. Try a larger radius, or stop using your location to browse the full directory."
+                            : "No approved members match your filters yet."}
+                        </p>
+                      </div>
+                    )}
+                  {!findListLoading &&
+                    !directoryError &&
+                    filteredUsers.length > 0 && (
+                      <div className="people-search-results">
+                        {filteredUsers.map((user) => renderPersonCard(user))}
+                      </div>
+                    )}
+                </div>
+              )}
+            </>
+          )}
+
+          {activeTab === "friend-requests" && (
             <div className="people-section">
               <h2 className="people-section__title">
-                Search Results{" "}
-                {filteredUsers.length > 0 && `(${filteredUsers.length})`}
+                Friend requests
+                {incomingRequests.length > 0 &&
+                  ` (${incomingRequests.length})`}
               </h2>
-              {filteredUsers.length > 0 ? (
-                <div className="people-search-results">
-                  {filteredUsers.map((user) => renderPersonCard(user))}
-                </div>
-              ) : (
-                <div className="people-section__empty people-section__empty--search">
-                  <p className="people-section__empty-text people-section__empty-text--search">
-                    No users found matching "{searchQuery}"
+              {!isAuthenticated() && (
+                <div className="people-section__empty">
+                  <p className="people-section__empty-text">
+                    Sign in to see friend requests sent to you.
                   </p>
+                </div>
+              )}
+              {isAuthenticated() && friendGraphLoading && (
+                <div className="people-section__empty">
+                  <p className="people-section__empty-text">Loading…</p>
+                </div>
+              )}
+              {isAuthenticated() &&
+                !friendGraphLoading &&
+                incomingRequests.length === 0 && (
+                  <div className="people-section__empty">
+                    <p className="people-section__empty-text">
+                      No pending friend requests.
+                    </p>
+                  </div>
+                )}
+              {isAuthenticated() && !friendGraphLoading && (
+                <div className="people-search-results">
+                  {incomingRequests.map((req) => {
+                    const peer = userFromIncomingRequest(req);
+                    const busy = requestActionId === req.request_id;
+                    return (
+                      <div
+                        key={req.request_id}
+                        className="people-user-card"
+                      >
+                        <div className="people-user-card__avatar">
+                          <Avatar
+                            src={peer.avatar}
+                            name={peer.name}
+                            alt={peer.name}
+                            size={56}
+                            className="people-user-card__avatar-img"
+                          />
+                        </div>
+                        <div className="people-user-card__info">
+                          <h3
+                            className="people-user-card__name"
+                            style={
+                              peer.profileSlug
+                                ? { cursor: "pointer" }
+                                : undefined
+                            }
+                            onClick={() =>
+                              peer.profileSlug && openProfile(peer)
+                            }
+                            onKeyDown={(e) => {
+                              if (
+                                peer.profileSlug &&
+                                (e.key === "Enter" || e.key === " ")
+                              ) {
+                                e.preventDefault();
+                                openProfile(peer);
+                              }
+                            }}
+                            role={peer.profileSlug ? "link" : undefined}
+                            tabIndex={peer.profileSlug ? 0 : undefined}
+                          >
+                            {peer.name}
+                          </h3>
+                          <p className="people-user-card__meta">
+                            Wants to be friends
+                          </p>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 8,
+                            flexShrink: 0,
+                          }}
+                        >
+                          <button
+                            type="button"
+                            className="people-user-card__action-btn"
+                            disabled={busy}
+                            onClick={() =>
+                              void handleAcceptRequest(req.request_id)
+                            }
+                          >
+                            <Check size={18} />
+                            <span>Accept</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="people-user-card__action-btn"
+                            style={{
+                              backgroundColor: "transparent",
+                              color: "#333",
+                              border: "1px solid var(--border-color)",
+                            }}
+                            disabled={busy}
+                            onClick={() =>
+                              void handleRejectRequest(req.request_id)
+                            }
+                          >
+                            <X size={18} />
+                            <span>Decline</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
           )}
 
-          {!searchQuery.trim() && (
+          {activeTab === "sent-requests" && (
             <div className="people-section">
               <h2 className="people-section__title">
-                Community
-                {filteredUsers.length > 0 && ` (${filteredUsers.length})`}
+                Sent requests
+                {outgoingRequests.length > 0 &&
+                  ` (${outgoingRequests.length})`}
               </h2>
-              {directoryLoading && (
-                <div className="people-section__empty">
-                  <p className="people-section__empty-text">Loading people…</p>
-                </div>
-              )}
-              {!directoryLoading && directoryError && (
-                <div className="people-section__empty">
-                  <p className="people-section__empty-text">{directoryError}</p>
-                </div>
-              )}
-              {!directoryLoading && !directoryError && filteredUsers.length === 0 && (
+              {!isAuthenticated() && (
                 <div className="people-section__empty">
                   <p className="people-section__empty-text">
-                    No approved members match your filters yet.
+                    Sign in to see requests you&apos;ve sent.
                   </p>
                 </div>
               )}
-              {!directoryLoading && !directoryError && filteredUsers.length > 0 && (
+              {isAuthenticated() && friendGraphLoading && (
+                <div className="people-section__empty">
+                  <p className="people-section__empty-text">Loading…</p>
+                </div>
+              )}
+              {isAuthenticated() &&
+                !friendGraphLoading &&
+                outgoingRequests.length === 0 && (
+                  <div className="people-section__empty">
+                    <p className="people-section__empty-text">
+                      No outgoing pending requests.
+                    </p>
+                  </div>
+                )}
+              {isAuthenticated() && !friendGraphLoading && (
+                <div className="sent-requests-list">
+                  {outgoingRequests.map((req) => {
+                    const peer = userFromOutgoingRequest(req);
+                    const busy = requestActionId === req.request_id;
+                    return (
+                      <div
+                        key={req.request_id}
+                        className="sent-request-card"
+                      >
+                        <div className="sent-request-card__avatar">
+                          <Avatar
+                            src={peer.avatar}
+                            name={peer.name}
+                            alt={peer.name}
+                            size={56}
+                            className="sent-request-card__avatar-img"
+                          />
+                        </div>
+                        <div className="sent-request-card__info">
+                          <h3
+                            className="sent-request-card__name"
+                            style={
+                              peer.profileSlug
+                                ? { cursor: "pointer" }
+                                : undefined
+                            }
+                            onClick={() =>
+                              peer.profileSlug && openProfile(peer)
+                            }
+                          >
+                            {peer.name}
+                          </h3>
+                          <p className="sent-request-card__mutual">
+                            Awaiting response
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="sent-request-card__cancel-btn"
+                          disabled={busy}
+                          onClick={() =>
+                            void handleCancelOutgoing(req.request_id)
+                          }
+                          aria-label="Cancel request"
+                        >
+                          <span>Cancel</span>
+                          <span className="sent-request-card__cancel-icon">
+                            <X size={14} />
+                          </span>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "my-friends" && (
+            <div className="people-section">
+              <h2 className="people-section__title">
+                My friends
+                {friendsList.length > 0 && ` (${friendsList.length})`}
+              </h2>
+              {!isAuthenticated() && (
+                <div className="people-section__empty">
+                  <p className="people-section__empty-text">
+                    Sign in to see your friends.
+                  </p>
+                </div>
+              )}
+              {isAuthenticated() && friendGraphLoading && (
+                <div className="people-section__empty">
+                  <p className="people-section__empty-text">Loading…</p>
+                </div>
+              )}
+              {isAuthenticated() &&
+                !friendGraphLoading &&
+                friendsList.length === 0 && (
+                  <div className="people-section__empty">
+                    <p className="people-section__empty-text">
+                      You don&apos;t have any friends yet. Send requests from
+                      Find.
+                    </p>
+                  </div>
+                )}
+              {isAuthenticated() && !friendGraphLoading && (
                 <div className="people-search-results">
-                  {filteredUsers.map((user) => renderPersonCard(user))}
+                  {friendsList.map((f) => {
+                    const peer = userFromFriend(f);
+                    const busy = removeFriendUserId === f.user_id;
+                    return (
+                      <div key={f.friendship_id} className="people-user-card">
+                        <div className="people-user-card__avatar">
+                          <Avatar
+                            src={peer.avatar}
+                            name={peer.name}
+                            alt={peer.name}
+                            size={56}
+                            className="people-user-card__avatar-img"
+                          />
+                        </div>
+                        <div className="people-user-card__info">
+                          <h3
+                            className="people-user-card__name"
+                            style={
+                              peer.profileSlug
+                                ? { cursor: "pointer" }
+                                : undefined
+                            }
+                            onClick={() =>
+                              peer.profileSlug && openProfile(peer)
+                            }
+                            onKeyDown={(e) => {
+                              if (
+                                peer.profileSlug &&
+                                (e.key === "Enter" || e.key === " ")
+                              ) {
+                                e.preventDefault();
+                                openProfile(peer);
+                              }
+                            }}
+                            role={peer.profileSlug ? "link" : undefined}
+                            tabIndex={peer.profileSlug ? 0 : undefined}
+                          >
+                            {peer.name}
+                          </h3>
+                          <p className="people-user-card__meta">Friends</p>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 8,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {peer.profileSlug && (
+                            <button
+                              type="button"
+                              className="people-user-card__action-btn"
+                              disabled={busy}
+                              onClick={() => openProfile(peer)}
+                            >
+                              <span>Profile</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="people-user-card__action-btn"
+                            style={{
+                              backgroundColor: "transparent",
+                              color: "#b91c1c",
+                              border: "1px solid #fecaca",
+                            }}
+                            disabled={busy}
+                            onClick={() =>
+                              void handleRemoveFriend(f.user_id)
+                            }
+                          >
+                            <span>Remove</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -769,41 +1413,115 @@ const People: React.FC = () => {
           </div>
 
           <div className="people-filters__content">
-            {/* Distance Slider */}
             <div className="people-filters__group">
-              <label className="people-filters__label">Distance</label>
+              <label className="people-filters__label">Your location</label>
+              <p
+                style={{
+                  fontSize: 13,
+                  color: "var(--text-tertiary)",
+                  margin: "0 0 10px 0",
+                  lineHeight: 1.45,
+                }}
+              >
+                Share your location to list people within the max distance who
+                have saved coordinates on their profile.
+              </p>
+              {!useLocationFilter ? (
+                <button
+                  type="button"
+                  className="people-user-card__action-btn"
+                  style={{ width: "100%", justifyContent: "center" }}
+                  onClick={() => requestBrowserLocation()}
+                >
+                  <MapPin size={18} />
+                  <span>Use my location</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="people-user-card__action-btn"
+                  style={{
+                    width: "100%",
+                    justifyContent: "center",
+                    backgroundColor: "transparent",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border-color)",
+                  }}
+                  onClick={() => stopUsingLocation()}
+                >
+                  <span>Stop using my location</span>
+                </button>
+              )}
+              {locationError && (
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: "#b91c1c",
+                    margin: "8px 0 0 0",
+                  }}
+                >
+                  {locationError}
+                </p>
+              )}
+              {useLocationFilter && myCoords && (
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-tertiary)",
+                    margin: "8px 0 0 0",
+                  }}
+                >
+                  Using your device position (updates when you change max
+                  distance).
+                </p>
+              )}
+            </div>
 
+            <div className="people-filters__group">
+              <label className="people-filters__label">Max distance</label>
+              {!useLocationFilter && (
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-tertiary)",
+                    margin: "0 0 8px 0",
+                  }}
+                >
+                  Applies after you enable location.
+                </p>
+              )}
               <div className="people-filters__slider-wrapper">
-                <div className="people-filters__slider-value">{distance}km</div>
+                <div className="people-filters__slider-value">{distance} km</div>
                 <input
                   type="range"
-                  min="0"
-                  max="500"
+                  min={1}
+                  max={500}
                   value={distance}
                   onChange={(e) => setDistance(Number(e.target.value))}
                   className="people-filters__slider"
+                  disabled={!useLocationFilter}
                   style={{
+                    opacity: useLocationFilter ? 1 : 0.5,
                     background: `linear-gradient(to right, #0d4a1f 0%, #0d4a1f ${
-                      (distance / 500) * 100
-                    }%, #e7e7e7 ${(distance / 500) * 100}%, #e7e7e7 100%)`,
+                      ((distance - 1) / 499) * 100
+                    }%, #e7e7e7 ${((distance - 1) / 499) * 100}%, #e7e7e7 100%)`,
                   }}
                 />
                 <div className="people-filters__slider-labels">
-                  <span>0km</span>
-                  <span>500km</span>
+                  <span>1 km</span>
+                  <span>500 km</span>
                 </div>
               </div>
             </div>
 
-            {/* Query */}
             <div className="people-filters__group">
-              <label className="people-filters__label">Query</label>
+              <label className="people-filters__label">Keywords</label>
               <div style={{ position: "relative" }}>
                 <input
                   ref={filterQueryInputRef}
                   type="text"
                   className="people-filters__input"
-                  placeholder=""
+                  placeholder="Name, address, @username…"
                   value={filterQuery}
                   onChange={(e) => setFilterQuery(e.target.value)}
                   style={{ paddingRight: "40px" }}
@@ -864,130 +1582,29 @@ const People: React.FC = () => {
               </div>
             </div>
 
-            {/* State */}
             <div className="people-filters__group">
-              <label className="people-filters__label">State</label>
-              <select 
+              <label className="people-filters__label">Account type</label>
+              <select
                 className="people-filters__select"
-                value={filterState}
-                onChange={(e) => setFilterState(e.target.value)}
+                value={filterAccountType}
+                onChange={(e) =>
+                  setFilterAccountType(
+                    e.target.value as "any" | "personal" | "business"
+                  )
+                }
               >
-                <option value="Any">Any</option>
-                <option value="Abia">Abia</option>
-                <option value="Adamawa">Adamawa</option>
-                <option value="Akwa Ibom">Akwa Ibom</option>
-                <option value="Anambra">Anambra</option>
-                <option value="Bauchi">Bauchi</option>
-                <option value="Bayelsa">Bayelsa</option>
-                <option value="Benue">Benue</option>
-                <option value="Borno">Borno</option>
-                <option value="Cross River">Cross River</option>
-                <option value="Delta">Delta</option>
-                <option value="Ebonyi">Ebonyi</option>
-                <option value="Edo">Edo</option>
-                <option value="Ekiti">Ekiti</option>
-                <option value="Enugu">Enugu</option>
-                <option value="Gombe">Gombe</option>
-                <option value="Imo">Imo</option>
-                <option value="Jigawa">Jigawa</option>
-                <option value="Kaduna">Kaduna</option>
-                <option value="Kano">Kano</option>
-                <option value="Katsina">Katsina</option>
-                <option value="Kebbi">Kebbi</option>
-                <option value="Kogi">Kogi</option>
-                <option value="Kwara">Kwara</option>
-                <option value="Lagos">Lagos</option>
-                <option value="Nasarawa">Nasarawa</option>
-                <option value="Niger">Niger</option>
-                <option value="Ogun">Ogun</option>
-                <option value="Ondo">Ondo</option>
-                <option value="Osun">Osun</option>
-                <option value="Oyo">Oyo</option>
-                <option value="Plateau">Plateau</option>
-                <option value="Rivers">Rivers</option>
-                <option value="Sokoto">Sokoto</option>
-                <option value="Taraba">Taraba</option>
-                <option value="Yobe">Yobe</option>
-                <option value="Zamfara">Zamfara</option>
-                <option value="FCT">FCT (Abuja)</option>
+                <option value="any">All</option>
+                <option value="personal">Personal</option>
+                <option value="business">Business</option>
               </select>
             </div>
 
-            {/* Gender */}
-            <div className="people-filters__group">
-              <label className="people-filters__label">Gender</label>
-              <select 
-                className="people-filters__select"
-                value={filterGender}
-                onChange={(e) => setFilterGender(e.target.value)}
-              >
-                <option value="Any">Any</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-                <option value="Prefer not to say">Prefer not to say</option>
-              </select>
-            </div>
-
-            {/* Relationship Type */}
-            <div className="people-filters__group">
-              <label className="people-filters__label">Relationship Type</label>
-              <select 
-                className="people-filters__select"
-                value={filterRelationship}
-                onChange={(e) => setFilterRelationship(e.target.value)}
-              >
-                <option value="Any">Any</option>
-                <option value="Single">Single</option>
-                <option value="In a relationship">In a relationship</option>
-                <option value="Engaged">Engaged</option>
-                <option value="Married">Married</option>
-                <option value="Divorced">Divorced</option>
-                <option value="Widowed">Widowed</option>
-                <option value="It's complicated">It's complicated</option>
-              </select>
-            </div>
-
-            {/* Online Status */}
-            <div className="people-filters__group">
-              <label className="people-filters__label">Online Status</label>
-              <select 
-                className="people-filters__select"
-                value={filterOnlineStatus}
-                onChange={(e) => setFilterOnlineStatus(e.target.value)}
-              >
-                <option value="Any">Any</option>
-                <option value="Online">Online</option>
-                <option value="Offline">Offline</option>
-                <option value="Recently active">Recently active</option>
-              </select>
-            </div>
-
-            {/* Verified Status */}
-            <div className="people-filters__group">
-              <label className="people-filters__label">Verified Status</label>
-              <select 
-                className="people-filters__select"
-                value={filterVerifiedStatus}
-                onChange={(e) => setFilterVerifiedStatus(e.target.value)}
-              >
-                <option value="Any">Any</option>
-                <option value="Verified">Verified</option>
-                <option value="Not verified">Not verified</option>
-              </select>
-            </div>
-
-            {/* Clear Filters Button */}
             <div className="people-filters__group">
               <button
                 type="button"
                 onClick={() => {
                   setFilterQuery("");
-                  setFilterState("Any");
-                  setFilterGender("Any");
-                  setFilterRelationship("Any");
-                  setFilterOnlineStatus("Any");
-                  setFilterVerifiedStatus("Any");
+                  setFilterAccountType("any");
                   setDistance(100);
                 }}
                 style={{

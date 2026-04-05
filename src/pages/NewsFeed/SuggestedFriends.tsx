@@ -129,7 +129,7 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
       const fetchBusinessAccounts = async () => {
         setIsLoading(true);
         try {
-          const response = await userApi.getNearbyUsers(rangeKm);
+          const response = await userApi.getNearbyUsers({ rangeKm });
           if (response.success && response.data) {
             const businessAccounts: Friend[] = response.data
               .filter((u: User) => (u.account_type || "").toLowerCase() === "business")
@@ -154,7 +154,7 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
       setIsLoading(true);
       try {
         const [nearbyRes, friendsRes, requestsRes] = await Promise.all([
-          userApi.getNearbyUsers(rangeKm),
+          userApi.getNearbyUsers({ rangeKm }),
           friendApi.getFriends().catch(() => ({ success: false as const, data: [] })),
           friendApi.getPendingRequests().catch(() => ({ success: false as const, data: { sent: [], received: [] } })),
         ]);

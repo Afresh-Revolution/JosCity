@@ -27,8 +27,6 @@ import CookiePolicy from "./pages/CookiePolicy";
 import Accessibility from "./pages/Accessibility";
 import About from "./pages/About";
 import ContactPage from "./pages/ContactPage";
-import Request from "./components/Request";
-import SentRequest from "./components/SentRequest";
 import UserProfile from "./pages/UserProfile";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import NavbarThemeToggle from "./components/NavbarThemeToggle";
@@ -195,7 +193,7 @@ if (rootElement) {
                     path="/request"
                     element={
                       <UserRoute>
-                        <Request />
+                        <People />
                       </UserRoute>
                     }
                   />
@@ -203,7 +201,15 @@ if (rootElement) {
                     path="/sent-requests"
                     element={
                       <UserRoute>
-                        <SentRequest />
+                        <People />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/my-friends"
+                    element={
+                      <UserRoute>
+                        <People />
                       </UserRoute>
                     }
                   />

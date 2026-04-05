@@ -99,6 +99,22 @@ export interface Share {
   };
 }
 
+export interface ScheduledPostApiRow {
+  id: number;
+  user_id: number;
+  text: string | null;
+  media_urls: string[];
+  media_types: string[];
+  scheduled_at: string;
+  status: string;
+  published_post_id: number | null;
+  created_at: string;
+  updated_at: string;
+  show_in_main_feed?: boolean;
+  show_in_business_feed?: boolean;
+  listing_details?: Record<string, unknown> | null;
+}
+
 // Generic API request helper
 const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
   // Get authentication token from localStorage
@@ -540,6 +556,8 @@ export const feedApi = {
     page?: number;
     limit?: number;
     type?: string;
+    /** main = home feed; business = business section (includes personal + business posts) */
+    feedChannel?: "main" | "business";
   }): Promise<{
     success: boolean;
     data: unknown[];
@@ -548,13 +566,52 @@ export const feedApi = {
     const page = params?.page ?? 1;
     const limit = params?.limit ?? 10;
     const type = params?.type ?? "all";
+    const feedChannel = params?.feedChannel ?? "main";
     const query = new URLSearchParams({
       page: String(page),
       limit: String(limit),
       type,
+      feedChannel,
     }).toString();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return apiRequest(`/feed/feeds?${query}`) as any;
+  },
+
+  getSavedPosts: async (params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    success: boolean;
+    data: unknown[];
+    pagination?: { page: number; limit: number; hasMore: boolean };
+  }> => {
+    const page = params?.page ?? 1;
+    const limit = params?.limit ?? 30;
+    const query = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    }).toString();
+    return apiRequest(`/feed/saved-posts?${query}`) as Promise<{
+      success: boolean;
+      data: unknown[];
+      pagination?: { page: number; limit: number; hasMore: boolean };
+    }>;
+  },
+
+  savePost: async (
+    postId: number
+  ): Promise<{ success: boolean; saved?: boolean }> => {
+    return apiRequest(`/feed/posts/${postId}/save`, {
+      method: "POST",
+    }) as Promise<{ success: boolean; saved?: boolean }>;
+  },
+
+  unsavePost: async (
+    postId: number
+  ): Promise<{ success: boolean; saved?: boolean }> => {
+    return apiRequest(`/feed/posts/${postId}/save`, {
+      method: "DELETE",
+    }) as Promise<{ success: boolean; saved?: boolean }>;
   },
 
   /** Trending hashtags (top N by post count). Never throws: on error returns empty data so UI can use fallback. */
@@ -658,6 +715,14 @@ export const feedApi = {
     caption?: string;
     images?: File[];
     videos?: File[];
+    listingDetails?: {
+      text?: { cost?: string; location?: string; contact?: string };
+      byMediaIndex?: Array<{
+        cost?: string;
+        location?: string;
+        contact?: string;
+      } | null>;
+    } | null;
   }): Promise<{
     success: boolean;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -694,6 +759,24 @@ export const feedApi = {
     }
     if (data.videos && data.videos.length > 0) {
       data.videos.forEach((file) => formData.append("videos", file));
+    }
+    if (data.listingDetails) {
+      const hasText = Object.values(data.listingDetails.text || {}).some(
+        (v) => typeof v === "string" && v.trim()
+      );
+      const hasMedia = (data.listingDetails.byMediaIndex || []).some((row) =>
+        row
+          ? Object.values(row).some(
+              (v) => typeof v === "string" && v.trim()
+            )
+          : false
+      );
+      if (hasText || hasMedia) {
+        formData.append(
+          "listing_details",
+          JSON.stringify(data.listingDetails)
+        );
+      }
     }
 
     const body = formData;
@@ -829,6 +912,160 @@ export const feedApi = {
           ? (responseData as { message?: string }).message
           : "Post created") as string,
     };
+  },
+
+  listScheduledPosts: async (
+    status: "pending" | "published" | "failed" | "cancelled" | "all" = "pending"
+  ): Promise<{ success: boolean; data: ScheduledPostApiRow[] }> => {
+    const q =
+      status === "pending"
+        ? "?status=pending"
+        : `?status=${encodeURIComponent(status)}`;
+    return apiRequest(`/feed/scheduled-posts${q}`) as Promise<{
+      success: boolean;
+      data: ScheduledPostApiRow[];
+    }>;
+  },
+
+  createScheduledPost: async (data: {
+    caption?: string;
+    images?: File[];
+    videos?: File[];
+    scheduledAt: string;
+    listingDetails?: {
+      text?: { cost?: string; location?: string; contact?: string };
+      byMediaIndex?: Array<{
+        cost?: string;
+        location?: string;
+        contact?: string;
+      } | null>;
+    } | null;
+  }): Promise<{
+    success: boolean;
+    data: ScheduledPostApiRow;
+    message: string;
+  }> => {
+    const hasFiles =
+      (data.images && data.images.length > 0) ||
+      (data.videos && data.videos.length > 0);
+
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("authToken");
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const formData = new FormData();
+    formData.append("text", data.caption ?? "");
+    formData.append("scheduled_at", data.scheduledAt);
+    if (data.images && data.images.length > 0) {
+      data.images.forEach((file) => formData.append("photos", file));
+    }
+    if (data.videos && data.videos.length > 0) {
+      data.videos.forEach((file) => formData.append("videos", file));
+    }
+    if (data.listingDetails) {
+      const hasText = Object.values(data.listingDetails.text || {}).some(
+        (v) => typeof v === "string" && v.trim()
+      );
+      const hasMedia = (data.listingDetails.byMediaIndex || []).some((row) =>
+        row
+          ? Object.values(row).some(
+              (v) => typeof v === "string" && v.trim()
+            )
+          : false
+      );
+      if (hasText || hasMedia) {
+        formData.append(
+          "listing_details",
+          JSON.stringify(data.listingDetails)
+        );
+      }
+    }
+
+    const response = await fetch(apiUrl("/feed/scheduled-posts"), {
+      method: "POST",
+      headers,
+      body: formData,
+      signal: AbortSignal.timeout(hasFiles ? 45000 : 20000),
+    });
+
+    const contentType = response.headers.get("content-type");
+    const text = await response.text().catch(() => "");
+
+    interface ApiResponse {
+      success?: boolean;
+      data?: ScheduledPostApiRow;
+      error?: unknown;
+      message?: unknown;
+    }
+
+    let responseData: ApiResponse;
+    if (
+      contentType &&
+      contentType.includes("application/json") &&
+      text.trim()
+    ) {
+      try {
+        responseData = JSON.parse(text) as ApiResponse;
+      } catch {
+        responseData = { error: "Invalid response format" };
+      }
+    } else if (text.trim()) {
+      responseData = { error: text.substring(0, 200) || response.statusText };
+    } else {
+      responseData = { error: response.statusText || "Empty response" };
+    }
+
+    const getErrorMessage = (value: unknown): string => {
+      if (typeof value === "string") return value;
+      if (value && typeof value === "object") {
+        const errorObj = value as { message?: unknown; error?: unknown };
+        if (errorObj.message) return String(errorObj.message);
+        if (errorObj.error) return String(errorObj.error);
+        return JSON.stringify(value);
+      }
+      return String(value || "We could not complete your request.");
+    };
+
+    if (!response.ok) {
+      const errorMessage =
+        getErrorMessage(responseData.error) ||
+        getErrorMessage(responseData.message) ||
+        "We could not schedule your post.";
+      throw new Error(errorMessage);
+    }
+
+    if (responseData.success === false) {
+      throw new Error(
+        getErrorMessage(responseData.error) ||
+          getErrorMessage(responseData.message) ||
+          "We could not schedule your post."
+      );
+    }
+
+    const row = responseData.data;
+    if (!row) {
+      throw new Error("Invalid response from server.");
+    }
+
+    return {
+      success: true,
+      data: row,
+      message:
+        (typeof responseData.message === "string"
+          ? responseData.message
+          : "Post scheduled") as string,
+    };
+  },
+
+  deleteScheduledPost: async (
+    id: number
+  ): Promise<{ success: boolean; message: string }> => {
+    return apiRequest(`/feed/scheduled-posts/${id}`, {
+      method: "DELETE",
+    }) as Promise<{ success: boolean; message: string }>;
   },
 
   // ========== Notifications ==========

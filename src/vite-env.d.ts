@@ -1,5 +1,17 @@
 /// <reference types="vite/client" />
 
+/** Chromium: deferred install dialog (not available on iOS Safari). */
+interface BeforeInstallPromptEvent extends Event {
+  readonly platforms: string[];
+  readonly userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+  prompt(): Promise<void>;
+}
+
+interface WindowEventMap {
+  beforeinstallprompt: BeforeInstallPromptEvent;
+  appinstalled: Event;
+}
+
 // Environment variable types
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string;

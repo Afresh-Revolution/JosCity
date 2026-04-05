@@ -25,16 +25,20 @@ import {
   Smile,
 } from "lucide-react";
 import primaryLogo from "../image/primary-logo.png";
-import blessingImg from "../image/newsfeed/blessing.jpg";
-import davidImg from "../image/newsfeed/David.jpg";
-import chistyImg from "../image/newsfeed/chisty.jpg";
-import tianaImg from "../image/newsfeed/tiana.jpg";
-import willImg from "../image/newsfeed/will.jpg";
-import josephImg from "../image/newsfeed/joseph.png";
 import LazyImage from "./LazyImage";
 import Avatar from "./Avatar";
 import EmojiPicker from "./EmojiPicker";
-import { getProfileUsername, getUserName } from "../utils/userUtils";
+import {
+  getProfileUsername,
+  getUserName,
+  getUserData,
+  isAuthenticated,
+} from "../utils/userUtils";
+import {
+  userApi,
+  type ApprovedDirectoryUser,
+} from "../services/userApi";
+import { friendApi } from "../services/friendApi";
 import "../main.css";
 import "../scss/_emojipicker.scss";
 
@@ -44,81 +48,29 @@ interface User {
   avatar: string;
   location?: string;
   mutualFriends?: number;
+  accountType?: string;
+  profileSlug?: string;
+  businessType?: string;
 }
 
-// Mock user data
-const mockUsers: User[] = [
-  {
-    id: 1,
-    name: "Blessing Matthias",
-    avatar: blessingImg,
-    location: "Jos, Nigeria",
-    mutualFriends: 5,
-  },
-  {
-    id: 2,
-    name: "David Gabriel",
-    avatar: davidImg,
-    location: "Abuja, Nigeria",
-    mutualFriends: 3,
-  },
-  {
-    id: 3,
-    name: "Chisty Ola",
-    avatar: chistyImg,
-    location: "Lagos, Nigeria",
-    mutualFriends: 8,
-  },
-  {
-    id: 4,
-    name: "Tiana James",
-    avatar: tianaImg,
-    location: "Kaduna, Nigeria",
-    mutualFriends: 2,
-  },
-  {
-    id: 5,
-    name: "Will Smith",
-    avatar: willImg,
-    location: "Plateau, Nigeria",
-    mutualFriends: 12,
-  },
-  {
-    id: 6,
-    name: "Joseph Azumara",
-    avatar: josephImg,
-    location: "Jos, Nigeria",
-    mutualFriends: 7,
-  },
-  {
-    id: 7,
-    name: "Sarah Johnson",
-    avatar: primaryLogo,
-    location: "Abuja, Nigeria",
-    mutualFriends: 4,
-  },
-  {
-    id: 8,
-    name: "Michael Brown",
-    avatar: primaryLogo,
-    location: "Lagos, Nigeria",
-    mutualFriends: 6,
-  },
-  {
-    id: 9,
-    name: "Emily Davis",
-    avatar: primaryLogo,
-    location: "Kano, Nigeria",
-    mutualFriends: 9,
-  },
-  {
-    id: 10,
-    name: "James Wilson",
-    avatar: primaryLogo,
-    location: "Port Harcourt, Nigeria",
-    mutualFriends: 1,
-  },
-];
+function mapDirectoryUser(u: ApprovedDirectoryUser): User {
+  const isBiz = (u.account_type || "").toLowerCase() === "business";
+  const name =
+    isBiz && u.business_name?.trim()
+      ? u.business_name.trim()
+      : [u.user_firstname, u.user_lastname].filter(Boolean).join(" ").trim() ||
+        u.user_email ||
+        `User ${u.user_id}`;
+  return {
+    id: u.user_id,
+    name,
+    avatar: u.user_picture?.trim() || "/placeholder-avatar.png",
+    location: u.address?.trim() || undefined,
+    accountType: u.account_type || "personal",
+    profileSlug: u.user_name?.trim() || undefined,
+    businessType: u.business_type?.trim() || undefined,
+  };
+}
 
 const People: React.FC = () => {
   const navigate = useNavigate();
@@ -129,6 +81,13 @@ const People: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showNotification, setShowNotification] = useState(false);
   const [isSearchEmojiPickerOpen, setIsSearchEmojiPickerOpen] = useState(false);
+  const [directoryUsers, setDirectoryUsers] = useState<User[]>([]);
+  const [directoryLoading, setDirectoryLoading] = useState(true);
+  const [directoryError, setDirectoryError] = useState<string | null>(null);
+  const [friendStatuses, setFriendStatuses] = useState<
+    Record<number, "none" | "sent" | "pending" | "friends">
+  >({});
+  const [addActionLoading, setAddActionLoading] = useState<number | null>(null);
 
   // Handle profile navigation
   const handleProfileClick = () => {
@@ -150,9 +109,193 @@ const People: React.FC = () => {
   const filterQueryInputRef = useRef<HTMLInputElement>(null);
   const filterCityInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    const loadDirectory = async () => {
+      if (!isAuthenticated()) {
+        setDirectoryUsers([]);
+        setDirectoryLoading(false);
+        return;
+      }
+      setDirectoryLoading(true);
+      setDirectoryError(null);
+      try {
+        const res = await userApi.getApprovedUsers({ page: 1, limit: 100 });
+        if (!res.success || !Array.isArray(res.data)) {
+          setDirectoryUsers([]);
+          return;
+        }
+        setDirectoryUsers(res.data.map(mapDirectoryUser));
+      } catch (e) {
+        setDirectoryError(
+          e instanceof Error ? e.message : "Could not load people."
+        );
+        setDirectoryUsers([]);
+      } finally {
+        setDirectoryLoading(false);
+      }
+    };
+    void loadDirectory();
+  }, []);
+
+  useEffect(() => {
+    const loadFriendStatuses = async () => {
+      if (!isAuthenticated()) return;
+      try {
+        const [friendsRes, requestsRes] = await Promise.all([
+          friendApi.getFriends().catch(() => ({ success: false as const, data: [] })),
+          friendApi
+            .getPendingRequests()
+            .catch(() => ({
+              success: false as const,
+              data: { sent: [], received: [] },
+            })),
+        ]);
+        const statuses: Record<number, "none" | "sent" | "pending" | "friends"> =
+          {};
+        if (friendsRes.success && Array.isArray(friendsRes.data)) {
+          friendsRes.data.forEach((f: { user_id: number }) => {
+            statuses[f.user_id] = "friends";
+          });
+        }
+        if (requestsRes.success && requestsRes.data) {
+          requestsRes.data.sent.forEach(
+            (r: { receiver_id: number }) => {
+              statuses[r.receiver_id] = "sent";
+            }
+          );
+          requestsRes.data.received.forEach((r: { sender_id: number }) => {
+            if (!statuses[r.sender_id]) statuses[r.sender_id] = "pending";
+          });
+        }
+        setFriendStatuses(statuses);
+      } catch {
+        // ignore
+      }
+    };
+    void loadFriendStatuses();
+  }, []);
+
+  const handleAddFriend = async (user: User) => {
+    if (!isAuthenticated()) {
+      navigate("/signin");
+      return;
+    }
+    const me = getUserData()?.user_id as number | undefined;
+    if (me != null && user.id === me) return;
+    const status = friendStatuses[user.id] || "none";
+    if (status !== "none" && status !== "sent") return;
+    setAddActionLoading(user.id);
+    try {
+      const res = await friendApi.sendFriendRequest(user.id);
+      if (res.success && res.data?.request_id != null) {
+        setFriendStatuses((prev) => ({ ...prev, [user.id]: "sent" }));
+      } else if (res.success) {
+        setFriendStatuses((prev) => ({ ...prev, [user.id]: "sent" }));
+      } else {
+        alert("Could not send friend request.");
+      }
+    } catch {
+      alert("Could not send friend request.");
+    } finally {
+      setAddActionLoading(null);
+    }
+  };
+
+  const openProfile = (user: User) => {
+    const slug = user.profileSlug?.trim();
+    if (slug) {
+      navigate(`/profile/${encodeURIComponent(slug)}`);
+    }
+  };
+
+  const renderPersonCard = (user: User) => {
+    const status = friendStatuses[user.id] || "none";
+    const me = getUserData() as { user_id?: number; id?: number } | null;
+    const selfId = me?.user_id ?? me?.id ?? null;
+    const isSelf = selfId != null && user.id === selfId;
+    const busy = addActionLoading === user.id;
+    const accountLabel =
+      (user.accountType || "personal").toLowerCase() === "business"
+        ? "Business"
+        : "Personal";
+
+    return (
+      <div key={user.id} className="people-user-card">
+        <div className="people-user-card__avatar">
+          <LazyImage
+            src={user.avatar}
+            alt={user.name}
+            className="people-user-card__avatar-img"
+          />
+        </div>
+        <div className="people-user-card__info">
+          <h3
+            className="people-user-card__name"
+            style={
+              user.profileSlug
+                ? { cursor: "pointer" }
+                : undefined
+            }
+            onClick={() => user.profileSlug && openProfile(user)}
+            onKeyDown={(e) => {
+              if (
+                user.profileSlug &&
+                (e.key === "Enter" || e.key === " ")
+              ) {
+                e.preventDefault();
+                openProfile(user);
+              }
+            }}
+            role={user.profileSlug ? "link" : undefined}
+            tabIndex={user.profileSlug ? 0 : undefined}
+          >
+            {user.name}
+          </h3>
+          <p className="people-user-card__location" style={{ marginTop: 4 }}>
+            {accountLabel}
+            {user.businessType ? ` · ${user.businessType}` : ""}
+          </p>
+          {user.location && (
+            <p className="people-user-card__location">{user.location}</p>
+          )}
+          {user.mutualFriends !== undefined && user.mutualFriends > 0 && (
+            <p className="people-user-card__mutual">
+              {user.mutualFriends} mutual friend
+              {user.mutualFriends !== 1 ? "s" : ""}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          className="people-user-card__action-btn"
+          disabled={
+            isSelf ||
+            status === "friends" ||
+            status === "pending" ||
+            busy
+          }
+          onClick={() => void handleAddFriend(user)}
+        >
+          <UserPlus size={18} />
+          <span>
+            {isSelf
+              ? "You"
+              : status === "friends"
+                ? "Friends"
+                : status === "pending"
+                  ? "Incoming"
+                  : status === "sent"
+                    ? "Request sent"
+                    : "Add Friend"}
+          </span>
+        </button>
+      </div>
+    );
+  };
+
   // Filter users based on search query and all filters
   const filteredUsers = useMemo(() => {
-    let users = mockUsers;
+    let users = directoryUsers;
 
     // Apply main search query
     if (searchQuery.trim()) {
@@ -191,7 +334,18 @@ const People: React.FC = () => {
     // These filters are set up and ready for when real API data is integrated
 
     return users;
-  }, [searchQuery, filterQuery, filterCity, distance, filterState, filterGender, filterRelationship, filterOnlineStatus, filterVerifiedStatus]);
+  }, [
+    directoryUsers,
+    searchQuery,
+    filterQuery,
+    filterCity,
+    distance,
+    filterState,
+    filterGender,
+    filterRelationship,
+    filterOnlineStatus,
+    filterVerifiedStatus,
+  ]);
 
   // Show notification when no users are found
   useEffect(() => {
@@ -331,11 +485,27 @@ const People: React.FC = () => {
                 <Newspaper size={20} />
                 <span>News Feed</span>
               </a>
-              <a href="#" className="people-sidebar__item">
+              <a
+                href="/scheduled"
+                className="people-sidebar__item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/scheduled");
+                  setIsLeftSidebarOpen(false);
+                }}
+              >
                 <Calendar size={20} />
                 <span>Scheduled</span>
               </a>
-              <a href="#" className="people-sidebar__item">
+              <a
+                href="/saved"
+                className="people-sidebar__item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/saved");
+                  setIsLeftSidebarOpen(false);
+                }}
+              >
                 <Bookmark size={20} />
                 <span>Saved</span>
               </a>
@@ -566,13 +736,11 @@ const People: React.FC = () => {
               activeTab === "sent-requests" ? "people-tabs__tab--active" : ""
             }`}
             onClick={() => {
-              console.log("Sent Requests button clicked");
               setActiveTab("sent-requests");
               navigate("/sent-requests");
             }}
           >
             Sent Requests
-            <span className="people-tabs__badge">7</span>
           </button>
         </div>
 
@@ -587,35 +755,7 @@ const People: React.FC = () => {
               </h2>
               {filteredUsers.length > 0 ? (
                 <div className="people-search-results">
-                  {filteredUsers.map((user) => (
-                    <div key={user.id} className="people-user-card">
-                      <div className="people-user-card__avatar">
-                        <LazyImage
-                          src={user.avatar}
-                          alt={user.name}
-                          className="people-user-card__avatar-img"
-                        />
-                      </div>
-                      <div className="people-user-card__info">
-                        <h3 className="people-user-card__name">{user.name}</h3>
-                        {user.location && (
-                          <p className="people-user-card__location">
-                            {user.location}
-                          </p>
-                        )}
-                        {user.mutualFriends !== undefined && (
-                          <p className="people-user-card__mutual">
-                            {user.mutualFriends} mutual friend
-                            {user.mutualFriends !== 1 ? "s" : ""}
-                          </p>
-                        )}
-                      </div>
-                      <button className="people-user-card__action-btn">
-                        <UserPlus size={18} />
-                        <span>Add Friend</span>
-                      </button>
-                    </div>
-                  ))}
+                  {filteredUsers.map((user) => renderPersonCard(user))}
                 </div>
               ) : (
                 <div className="people-section__empty people-section__empty--search">
@@ -627,15 +767,34 @@ const People: React.FC = () => {
             </div>
           )}
 
-          {/* People You May Know Section - Only show when not searching */}
           {!searchQuery.trim() && (
             <div className="people-section">
-              <h2 className="people-section__title">People You May Know</h2>
-              <div className="people-section__empty">
-                <p className="people-section__empty-text">
-                  No People Available
-                </p>
-              </div>
+              <h2 className="people-section__title">
+                Community
+                {filteredUsers.length > 0 && ` (${filteredUsers.length})`}
+              </h2>
+              {directoryLoading && (
+                <div className="people-section__empty">
+                  <p className="people-section__empty-text">Loading people…</p>
+                </div>
+              )}
+              {!directoryLoading && directoryError && (
+                <div className="people-section__empty">
+                  <p className="people-section__empty-text">{directoryError}</p>
+                </div>
+              )}
+              {!directoryLoading && !directoryError && filteredUsers.length === 0 && (
+                <div className="people-section__empty">
+                  <p className="people-section__empty-text">
+                    No approved members match your filters yet.
+                  </p>
+                </div>
+              )}
+              {!directoryLoading && !directoryError && filteredUsers.length > 0 && (
+                <div className="people-search-results">
+                  {filteredUsers.map((user) => renderPersonCard(user))}
+                </div>
+              )}
             </div>
           )}
         </main>

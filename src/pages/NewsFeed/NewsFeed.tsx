@@ -22,11 +22,13 @@ import NewsFeedSidebar from "./NewsFeedSidebar";
 import NewsFeedHeader from "./NewsFeedHeader";
 import StoriesSection from "./StoriesSection";
 import CreatePostInput from "./CreatePostInput";
-import CreatePostModal from "./CreatePostModal";
+import CreatePostModal, {
+  type CreatePostListingPayload,
+} from "./CreatePostModal";
 import CreateReelModal from "../../components/CreateReelModal";
 import PostCard from "./PostCard";
-import TrendingSection from "./TrendingSection";
-import SuggestedFriends from "./SuggestedFriends";
+import NewsfeedRightAside from "./NewsfeedRightAside";
+import { useNewsfeedAsideTrending } from "../../hooks/useNewsfeedAsideTrending";
 import "../../main.css";
 import Avatar from "../../components/Avatar";
 import ChatPanel, { type ChatPanelPopupPayload } from "../../components/ChatPanel";
@@ -47,6 +49,10 @@ import {
   showBrowserNotification,
   requestNotificationPermission,
 } from "../../utils/notificationUtils";
+import {
+  mapFeedApiItemToPost,
+  type ListingDetails,
+} from "../../utils/mapFeedApiItemToPost";
 import { getUserLocation, saveUserLocation } from "../../utils/locationUtils";
 import "../../scss/_emojipicker.scss";
 import "../../scss/_profilemodal.scss";
@@ -108,6 +114,7 @@ interface Post {
   userReacted?: boolean;
   userShared?: boolean;
   originalPost?: EmbeddedPost;
+  listingDetails?: ListingDetails | null;
 }
 
 const NewsFeed: React.FC = () => {
@@ -139,9 +146,6 @@ const NewsFeed: React.FC = () => {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [filteredHashtag, setFilteredHashtag] = useState<string | null>(null);
-  const [trendingHashtags, setTrendingHashtags] = useState<
-    Array<{ hashtag: string; posts: number }>
-  >([]);
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
@@ -288,6 +292,7 @@ const NewsFeed: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoadingFeeds, setIsLoadingFeeds] = useState(true);
   const [feedError, setFeedError] = useState<string | null>(null);
+  const trending = useNewsfeedAsideTrending(posts);
 
   // Safety timeout to ensure loading state doesn't get stuck
   useEffect(() => {
@@ -308,7 +313,7 @@ const NewsFeed: React.FC = () => {
       setIsLoadingFeeds(true);
       console.log("Fetching feeds from API endpoint: /feed/feeds");
 
-      const response = await feedApi.getFeeds();
+      const response = await feedApi.getFeeds({ feedChannel: "main" });
       console.log("Feeds API response:", response);
 
       if (
@@ -323,262 +328,10 @@ const NewsFeed: React.FC = () => {
           console.log("API returned empty array - no posts available");
           setPosts([]);
         } else {
-          // Transform API data to match backend getNewsFeed/formatPost shape
           try {
-            interface FeedItem {
-              post_id?: number;
-              id?: number;
-              text?: string;
-              author?: {
-                id?: number;
-                name?: string;
-                username?: string;
-                picture?: string;
-                verified?: boolean;
-                type?: string;
-              };
-              user?: { name?: string; picture?: string };
-              user_name?: string;
-              user_avatar?: string;
-              action?: string;
-              time_ago?: string;
-              created_at?: string;
-              time?: string;
-              media?: Array<{ url?: string; type?: string }>;
-              media_urls?: string[];
-              media_types?: string[];
-              image_url?: string;
-              image?: string;
-              images?: string[];
-              video_url?: string;
-              video?: string;
-              videos?: string[];
-              reactions?: Array<{ count?: number }>;
-              reactions_count?: number;
-              likes_count?: number;
-              likes?: number;
-              user_reacted?: boolean;
-              user_shared?: boolean;
-              original_post?: {
-                id?: number;
-                text?: string;
-                caption?: string;
-                time_ago?: string;
-                unavailable?: boolean;
-                author?: {
-                  id?: number;
-                  name?: string;
-                  picture?: string;
-                };
-                media?: Array<{ url?: string; type?: string }>;
-                media_urls?: string[];
-                media_types?: string[];
-              };
-              comments_preview?: Array<{ id?: number; comment?: string; time_ago?: string; author?: { name?: string; picture?: string; verified?: boolean } }>;
-              comments_count?: number;
-              comments?: number;
-              views_count?: number;
-              views?: number;
-              reviews?: number;
-              caption?: string;
-              hashtags?: string;
-              account_type?: string;
-              accountType?: string;
-              [key: string]: unknown;
-            }
-
-            const transformedPosts: Post[] = (response.data as FeedItem[])
-              .filter((feed) => {
-                const hasId =
-                  feed.post_id !== undefined || feed.id !== undefined;
-                if (!hasId) {
-                  console.warn("Feed without ID filtered out:", feed);
-                }
-                return hasId;
-              })
-              .map((feed): Post => {
-                const author = feed.author || feed.user;
-                const userName =
-                  author?.name || feed.user_name || "Unknown User";
-                const userAvatar =
-                  author?.picture ?? feed.user_avatar ?? "";
-
-                let image = feed.image_url || feed.image || "";
-                let images = feed.images;
-                let video = feed.video_url || feed.video || "";
-                let videos = feed.videos;
-                let originalPost: EmbeddedPost | undefined;
-
-                // Backend formatPost: media = [{ url, type }, ...]; also media_urls + media_types
-                if (feed.media && Array.isArray(feed.media) && feed.media.length > 0) {
-                  const photoUrls = feed.media
-                    .filter((m) => (m.type || "").toLowerCase().startsWith("image") || (m.type || "").toLowerCase() === "photo")
-                    .map((m) => m.url)
-                    .filter((url): url is string => Boolean(url));
-                  const videoUrls = feed.media
-                    .filter((m) => (m.type || "").toLowerCase().startsWith("video"))
-                    .map((m) => m.url)
-                    .filter((url): url is string => Boolean(url));
-                  if (photoUrls.length > 0) {
-                    image = photoUrls[0];
-                    if (photoUrls.length > 1) images = photoUrls;
-                  }
-                  if (videoUrls.length > 0) {
-                    video = videoUrls[0];
-                    if (videoUrls.length > 1) videos = videoUrls;
-                  }
-                } else if (
-                  (feed.media_urls && feed.media_urls.length > 0) ||
-                  (feed.media_types && feed.media_types.length > 0)
-                ) {
-                  const urls = feed.media_urls || [];
-                  const types = feed.media_types || [];
-                  const photoUrls = urls.filter((_, i) => {
-                    const t = (types[i] || "").toLowerCase();
-                    return t.startsWith("image") || t === "photo";
-                  });
-                  const videoUrls = urls.filter((_, i) => {
-                    const t = (types[i] || "").toLowerCase();
-                    return t.startsWith("video");
-                  });
-                  if (photoUrls.length > 0) {
-                    image = photoUrls[0];
-                    if (photoUrls.length > 1) images = photoUrls;
-                  }
-                  if (videoUrls.length > 0) {
-                    video = videoUrls[0];
-                    if (videoUrls.length > 1) videos = videoUrls;
-                  }
-                }
-
-                if (feed.original_post && typeof feed.original_post === "object") {
-                  const originalMedia = Array.isArray(feed.original_post.media)
-                    ? feed.original_post.media
-                    : [];
-                  let originalImage = "";
-                  let originalImages: string[] | undefined;
-                  let originalVideo = "";
-                  let originalVideos: string[] | undefined;
-
-                  if (originalMedia.length > 0) {
-                    const originalPhotoUrls = originalMedia
-                      .filter(
-                        (item) =>
-                          (item.type || "").toLowerCase().startsWith("image") ||
-                          (item.type || "").toLowerCase() === "photo"
-                      )
-                      .map((item) => item.url)
-                      .filter((url): url is string => Boolean(url));
-                    const originalVideoUrls = originalMedia
-                      .filter((item) =>
-                        (item.type || "").toLowerCase().startsWith("video")
-                      )
-                      .map((item) => item.url)
-                      .filter((url): url is string => Boolean(url));
-
-                    if (originalPhotoUrls.length > 0) {
-                      originalImage = originalPhotoUrls[0];
-                      if (originalPhotoUrls.length > 1) {
-                        originalImages = originalPhotoUrls;
-                      }
-                    }
-
-                    if (originalVideoUrls.length > 0) {
-                      originalVideo = originalVideoUrls[0];
-                      if (originalVideoUrls.length > 1) {
-                        originalVideos = originalVideoUrls;
-                      }
-                    }
-                  } else if (
-                    (feed.original_post.media_urls &&
-                      feed.original_post.media_urls.length > 0) ||
-                    (feed.original_post.media_types &&
-                      feed.original_post.media_types.length > 0)
-                  ) {
-                    const originalUrls = feed.original_post.media_urls || [];
-                    const originalTypes = feed.original_post.media_types || [];
-                    const originalPhotoUrls = originalUrls.filter((_, index) => {
-                      const mediaType = (originalTypes[index] || "").toLowerCase();
-                      return (
-                        mediaType.startsWith("image") || mediaType === "photo"
-                      );
-                    });
-                    const originalVideoUrls = originalUrls.filter((_, index) => {
-                      const mediaType = (originalTypes[index] || "").toLowerCase();
-                      return mediaType.startsWith("video");
-                    });
-
-                    if (originalPhotoUrls.length > 0) {
-                      originalImage = originalPhotoUrls[0];
-                      if (originalPhotoUrls.length > 1) {
-                        originalImages = originalPhotoUrls;
-                      }
-                    }
-
-                    if (originalVideoUrls.length > 0) {
-                      originalVideo = originalVideoUrls[0];
-                      if (originalVideoUrls.length > 1) {
-                        originalVideos = originalVideoUrls;
-                      }
-                    }
-                  }
-
-                  originalPost = {
-                    id: feed.original_post.id ?? 0,
-                    userId: feed.original_post.author?.id,
-                    userName: feed.original_post.author?.name || "Unknown User",
-                    userAvatar: feed.original_post.author?.picture || "",
-                    timeAgo: feed.original_post.time_ago || "Just now",
-                    caption:
-                      feed.original_post.text ||
-                      feed.original_post.caption ||
-                      "",
-                    image: originalImage,
-                    images: originalImages,
-                    video: originalVideo,
-                    videos: originalVideos,
-                    unavailable: Boolean(feed.original_post.unavailable),
-                  };
-                }
-
-                const likes =
-                  feed.reactions_count ?? feed.likes_count ?? feed.likes ?? 0;
-                const comments =
-                  feed.comments_count ??
-                  feed.comments ??
-                  (Array.isArray(feed.comments_preview) ? feed.comments_preview.length : 0) ??
-                  0;
-
-                const authorId = (author as { id?: number })?.id ?? (feed as { user_id?: number }).user_id;
-                return {
-                  id: feed.post_id ?? feed.id ?? 0,
-                  userId: authorId !== undefined && authorId !== null ? Number(authorId) : undefined,
-                  userName,
-                  userAvatar,
-                  action: feed.action || "",
-                  timeAgo: feed.time_ago || feed.time || feed.created_at || "Just now",
-                  image,
-                  images: images || undefined,
-                  video,
-                  videos: videos || undefined,
-                  likes,
-                  comments,
-                  views: feed.views_count ?? feed.views ?? 0,
-                  reviews: feed.reviews ?? 0,
-                  caption: feed.text ?? feed.caption ?? "",
-                  hashtags: feed.hashtags || "",
-                  accountType:
-                    typeof feed.account_type === "string"
-                      ? feed.account_type
-                      : typeof feed.accountType === "string"
-                        ? feed.accountType
-                        : undefined,
-                  userReacted: Boolean(feed.user_reacted),
-                  userShared: Boolean(feed.user_shared),
-                  originalPost,
-                };
-              });
-
+            const transformedPosts: Post[] = (response.data as unknown[])
+              .map((item) => mapFeedApiItemToPost(item))
+              .filter((p): p is Post => p != null);
             console.log(
               `Successfully transformed ${transformedPosts.length} posts`
             );
@@ -616,23 +369,6 @@ const NewsFeed: React.FC = () => {
   useEffect(() => {
     fetchFeeds();
   }, [fetchFeeds]);
-
-  // Trending hashtags are optional from backend; local fallback still works.
-  useEffect(() => {
-    let cancelled = false;
-    feedApi.getTrendingHashtags(10).then((res) => {
-      if (!cancelled && res?.success && Array.isArray(res.data)) {
-        setTrendingHashtags(res.data);
-      }
-    }).catch(() => {
-      if (!cancelled) {
-        setTrendingHashtags([]);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const fetchFeedsByHashtag = useCallback((hashtag: string) => {
     setFilteredHashtag(hashtag);
@@ -675,7 +411,8 @@ const NewsFeed: React.FC = () => {
   const handleNewPost = async (
     caption: string,
     images: File[] | null,
-    videos: File[] | null
+    videos: File[] | null,
+    listingDetails?: CreatePostListingPayload | null
   ) => {
     // Check if user is authenticated
     if (!isAuthenticated()) {
@@ -696,6 +433,7 @@ const NewsFeed: React.FC = () => {
         caption: caption.trim() || undefined,
         images: images || undefined,
         videos: videos || undefined,
+        listingDetails: listingDetails ?? undefined,
       });
 
       console.log("Post creation response:", response);
@@ -862,47 +600,6 @@ const NewsFeed: React.FC = () => {
     console.log("New story created:", { type, content, caption });
     // StoriesSection handles story creation internally now
   };
-
-  // Get account type
-  const accountType = getUserAccountType().toLowerCase();
-  const isBusinessAccount = accountType === "business";
-
-  // Calculate most common hashtags from posts
-  // For business accounts, only count hashtags from business posts
-  const calculateTrendingHashtags = () => {
-    const hashtagCounts: Record<string, number> = {};
-
-    // Filter posts based on account type
-    const postsToAnalyze = isBusinessAccount
-      ? posts.filter((post) => {
-          // For business accounts, only analyze business posts
-          const postAccountType = post.accountType?.toLowerCase();
-          return postAccountType === "business";
-        })
-      : posts; // For personal accounts, analyze all posts
-
-    postsToAnalyze.forEach((post) => {
-      if (post.hashtags) {
-        const hashtags = post.hashtags
-          .split(" ")
-          .filter((tag: string) => tag.startsWith("#") && tag.length > 1);
-        hashtags.forEach((hashtag: string) => {
-          hashtagCounts[hashtag] = (hashtagCounts[hashtag] || 0) + 1;
-        });
-      }
-    });
-
-    // Convert to array, sort by count, and take top 3 (trending)
-    const sortedHashtags = Object.entries(hashtagCounts)
-      .map(([hashtag, count]) => ({ hashtag, posts: count }))
-      .sort((a, b) => b.posts - a.posts)
-      .slice(0, 3);
-
-    return sortedHashtags;
-  };
-
-  // Use API trending hashtags; fallback to local calculation if API returns none
-  const trending = trendingHashtags.length > 0 ? trendingHashtags : calculateTrendingHashtags();
 
   const [notifications, setNotifications] = useState<FeedPanelNotification[]>(
     []
@@ -1732,77 +1429,12 @@ const NewsFeed: React.FC = () => {
           </div>
         </main>
 
-        
-        {/* Right Sidebar - Aside */}
-        <aside
-          className={`newsfeed-aside ${
-            isRightSidebarOpen ? "newsfeed-aside--open" : ""
-          }`}
-        >
-          <div className="newsfeed-aside__header">
-            <h3>
-              {isBusinessAccount
-                ? "Trending & Businesses"
-                : "Trending & Friends"}
-            </h3>
-            <button
-              className="newsfeed-aside__close"
-              onClick={() => setIsRightSidebarOpen(false)}
-              aria-label="Close sidebar"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          <TrendingSection
-            trending={trending}
-            onHashtagClick={(hashtag) => {
-              fetchFeedsByHashtag(hashtag);
-            }}
-          />
-          <SuggestedFriends friends={[]} />
-          {/* Footer under Suggested friends */}
-          <footer className="newsfeed-footer">
-            <p>© 2026 JOSCity</p>
-            <div className="newsfeed-footer__links">
-              <a
-                href="/about"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/about", { state: { fromNewsfeed: true } });
-                }}
-              >
-                About
-              </a>
-              <a
-                href="/terms-of-service"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/terms-of-service", { state: { fromNewsfeed: true } });
-                }}
-              >
-                Terms
-              </a>
-              <a
-                href="/privacy-policy"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/privacy-policy", { state: { fromNewsfeed: true } });
-                }}
-              >
-                Privacy
-              </a>
-              <a
-                href="/contact"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/contact", { state: { fromNewsfeed: true } });
-                }}
-              >
-                Contact Us
-              </a>
-            </div>
-          </footer>
-        </aside>
+        <NewsfeedRightAside
+          isOpen={isRightSidebarOpen}
+          onClose={() => setIsRightSidebarOpen(false)}
+          trending={trending}
+          onHashtagClick={fetchFeedsByHashtag}
+        />
       </div>
 
       {/* Add Friend Modal */}
@@ -2017,6 +1649,10 @@ const NewsFeed: React.FC = () => {
           onClose={() => setIsCreatePostModalOpen(false)}
           userName={userName}
           userAvatar={getUserAvatar()}
+          businessListingFields={
+            getUserAccountType().toLowerCase() === "business"
+          }
+          businessFeedNotice="As a business account, this post appears only in the Business section, not on the main news feed."
           onPost={handleNewPost}
         />
       )}

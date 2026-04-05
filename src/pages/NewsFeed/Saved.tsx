@@ -19,26 +19,12 @@ import Avatar from "../../components/Avatar";
 import NewsFeedSidebar from "./NewsFeedSidebar";
 import PostCard from "./PostCard";
 import { getProfileUsername, getUserName } from "../../utils/userUtils";
+import { feedApi } from "../../services/feedApi";
+import {
+  mapFeedApiItemToPost,
+  type CardPostShape,
+} from "../../utils/mapFeedApiItemToPost";
 import "../../scss/_saved.scss";
-
-// Post interface matching the PostCard component
-interface Post {
-  id: number;
-  userName: string;
-  userAvatar: string;
-  action: string;
-  timeAgo: string;
-  image?: string;
-  images?: string[];
-  video?: string;
-  videos?: string[];
-  likes: number;
-  comments: number;
-  views: number;
-  reviews: number;
-  hashtags?: string;
-  caption?: string;
-}
 
 const Saved: React.FC = () => {
   const navigate = useNavigate();
@@ -46,92 +32,41 @@ const Saved: React.FC = () => {
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
-  const [savedPosts, setSavedPosts] = useState<Post[]>([]);
+  const [savedPosts, setSavedPosts] = useState<CardPostShape[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const createMenuRef = useRef<HTMLDivElement>(null);
 
-  // Load saved posts from localStorage
-  const loadSavedPosts = useCallback(() => {
+  const loadSavedPosts = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
     try {
-      setIsLoading(true);
-      // Get saved post IDs from localStorage
-      const savedPostIds = JSON.parse(
-        localStorage.getItem("savedPosts") || "[]"
-      ) as number[];
-
-      // Get all posts from localStorage (stored when posts are created/viewed)
-      const allPosts = JSON.parse(
-        localStorage.getItem("allPosts") || "[]"
-      ) as Post[];
-
-      // Filter posts that are saved
-      const saved = allPosts.filter((post) => savedPostIds.includes(post.id));
-
-      // If no posts in localStorage, use mock data for demonstration
-      if (saved.length === 0 && allPosts.length === 0) {
-        // Try to get from NewsFeed's mock data structure
-        const mockPosts: Post[] = [
-          {
-            id: 1,
-            userName: "Blessing Matthias",
-            userAvatar: "/placeholder-avatar.png",
-            action: "updated the profile picture",
-            timeAgo: "6 days ago",
-            image: "",
-            likes: 5,
-            comments: 0,
-            views: 84,
-            reviews: 0,
-            caption:
-              "Just updated my profile picture! Feeling great and ready for new opportunities.",
-          },
-          {
-            id: 2,
-            userName: "Joseph Azumara",
-            userAvatar: "/placeholder-avatar.png",
-            action: "updated the profile picture",
-            timeAgo: "5 days ago",
-            image: "",
-            likes: 3,
-            comments: 0,
-            views: 60,
-            reviews: 0,
-            caption:
-              "New profile picture! Excited about the journey ahead. This has been an incredible year of growth.",
-          },
-        ];
-
-        // Filter mock posts by saved IDs
-        const savedMockPosts = mockPosts.filter((post) =>
-          savedPostIds.includes(post.id)
-        );
-        setSavedPosts(savedMockPosts);
-      } else {
-        setSavedPosts(saved);
-      }
+      const res = await feedApi.getSavedPosts({ page: 1, limit: 50 });
+      const rows = Array.isArray(res.data) ? res.data : [];
+      const mapped = rows
+        .map((row) => mapFeedApiItemToPost(row))
+        .filter((p): p is CardPostShape => p != null)
+        .map((p) => ({ ...p, userSaved: true }));
+      setSavedPosts(mapped);
     } catch (error) {
       console.error("Error loading saved posts:", error);
+      setLoadError(
+        error instanceof Error ? error.message : "Could not load saved posts."
+      );
       setSavedPosts([]);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Listen for storage changes to update saved posts
   useEffect(() => {
-    loadSavedPosts();
-
-    // Listen for custom event when posts are saved/unsaved
-    const handleStorageChange = () => {
-      loadSavedPosts();
+    void loadSavedPosts();
+    const handleSavedUpdated = () => {
+      void loadSavedPosts();
     };
-
-    window.addEventListener("storage", handleStorageChange);
-    window.addEventListener("savedPostsUpdated", handleStorageChange);
-
+    window.addEventListener("savedPostsUpdated", handleSavedUpdated);
     return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("savedPostsUpdated", handleStorageChange);
+      window.removeEventListener("savedPostsUpdated", handleSavedUpdated);
     };
   }, [loadSavedPosts]);
 
@@ -320,6 +255,22 @@ const Saved: React.FC = () => {
               </div>
             </div>
 
+            {loadError && (
+              <div className="newsfeed-post">
+                <div className="newsfeed-post__caption">
+                  <p>{loadError}</p>
+                  <button
+                    type="button"
+                    className="newsfeed-header__join-btn"
+                    style={{ marginTop: 12 }}
+                    onClick={() => void loadSavedPosts()}
+                  >
+                    Try again
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Loading State */}
             {isLoading && (
               <div className="newsfeed-post">
@@ -330,7 +281,7 @@ const Saved: React.FC = () => {
             )}
 
             {/* Empty State */}
-            {!isLoading && filteredPosts.length === 0 && (
+            {!isLoading && !loadError && filteredPosts.length === 0 && (
               <div className="newsfeed-post">
                 <div className="newsfeed-post__caption">
                   <p>
@@ -346,6 +297,7 @@ const Saved: React.FC = () => {
 
             {/* Saved Posts List */}
             {!isLoading &&
+              !loadError &&
               filteredPosts.map((post) => (
                 <PostCard key={post.id} post={post} />
               ))}

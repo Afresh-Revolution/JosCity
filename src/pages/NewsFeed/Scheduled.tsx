@@ -22,25 +22,83 @@ import {
   Tag,
   Briefcase as Jobs,
   Video,
-  TrendingUp,
 } from "lucide-react";
 import primaryLogo from "../../image/primary-logo.png";
 import LazyImage from "../../components/LazyImage";
 import PostCard from "./PostCard";
 import CreateScheduledPostModal from "./CreateScheduledPostModal";
-import TrendingSection from "./TrendingSection";
+import type { CreatePostListingPayload } from "./CreatePostModal";
 import Avatar from "../../components/Avatar";
 import {
   getProfileUsername,
   getUserName,
   getUserAvatar,
+  getUserData,
 } from "../../utils/userUtils";
+import { feedApi, type ScheduledPostApiRow } from "../../services/feedApi";
 import "../../scss/_scheduled.scss";
 import "../../scss/_people.scss";
+
+function formatScheduledTimeAgo(iso: string): string {
+  const scheduledDate = new Date(iso);
+  const now = new Date();
+  const diff = scheduledDate.getTime() - now.getTime();
+  if (diff <= 0) return "Publishing soon";
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor(
+    (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+  );
+  const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  if (days > 0) {
+    return `In ${days} day${days === 1 ? "" : "s"} · ${scheduledDate.toLocaleString(
+      undefined,
+      { dateStyle: "medium", timeStyle: "short" }
+    )}`;
+  }
+  if (hours > 0) return `In ${hours} hour${hours === 1 ? "" : "s"}`;
+  if (mins > 0) return `In ${mins} minute${mins === 1 ? "" : "s"}`;
+  return "Soon";
+}
+
+function mapScheduledRowToPost(
+  row: ScheduledPostApiRow,
+  displayName: string,
+  avatar: string,
+  userId: number | null
+): Post {
+  const urls = row.media_urls || [];
+  const types = row.media_types || [];
+  const images: string[] = [];
+  const videos: string[] = [];
+  urls.forEach((url, i) => {
+    if (!url) return;
+    if (types[i] === "video") videos.push(url);
+    else images.push(url);
+  });
+  return {
+    id: row.id,
+    userId: userId ?? undefined,
+    userName: displayName,
+    userAvatar: avatar,
+    action: "scheduled a post",
+    timeAgo: formatScheduledTimeAgo(row.scheduled_at),
+    caption: row.text || undefined,
+    images: images.length ? images : undefined,
+    image: images[0],
+    videos: videos.length ? videos : undefined,
+    video: videos[0],
+    likes: 0,
+    comments: 0,
+    views: 0,
+    reviews: 0,
+    scheduledDateTime: row.scheduled_at,
+  };
+}
 
 // Post interface matching the PostCard component
 interface Post {
   id: number;
+  userId?: number;
   userName: string;
   userAvatar: string;
   action: string;
@@ -64,72 +122,58 @@ const Scheduled: React.FC = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
-  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [isCreateScheduledModalOpen, setIsCreateScheduledModalOpen] =
     useState(false);
   const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const createMenuRef = useRef<HTMLDivElement>(null);
 
-  // Mock trending hashtags for scheduled posts
-  const trending = [
-    { hashtag: "#AfrESH", posts: 1 },
-    { hashtag: "#C", posts: 1 },
-  ];
-
-  // Load scheduled posts from localStorage
-  const loadScheduledPosts = useCallback(() => {
+  const loadScheduledPosts = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
     try {
-      setIsLoading(true);
-      const scheduledPostsData = JSON.parse(
-        localStorage.getItem("scheduledPosts") || "[]"
-      ) as Post[];
+      const res = await feedApi.listScheduledPosts("pending");
+      const rows = Array.isArray(res.data) ? res.data : [];
+      const user = getUserData();
+      const userId =
+        (user?.user_id as number) ??
+        (user as { id?: number } | null)?.id ??
+        null;
+      const displayName = getUserName();
+      const avatar = getUserAvatar() || "";
 
-      // Filter out posts that have already been published (past scheduled time)
-      const now = new Date();
-      const activeScheduledPosts = scheduledPostsData.filter((post) => {
-        if (!post.scheduledDateTime) return true;
-        const scheduledDate = new Date(post.scheduledDateTime);
-        return scheduledDate > now;
-      });
-
-      // Sort by scheduled date/time (earliest first)
-      activeScheduledPosts.sort((a, b) => {
-        const dateA = a.scheduledDateTime
+      const mapped = rows.map((row) =>
+        mapScheduledRowToPost(row, displayName, avatar, userId)
+      );
+      mapped.sort((a, b) => {
+        const ta = a.scheduledDateTime
           ? new Date(a.scheduledDateTime).getTime()
           : 0;
-        const dateB = b.scheduledDateTime
+        const tb = b.scheduledDateTime
           ? new Date(b.scheduledDateTime).getTime()
           : 0;
-        return dateA - dateB;
+        return ta - tb;
       });
-
-      setScheduledPosts(activeScheduledPosts);
+      setScheduledPosts(mapped);
     } catch (error) {
       console.error("Error loading scheduled posts:", error);
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : "Could not load scheduled posts."
+      );
       setScheduledPosts([]);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Listen for storage changes to update scheduled posts
   useEffect(() => {
-    loadScheduledPosts();
-
-    // Listen for custom event when posts are scheduled
-    const handleStorageChange = () => {
-      loadScheduledPosts();
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    window.addEventListener("scheduledPostsUpdated", handleStorageChange);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("scheduledPostsUpdated", handleStorageChange);
-    };
+    void loadScheduledPosts();
+    const id = window.setInterval(() => void loadScheduledPosts(), 60_000);
+    return () => clearInterval(id);
   }, [loadScheduledPosts]);
 
   // Close create menu when clicking outside
@@ -163,80 +207,34 @@ const Scheduled: React.FC = () => {
     }
   };
 
-  const handleSchedulePost = (
+  const handleSchedulePost = async (
     caption: string,
-    images: string[] | null,
-    videos: string[] | null,
+    images: File[] | null,
+    videos: File[] | null,
     scheduledDate: string,
-    scheduledTime: string
+    scheduledTime: string,
+    listingDetails?: CreatePostListingPayload | null
   ) => {
     try {
-      // Create scheduled post object
-      const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}`);
-      const now = new Date();
-
-      // Calculate time ago for display
-      const timeDiff = scheduledDateTime.getTime() - now.getTime();
-      const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-      const hoursDiff = Math.floor(
-        (timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
-      );
-
-      let timeAgo = "";
-      if (daysDiff > 0) {
-        timeAgo = `Scheduled for ${daysDiff} ${
-          daysDiff === 1 ? "day" : "days"
-        } from now`;
-      } else if (hoursDiff > 0) {
-        timeAgo = `Scheduled for ${hoursDiff} ${
-          hoursDiff === 1 ? "hour" : "hours"
-        } from now`;
-      } else {
-        timeAgo = "Scheduled for soon";
-      }
-
-      // Get user avatar or use null (PostCard will show initials if null)
-      const userAvatar = getUserAvatar();
-
-      const newPost: Post = {
-        id: Date.now(),
-        userName: getUserName(),
-        userAvatar: userAvatar || "", // Empty string will trigger initials display in PostCard
-        action: "scheduled a post",
-        timeAgo: timeAgo,
-        caption: caption,
-        images: images || undefined,
-        image: images && images.length > 0 ? images[0] : undefined,
-        videos: videos || undefined,
-        video: videos && videos.length > 0 ? videos[0] : undefined,
-        likes: 0,
-        comments: 0,
-        views: 0,
-        reviews: 0,
-        scheduledDate: scheduledDate,
-        scheduledTime: scheduledTime,
-        scheduledDateTime: scheduledDateTime.toISOString(),
-      };
-
-      // Get existing scheduled posts
-      const existingPosts = JSON.parse(
-        localStorage.getItem("scheduledPosts") || "[]"
-      ) as Post[];
-
-      // Add new post
-      existingPosts.push(newPost);
-
-      // Save to localStorage
-      localStorage.setItem("scheduledPosts", JSON.stringify(existingPosts));
-
-      // Dispatch custom event
-      window.dispatchEvent(new Event("scheduledPostsUpdated"));
-
-      // Reload scheduled posts
-      loadScheduledPosts();
+      const scheduledAt = new Date(
+        `${scheduledDate}T${scheduledTime}`
+      ).toISOString();
+      await feedApi.createScheduledPost({
+        caption,
+        images: images ?? [],
+        videos: videos ?? [],
+        scheduledAt,
+        listingDetails: listingDetails ?? undefined,
+      });
+      await loadScheduledPosts();
     } catch (error) {
       console.error("Error scheduling post:", error);
-      alert("Failed to schedule post. Please try again.");
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to schedule post. Please try again."
+      );
+      throw error;
     }
   };
 
@@ -332,14 +330,6 @@ const Scheduled: React.FC = () => {
               <Bell size={20} />
             </button>
             <button
-              className="newsfeed-header__icon-btn newsfeed-header__icon-btn--sidebar"
-              onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
-              title="Trending & Friends"
-              aria-label="Toggle sidebar"
-            >
-              <TrendingUp size={20} />
-            </button>
-            <button
               className="newsfeed-header__join-btn"
               onClick={handleProfileClick}
               title="View Profile"
@@ -356,14 +346,13 @@ const Scheduled: React.FC = () => {
         </div>
       </header>
 
-      <div className="newsfeed-container">
+      <div className="newsfeed-container newsfeed-container--scheduled-no-aside">
         {/* Mobile Overlay */}
-        {(isLeftSidebarOpen || isRightSidebarOpen) && (
+        {isLeftSidebarOpen && (
           <div
             className="newsfeed-overlay"
             onClick={() => {
               setIsLeftSidebarOpen(false);
-              setIsRightSidebarOpen(false);
             }}
           />
         )}
@@ -565,9 +554,10 @@ const Scheduled: React.FC = () => {
             />
             <Search size={20} className="people-search-section__icon" />
           </div>
-          {/* Page Title */}
-          <div className="scheduled-page-title">
-            <h2>Scheduled Posts</h2>
+          <div className="scheduled-page-toolbar">
+            <div className="scheduled-page-title">
+              <h2>Scheduled Posts</h2>
+            </div>
           </div>
         </div>
 
@@ -575,6 +565,21 @@ const Scheduled: React.FC = () => {
         <main className="people-main">
           {/* Scheduled Posts Section */}
           <div className="people-section">
+            {loadError && (
+              <div
+                className="people-section__empty"
+                style={{ marginBottom: 16 }}
+              >
+                <p className="people-section__empty-text">{loadError}</p>
+                <button
+                  type="button"
+                  className="scheduled-create-btn"
+                  onClick={() => void loadScheduledPosts()}
+                >
+                  Try again
+                </button>
+              </div>
+            )}
 
             {/* Loading State */}
             {isLoading && (
@@ -678,10 +683,20 @@ const Scheduled: React.FC = () => {
                     />
                   </svg>
                 </div>
-                <h3 className="people-section__empty-title">No Data Found</h3>
+                <h3 className="people-section__empty-title">No scheduled posts</h3>
                 <p className="people-section__empty-text">
-                  There is no data to show you right now
+                  Schedule a post with a date and time — it will publish
+                  automatically.
                 </p>
+                <button
+                  type="button"
+                  className="scheduled-create-btn"
+                  onClick={() => setIsCreateScheduledModalOpen(true)}
+                  style={{ marginTop: 16 }}
+                >
+                  <Clock size={18} />
+                  <span>Schedule a post</span>
+                </button>
               </div>
             )}
 
@@ -690,89 +705,17 @@ const Scheduled: React.FC = () => {
               <div className="scheduled-posts-list">
                 {filteredPosts.map((post) => (
                   <div key={post.id} className="scheduled-post-card">
-                    <PostCard post={post} />
+                    <PostCard
+                      post={post}
+                      variant="scheduled"
+                      onPostDeleted={() => void loadScheduledPosts()}
+                    />
                   </div>
                 ))}
               </div>
             )}
           </div>
         </main>
-
-        {/* Right Sidebar - Trending */}
-        <aside
-          className={`newsfeed-aside ${
-            isRightSidebarOpen ? "newsfeed-aside--open" : ""
-          }`}
-        >
-          <div className="newsfeed-aside__header">
-            <h3>Trending</h3>
-            <button
-              className="newsfeed-aside__close"
-              onClick={() => setIsRightSidebarOpen(false)}
-              aria-label="Close sidebar"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          <TrendingSection
-            trending={trending}
-            onHashtagClick={(hashtag) => {
-              setSearchQuery(hashtag);
-            }}
-          />
-
-          {/* Footer inside Aside */}
-          <footer className="newsfeed-footer">
-            <p>© 2025 JOSCity</p>
-            <div className="newsfeed-footer__links">
-              <a
-                href="/about"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/about");
-                }}
-              >
-                About
-              </a>
-              <a
-                href="/terms-of-service"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/terms-of-service");
-                }}
-              >
-                Terms
-              </a>
-              <a
-                href="/privacy-policy"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/privacy-policy");
-                }}
-              >
-                Privacy
-              </a>
-              <a
-                href="/contact"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/contact");
-                }}
-              >
-                Contact Us
-              </a>
-              <a
-                href="/directory"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/directory");
-                }}
-              >
-                Directory
-              </a>
-            </div>
-          </footer>
-        </aside>
 
         {/* Create Scheduled Post Modal */}
         <CreateScheduledPostModal

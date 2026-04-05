@@ -15,6 +15,19 @@ export interface User {
   distance?: number; // Distance in km from current user
 }
 
+export interface ApprovedDirectoryUser {
+  user_id: number;
+  user_firstname: string;
+  user_lastname: string;
+  user_email?: string;
+  user_picture?: string | null;
+  account_type?: string;
+  user_name?: string | null;
+  address?: string | null;
+  business_name?: string | null;
+  business_type?: string | null;
+}
+
 export interface UserProfile {
   user_id: number;
   user_firstname: string;
@@ -82,6 +95,26 @@ export const userApi = {
     data: User[];
   }> => {
     return apiRequest(`/users/nearby?range=${rangeKm}`);
+  },
+
+  /** Approved directory (personal + business), excludes current user. */
+  getApprovedUsers: async (params?: {
+    page?: number;
+    limit?: number;
+    q?: string;
+  }): Promise<{
+    success: boolean;
+    data: ApprovedDirectoryUser[];
+    pagination?: { page: number; limit: number; hasMore: boolean };
+  }> => {
+    const page = params?.page ?? 1;
+    const limit = params?.limit ?? 100;
+    const q = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    if (params?.q?.trim()) q.set("q", params.q.trim());
+    return apiRequest(`/users/approved?${q.toString()}`);
   },
 
   // Search users by name

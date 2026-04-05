@@ -31,13 +31,21 @@ import ProfileModal from "../../components/ProfileModal";
 import FindFriendsModal from "../../components/FindFriendsModal";
 import NewsFeedSidebar from "./NewsFeedSidebar";
 import PostCard from "./PostCard";
-import SuggestedBusinesses from "./SuggestedBusinesses";
+import NewsfeedRightAside from "./NewsfeedRightAside";
+import { useNewsfeedAsideTrending } from "../../hooks/useNewsfeedAsideTrending";
 import {
   getProfileUsername,
   getUserName,
   isAuthenticated,
+  getUserAccountType,
+  getUserAvatar,
+  getUserData,
 } from "../../utils/userUtils";
 import { feedApi } from "../../services/feedApi";
+import { mapFeedApiItemToPost } from "../../utils/mapFeedApiItemToPost";
+import CreatePostModal, {
+  type CreatePostListingPayload,
+} from "./CreatePostModal";
 import {
   type FeedPanelNotification,
   mapApiRowToFeedPanelNotification,
@@ -51,7 +59,6 @@ import {
   showBrowserNotification,
   requestNotificationPermission,
 } from "../../utils/notificationUtils";
-import { getUserData } from "../../utils/userUtils";
 import "../../scss/_business.scss";
 import "../../scss/_emojipicker.scss";
 import "../../scss/_profilemodal.scss";
@@ -74,7 +81,12 @@ interface Post {
   reviews: number;
   hashtags?: string;
   caption?: string;
-  accountType?: string; // Store account type with post
+  accountType?: string;
+  userId?: number;
+  userReacted?: boolean;
+  userShared?: boolean;
+  originalPost?: import("../../utils/mapFeedApiItemToPost").EmbeddedPostShape;
+  listingDetails?: import("../../utils/mapFeedApiItemToPost").ListingDetails | null;
 }
 
 // Chat interfaces
@@ -112,7 +124,10 @@ const Business: React.FC = () => {
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [businessPosts, setBusinessPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
   const createMenuRef = useRef<HTMLDivElement>(null);
+  const isBusinessAccount =
+    getUserAccountType().toLowerCase() === "business";
 
   // Chat/Messages state
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
@@ -159,91 +174,105 @@ const Business: React.FC = () => {
   // Add Friend Modal state
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
 
-  // Load business posts from localStorage
-  const loadBusinessPosts = useCallback(() => {
+  const trending = useNewsfeedAsideTrending(businessPosts);
+
+  const loadBusinessPosts = useCallback(async () => {
+    if (!isAuthenticated()) {
+      setBusinessPosts([]);
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      // Get all posts from localStorage
-      const allPosts = JSON.parse(
-        localStorage.getItem("allPosts") || "[]"
-      ) as Post[];
-
-      // Filter posts from business account_type users
-      const business = allPosts.filter((post) => {
-        // If post has accountType field, use it
-        if (post.accountType) {
-          const accountType = post.accountType.toLowerCase();
-          return accountType === "business" || accountType === "Business";
-        }
-        // For posts without accountType, we can't reliably filter
-        // So we'll only show posts that explicitly have accountType: "Business"
-        return false;
+      const response = await feedApi.getFeeds({
+        feedChannel: "business",
+        limit: 30,
+        page: 1,
       });
-
-      // If no business posts found, use mock data for demonstration
-      if (business.length === 0) {
-        // Mock business posts
-        const mockBusinessPosts: Post[] = [
-          {
-            id: 101,
-            userName: "Tech Solutions Inc.",
-            userAvatar: "",
-            action: "shared a new product",
-            timeAgo: "2 hours ago",
-            image: "",
-            likes: 12,
-            comments: 3,
-            views: 150,
-            reviews: 5,
-            caption:
-              "Introducing our latest innovation! We're excited to share this with our community. #TechInnovation #Business",
-            accountType: "Business",
-          },
-          {
-            id: 102,
-            userName: "Local Restaurant",
-            userAvatar: "",
-            action: "updated their menu",
-            timeAgo: "5 hours ago",
-            image: "",
-            likes: 8,
-            comments: 2,
-            views: 89,
-            reviews: 4,
-            caption:
-              "Check out our new seasonal menu! Fresh ingredients, amazing flavors. Come visit us today! #Food #LocalBusiness",
-            accountType: "Business",
-          },
-        ];
-        setBusinessPosts(mockBusinessPosts);
+      if (
+        response?.success &&
+        Array.isArray(response.data) &&
+        response.data.length > 0
+      ) {
+        const mapped = (response.data as unknown[])
+          .map((row) => mapFeedApiItemToPost(row))
+          .filter((p): p is NonNullable<typeof p> => p != null)
+          .map(
+            (p): Post => ({
+              id: p.id,
+              userId: p.userId,
+              userName: p.userName,
+              userAvatar: p.userAvatar,
+              action: p.action,
+              timeAgo: p.timeAgo,
+              image: p.image,
+              images: p.images,
+              video: p.video,
+              videos: p.videos,
+              likes: p.likes,
+              comments: p.comments,
+              views: p.views,
+              reviews: p.reviews,
+              caption: p.caption,
+              hashtags: p.hashtags,
+              accountType: p.accountType,
+              userReacted: p.userReacted,
+              userShared: p.userShared,
+              originalPost: p.originalPost,
+              listingDetails: p.listingDetails,
+            })
+          )
+          .filter(
+            (p) => p.accountType?.toLowerCase() === "business"
+          );
+        setBusinessPosts(mapped);
       } else {
-        setBusinessPosts(business);
+        setBusinessPosts([]);
       }
     } catch (error) {
-      console.error("Error loading business posts:", error);
+      console.error("Error loading business feed:", error);
       setBusinessPosts([]);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Listen for storage changes to update business posts
   useEffect(() => {
-    loadBusinessPosts();
-
-    // Listen for custom event when posts are updated
-    const handleStorageChange = () => {
-      loadBusinessPosts();
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    window.addEventListener("allPostsUpdated", handleStorageChange);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("allPostsUpdated", handleStorageChange);
-    };
+    void loadBusinessPosts();
   }, [loadBusinessPosts]);
+
+  const handleBusinessNewPost = async (
+    caption: string,
+    images: File[] | null,
+    videos: File[] | null,
+    listingDetails?: CreatePostListingPayload | null
+  ) => {
+    if (!isAuthenticated()) {
+      alert("Please sign in to create a post.");
+      navigate("/signin");
+      return;
+    }
+    if (!isBusinessAccount) {
+      alert("Only business accounts can post in the Business section.");
+      return;
+    }
+    await feedApi.createPost({
+      caption: caption.trim() || undefined,
+      images: images || undefined,
+      videos: videos || undefined,
+      listingDetails: listingDetails ?? undefined,
+    });
+    await loadBusinessPosts();
+  };
+
+  const openBusinessCreatePost = () => {
+    setIsCreateMenuOpen(false);
+    if (!isBusinessAccount) {
+      alert("Only business accounts can create posts in the Business section.");
+      return;
+    }
+    setIsCreatePostModalOpen(true);
+  };
 
   // Filter posts based on search query
   const filteredPosts = businessPosts.filter((post) => {
@@ -909,8 +938,9 @@ const Business: React.FC = () => {
               {isCreateMenuOpen && (
                 <div className="newsfeed-header__create-dropdown">
                   <button
+                    type="button"
                     className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
+                    onClick={openBusinessCreatePost}
                   >
                     <FileText size={18} />
                     <span>Create Post</span>
@@ -1054,70 +1084,13 @@ const Business: React.FC = () => {
           </div>
         </main>
 
-        {/* Right Sidebar */}
-        <aside
-          className={`newsfeed-aside ${
-            isRightSidebarOpen ? "newsfeed-aside--open" : ""
-          }`}
-        >
-          <div className="newsfeed-aside__header">
-            <h3>Trending & Businesses</h3>
-            <button
-              className="newsfeed-aside__close"
-              onClick={() => setIsRightSidebarOpen(false)}
-              aria-label="Close sidebar"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          <SuggestedBusinesses
-            businesses={[]}
-            onBusinessAdded={handleFriendAdded}
-          />
-          
-          {/* Footer inside Aside */}
-          <footer className="newsfeed-footer">
-        <p>© 2026 JOSCity</p>
-        <div className="newsfeed-footer__links">
-          <a
-            href="/about"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/about", { state: { fromNewsfeed: true } });
-            }}
-          >
-            About
-          </a>
-          <a
-            href="/terms-of-service"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/terms-of-service", { state: { fromNewsfeed: true } });
-            }}
-          >
-            Terms
-          </a>
-          <a
-            href="/privacy-policy"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/privacy-policy", { state: { fromNewsfeed: true } });
-            }}
-          >
-            Privacy
-          </a>
-          <a
-            href="/contact"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/contact", { state: { fromNewsfeed: true } });
-            }}
-          >
-            Contact Us
-          </a>
-        </div>
-      </footer>
-        </aside>
+        <NewsfeedRightAside
+          isOpen={isRightSidebarOpen}
+          onClose={() => setIsRightSidebarOpen(false)}
+          trending={trending}
+          onHashtagClick={(hashtag) => setSearchQuery(hashtag)}
+          suggestedSection="businesses"
+        />
       </div>
 
       {/* Add Friend Modal */}
@@ -1125,6 +1098,18 @@ const Business: React.FC = () => {
         isOpen={isAddFriendModalOpen}
         onClose={() => setIsAddFriendModalOpen(false)}
       />
+
+      {isAuthenticated() && isBusinessAccount && (
+        <CreatePostModal
+          isOpen={isCreatePostModalOpen}
+          onClose={() => setIsCreatePostModalOpen(false)}
+          userName={getUserName()}
+          userAvatar={getUserAvatar() ?? undefined}
+          businessListingFields
+          businessFeedNotice="This post is published to the Business section only."
+          onPost={handleBusinessNewPost}
+        />
+      )}
 
       {/* Chat Panel */}
       {isChatPanelOpen && (

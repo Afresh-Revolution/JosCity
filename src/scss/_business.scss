@@ -1441,3 +1441,78 @@
   }
 }
 
+.business-offer-fields {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--bg-tertiary, #f3f4f6);
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  box-sizing: border-box;
+  width: 100%;
+
+  &__title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary, #555);
+    margin-bottom: 8px;
+  }
+
+  &__inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+
+    @media (max-width: 520px) {
+      grid-template-columns: 1fr;
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 10px;
+      border: 1px solid var(--border-color, #ddd);
+      border-radius: 6px;
+      font-size: 13px;
+      background: var(--card-bg, #fff);
+      color: var(--text-primary, #111);
+
+      &:nth-child(3) {
+        grid-column: 1 / -1;
+      }
+    }
+  }
+}
+
+.business-feed-notice {
+  font-size: 13px;
+  color: var(--text-secondary, #555);
+  background: rgba(13, 74, 31, 0.08);
+  border: 1px solid rgba(13, 74, 31, 0.2);
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.newsfeed-post__listing {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--bg-tertiary, #f8f9fa);
+  border-radius: 8px;
+  font-size: 13px;
+  border: 1px solid var(--border-color, #e0e0e0);
+
+  &-row {
+    margin-top: 6px;
+    &:first-child {
+      margin-top: 0;
+    }
+  }
+
+  &-label {
+    font-weight: 600;
+    color: var(--text-secondary, #444);
+    margin-right: 6px;
+  }
+}
+

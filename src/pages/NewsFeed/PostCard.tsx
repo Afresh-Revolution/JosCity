@@ -22,6 +22,7 @@ import {
   type Comment as ApiComment,
   type PostReactionStat,
 } from "../../services/feedApi";
+import type { ListingDetails } from "../../utils/mapFeedApiItemToPost";
 import { isAuthenticated, getUserData, getUserName } from "../../utils/userUtils";
 import { useNavigate } from "react-router-dom";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -69,16 +70,25 @@ interface Post {
   pinned?: boolean;
   userReacted?: boolean;
   userShared?: boolean;
+  userSaved?: boolean;
   originalPost?: EmbeddedPost;
+  listingDetails?: ListingDetails | null;
 }
 
 interface PostCardProps {
   post: Post;
   onPostDeleted?: (postId: number) => void;
   onPostUpdated?: (postId: number, updates: { caption?: string; pinned?: boolean }) => void;
+  /** Draft scheduled posts: hide feed actions; delete calls scheduled-posts API. */
+  variant?: "feed" | "scheduled";
 }
 
-const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated }) => {
+const PostCard: React.FC<PostCardProps> = ({
+  post,
+  onPostDeleted,
+  onPostUpdated,
+  variant = "feed",
+}) => {
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLiked, setIsLiked] = useState(Boolean(post.userReacted));
@@ -86,17 +96,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
   const [likeCount, setLikeCount] = useState(post.likes);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isSaved, setIsSaved] = useState(() => {
-    // Initialize saved state from localStorage
-    try {
-      const savedPostIds = JSON.parse(
-        localStorage.getItem("savedPosts") || "[]"
-      ) as number[];
-      return savedPostIds.includes(post.id);
-    } catch {
-      return false;
-    }
-  });
+  const [isSaved, setIsSaved] = useState(() => Boolean(post.userSaved));
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -219,7 +219,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
     setIsLiked(Boolean(post.userReacted));
     setLikeCount(post.likes);
     setHasShared(Boolean(post.userShared));
-  }, [post.id, post.likes, post.userReacted, post.userShared]);
+    setIsSaved(Boolean(post.userSaved));
+  }, [post.id, post.likes, post.userReacted, post.userShared, post.userSaved]);
 
   const getTotalReactionCount = (
     reactions: PostReactionStat[] | undefined,
@@ -292,42 +293,31 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
     }
   };
 
-  const handleSave = () => {
-    const newSavedState = !isSaved;
-    setIsSaved(newSavedState);
+  const handleSave = async () => {
+    if (!isAuthenticated()) {
+      alert("Please sign in to save posts.");
+      navigate("/signin");
+      return;
+    }
 
-    // Save/unsave post in localStorage
+    const nextSaved = !isSaved;
+    setIsSaved(nextSaved);
+
     try {
-      const savedPostIds = JSON.parse(
-        localStorage.getItem("savedPosts") || "[]"
-      ) as number[];
-
-      if (newSavedState) {
-        // Add post ID to saved posts
-        if (!savedPostIds.includes(post.id)) {
-          savedPostIds.push(post.id);
-          localStorage.setItem("savedPosts", JSON.stringify(savedPostIds));
-        }
-
-        // Also save the full post data for the Saved page
-        const allPosts = JSON.parse(
-          localStorage.getItem("allPosts") || "[]"
-        ) as Post[];
-        const postExists = allPosts.some((p) => p.id === post.id);
-        if (!postExists) {
-          allPosts.push(post);
-          localStorage.setItem("allPosts", JSON.stringify(allPosts));
-        }
+      if (nextSaved) {
+        const res = await feedApi.savePost(post.id);
+        if (!res.success) throw new Error("Save failed");
       } else {
-        // Remove post ID from saved posts
-        const updatedIds = savedPostIds.filter((id) => id !== post.id);
-        localStorage.setItem("savedPosts", JSON.stringify(updatedIds));
+        const res = await feedApi.unsavePost(post.id);
+        if (!res.success) throw new Error("Unsave failed");
       }
-
-      // Dispatch custom event to notify Saved page
       window.dispatchEvent(new Event("savedPostsUpdated"));
     } catch (error) {
       console.error("Error saving post:", error);
+      setIsSaved(!nextSaved);
+      alert(
+        error instanceof Error ? error.message : "Could not update saved posts."
+      );
     }
   };
 
@@ -478,7 +468,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
   const handleConfirmDelete = async () => {
     setIsDeleting(true);
     try {
-      await feedApi.deletePost(post.id);
+      if (variant === "scheduled") {
+        await feedApi.deleteScheduledPost(post.id);
+      } else {
+        await feedApi.deletePost(post.id);
+      }
       setShowDeleteConfirm(false);
       onPostDeleted?.(post.id);
     } catch (error) {
@@ -632,25 +626,33 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
             </button>
             {showMenu && (
               <div className="newsfeed-post__menu-dropdown">
-                <button className="newsfeed-post__menu-item" onClick={handleEdit}>
-                  <Edit size={18} />
-                  <span>Edit Post</span>
-                </button>
+                {variant === "feed" && (
+                  <>
+                    <button className="newsfeed-post__menu-item" onClick={handleEdit}>
+                      <Edit size={18} />
+                      <span>Edit Post</span>
+                    </button>
+                    <button
+                      className={`newsfeed-post__menu-item ${
+                        isPinned ? "newsfeed-post__menu-item--active" : ""
+                      }`}
+                      onClick={handlePin}
+                    >
+                      <Pin size={18} />
+                      <span>{isPinned ? "Unpin Post" : "Pin Post"}</span>
+                    </button>
+                  </>
+                )}
                 <button
                   className="newsfeed-post__menu-item"
                   onClick={handleDelete}
                 >
                   <Trash2 size={18} />
-                  <span>Delete Post</span>
-                </button>
-                <button
-                  className={`newsfeed-post__menu-item ${
-                    isPinned ? "newsfeed-post__menu-item--active" : ""
-                  }`}
-                  onClick={handlePin}
-                >
-                  <Pin size={18} />
-                  <span>{isPinned ? "Unpin Post" : "Pin Post"}</span>
+                  <span>
+                    {variant === "scheduled"
+                      ? "Cancel schedule"
+                      : "Delete Post"}
+                  </span>
                 </button>
               </div>
             )}
@@ -674,6 +676,87 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
           </p>
         </div>
       )}
+
+      {post.listingDetails &&
+        (post.listingDetails.text ||
+          (post.listingDetails.byMediaIndex &&
+            post.listingDetails.byMediaIndex.some(Boolean))) && (
+          <div className="newsfeed-post__listing" aria-label="Listing details">
+            {post.listingDetails.text &&
+              (post.listingDetails.text.cost ||
+                post.listingDetails.text.location ||
+                post.listingDetails.text.contact) && (
+                <>
+                  <div className="newsfeed-post__listing-row">
+                    <span className="newsfeed-post__listing-label">
+                      Description listing
+                    </span>
+                  </div>
+                  {post.listingDetails.text.cost ? (
+                    <div className="newsfeed-post__listing-row">
+                      <span className="newsfeed-post__listing-label">Price</span>
+                      {post.listingDetails.text.cost}
+                    </div>
+                  ) : null}
+                  {post.listingDetails.text.location ? (
+                    <div className="newsfeed-post__listing-row">
+                      <span className="newsfeed-post__listing-label">
+                        Location
+                      </span>
+                      {post.listingDetails.text.location}
+                    </div>
+                  ) : null}
+                  {post.listingDetails.text.contact ? (
+                    <div className="newsfeed-post__listing-row">
+                      <span className="newsfeed-post__listing-label">
+                        Contact
+                      </span>
+                      {post.listingDetails.text.contact}
+                    </div>
+                  ) : null}
+                </>
+              )}
+            {post.listingDetails.byMediaIndex?.map((off, idx) => {
+              if (
+                !off ||
+                (!off.cost && !off.location && !off.contact)
+              ) {
+                return null;
+              }
+              return (
+                <React.Fragment key={`listing-media-${idx}`}>
+                  <div className="newsfeed-post__listing-row">
+                    <span className="newsfeed-post__listing-label">
+                      Item {idx + 1}
+                    </span>
+                  </div>
+                  {off.cost ? (
+                    <div className="newsfeed-post__listing-row">
+                      <span className="newsfeed-post__listing-label">Price</span>
+                      {off.cost}
+                    </div>
+                  ) : null}
+                  {off.location ? (
+                    <div className="newsfeed-post__listing-row">
+                      <span className="newsfeed-post__listing-label">
+                        Location
+                      </span>
+                      {off.location}
+                    </div>
+                  ) : null}
+                  {off.contact ? (
+                    <div className="newsfeed-post__listing-row">
+                      <span className="newsfeed-post__listing-label">
+                        Contact
+                      </span>
+                      {off.contact}
+                    </div>
+                  ) : null}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        )}
 
       {post.originalPost && renderSharedOriginalPost(post.originalPost)}
 
@@ -879,139 +962,145 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted, onPostUpdated 
         </div>
       )}
 
-      <div className="newsfeed-post__interactions">
-        <div className="newsfeed-post__stats-row">
-          <div className="newsfeed-post__stat">
-            <MessageCircle size={16} />
-            <span>{post.comments + comments.length} Comments</span>
-          </div>
-          <div className="newsfeed-post__stat">
-            <Eye size={16} />
-            <span>{post.views} Views</span>
-          </div>
-          <div className="newsfeed-post__stat">
-            <Star size={16} />
-            <span>{post.reviews} Reviews</span>
-          </div>
-        </div>
-        <div className="newsfeed-post__likes-row">
-          <div className="newsfeed-post__likes">
-            <ThumbsUp size={18} />
-            <span>{likeCount}</span>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="newsfeed-post__action-buttons">
-          <button
-            className={`newsfeed-post__action-btn ${
-              isLiked ? "newsfeed-post__action-btn--active" : ""
-            }`}
-            onClick={handleLike}
-            title={isLiked ? "Liked" : "Like"}
-            aria-pressed={isLiked}
-          >
-            <ThumbsUp size={20} />
-            <span>{isLiked ? "Liked" : "Like"}</span>
-          </button>
-          <button
-            className="newsfeed-post__action-btn"
-            onClick={handleCommentClick}
-            title="Comment"
-            aria-expanded={showComments}
-          >
-            <MessageCircle size={20} />
-            <span>Comment</span>
-          </button>
-          <button
-            className={`newsfeed-post__action-btn ${
-              hasShared ? "newsfeed-post__action-btn--active" : ""
-            }`}
-            onClick={handleShare}
-            title={hasShared ? "Shared" : "Share"}
-          >
-            <Share2 size={20} />
-            <span>{hasShared ? "Shared" : "Share"}</span>
-          </button>
-          <button
-            className={`newsfeed-post__action-btn newsfeed-post__action-btn--save ${
-              isSaved ? "newsfeed-post__action-btn--active" : ""
-            }`}
-            onClick={handleSave}
-            title="Save"
-            aria-pressed={isSaved}
-          >
-            <Bookmark size={20} />
-            <span>Save</span>
-          </button>
-        </div>
-
-        {/* Comment Section */}
-        {showComments && (
-          <div className="newsfeed-post__comments">
-            <div className="newsfeed-post__comments-list">
-              {comments.length === 0 ? (
-                <p className="newsfeed-post__no-comments">
-                  No comments yet. Be the first to comment!
-                </p>
-              ) : (
-                comments.map((comment) => (
-                  <div key={comment.id} className="newsfeed-post__comment">
-                    <Avatar
-                      src={comment.userAvatar}
-                      name={comment.userName}
-                      size={32}
-                      className="newsfeed-post__comment-avatar"
-                    />
-                    <div className="newsfeed-post__comment-content">
-                      <div className="newsfeed-post__comment-header">
-                        <span className="newsfeed-post__comment-name">
-                          {comment.userName}
-                        </span>
-                        <span className="newsfeed-post__comment-time">
-                          {comment.timeAgo}
-                        </span>
-                      </div>
-                      <p className="newsfeed-post__comment-text">
-                        {comment.text}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              )}
+      {variant !== "scheduled" && (
+        <div className="newsfeed-post__interactions">
+          <div className="newsfeed-post__stats-row">
+            <div className="newsfeed-post__stat">
+              <MessageCircle size={16} />
+              <span>{post.comments + comments.length} Comments</span>
             </div>
-            <form
-              className="newsfeed-post__comment-form"
-              onSubmit={handleAddComment}
-            >
-              <input
-                type="text"
-                className="newsfeed-post__comment-input"
-                placeholder="Write a comment..."
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                aria-label="Write a comment"
-              />
-              <button
-                type="submit"
-                className="newsfeed-post__comment-submit"
-                disabled={!newComment.trim()}
-              >
-                Post
-              </button>
-            </form>
+            <div className="newsfeed-post__stat">
+              <Eye size={16} />
+              <span>{post.views} Views</span>
+            </div>
+            <div className="newsfeed-post__stat">
+              <Star size={16} />
+              <span>{post.reviews} Reviews</span>
+            </div>
           </div>
-        )}
-      </div>
+          <div className="newsfeed-post__likes-row">
+            <div className="newsfeed-post__likes">
+              <ThumbsUp size={18} />
+              <span>{likeCount}</span>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="newsfeed-post__action-buttons">
+            <button
+              className={`newsfeed-post__action-btn ${
+                isLiked ? "newsfeed-post__action-btn--active" : ""
+              }`}
+              onClick={handleLike}
+              title={isLiked ? "Liked" : "Like"}
+              aria-pressed={isLiked}
+            >
+              <ThumbsUp size={20} />
+              <span>{isLiked ? "Liked" : "Like"}</span>
+            </button>
+            <button
+              className="newsfeed-post__action-btn"
+              onClick={handleCommentClick}
+              title="Comment"
+              aria-expanded={showComments}
+            >
+              <MessageCircle size={20} />
+              <span>Comment</span>
+            </button>
+            <button
+              className={`newsfeed-post__action-btn ${
+                hasShared ? "newsfeed-post__action-btn--active" : ""
+              }`}
+              onClick={handleShare}
+              title={hasShared ? "Shared" : "Share"}
+            >
+              <Share2 size={20} />
+              <span>{hasShared ? "Shared" : "Share"}</span>
+            </button>
+            <button
+              className={`newsfeed-post__action-btn newsfeed-post__action-btn--save ${
+                isSaved ? "newsfeed-post__action-btn--active" : ""
+              }`}
+              onClick={handleSave}
+              title="Save"
+              aria-pressed={isSaved}
+            >
+              <Bookmark size={20} />
+              <span>Save</span>
+            </button>
+          </div>
+
+          {/* Comment Section */}
+          {showComments && (
+            <div className="newsfeed-post__comments">
+              <div className="newsfeed-post__comments-list">
+                {comments.length === 0 ? (
+                  <p className="newsfeed-post__no-comments">
+                    No comments yet. Be the first to comment!
+                  </p>
+                ) : (
+                  comments.map((comment) => (
+                    <div key={comment.id} className="newsfeed-post__comment">
+                      <Avatar
+                        src={comment.userAvatar}
+                        name={comment.userName}
+                        size={32}
+                        className="newsfeed-post__comment-avatar"
+                      />
+                      <div className="newsfeed-post__comment-content">
+                        <div className="newsfeed-post__comment-header">
+                          <span className="newsfeed-post__comment-name">
+                            {comment.userName}
+                          </span>
+                          <span className="newsfeed-post__comment-time">
+                            {comment.timeAgo}
+                          </span>
+                        </div>
+                        <p className="newsfeed-post__comment-text">
+                          {comment.text}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <form
+                className="newsfeed-post__comment-form"
+                onSubmit={handleAddComment}
+              >
+                <input
+                  type="text"
+                  className="newsfeed-post__comment-input"
+                  placeholder="Write a comment..."
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  aria-label="Write a comment"
+                />
+                <button
+                  type="submit"
+                  className="newsfeed-post__comment-submit"
+                  disabled={!newComment.trim()}
+                >
+                  Post
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       <ConfirmationModal
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleConfirmDelete}
-        title="Delete Post"
-        message="Are you sure you want to delete this post? This action cannot be undone."
-        confirmText="Delete"
+        title={variant === "scheduled" ? "Cancel scheduled post?" : "Delete Post"}
+        message={
+          variant === "scheduled"
+            ? "This draft will be removed and will not be published."
+            : "Are you sure you want to delete this post? This action cannot be undone."
+        }
+        confirmText={variant === "scheduled" ? "Cancel schedule" : "Delete"}
         cancelText="Cancel"
         type="delete"
         isLoading={isDeleting}

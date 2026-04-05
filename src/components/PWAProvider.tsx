@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
+import { PWAInstallProvider } from "../contexts/PWAInstallContext";
 
 const PULL_THRESHOLD = 80;
 const MAX_PULL = 120;
@@ -195,7 +196,7 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
   }, []);
 
   return (
-    <>
+    <PWAInstallProvider>
       {children}
       {showUpdateBadge && (
         <UpdateBadge
@@ -215,6 +216,6 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
           ↑
         </button>
       )}
-    </>
+    </PWAInstallProvider>
   );
 }

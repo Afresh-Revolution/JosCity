@@ -1,15 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  SquarePlus,
-  MessageCircle,
-  Bell,
   Search,
+  Calendar,
+  Plus,
   FileText,
   Clock,
   Users,
-  Calendar,
-  Plus,
   Globe,
   Filter,
   X,
@@ -21,18 +18,22 @@ import {
   EyeOff,
   Edit,
 } from "lucide-react";
-import primaryLogo from "../../image/primary-logo.png";
-import LazyImage from "../../components/LazyImage";
 import SearchBar from "../../components/SearchBar";
-import Avatar from "../../components/Avatar";
 import {
   getProfileUsername,
-  getUserName,
   isAuthenticated,
 } from "../../utils/userUtils";
 import { createEvent, updateEvent, deleteEvent, getEvents, type Event } from "../../api/events";
+import NewsFeedHeader from "../NewsFeed/NewsFeedHeader";
+import NewsFeedSidebar from "../NewsFeed/NewsFeedSidebar";
+import { useNewsFeedNavPanels } from "../../hooks/useNewsFeedNavPanels";
+import "../../main.css";
 import "../../scss/_eventspage.scss";
 import "../../scss/_searchbar.scss";
+import "../../scss/_newsfeed.scss";
+import "../../scss/_emojipicker.scss";
+import "../../scss/_profilemodal.scss";
+import "../../scss/_messagepopup.scss";
 
 // Helper function to normalize event data from API to component format
 const normalizeEvent = (event: Event): Event => {
@@ -62,7 +63,7 @@ const normalizeEvent = (event: Event): Event => {
 
 const EventsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
+  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("Discover");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [events, setEvents] = useState<Event[]>([]);
@@ -73,7 +74,7 @@ const EventsPage: React.FC = () => {
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
-  const createMenuRef = useRef<HTMLDivElement>(null);
+  const mainContentRef = useRef<HTMLElement>(null);
   const categoryMenuRef = useRef<HTMLDivElement>(null);
   const createEventModalRef = useRef<HTMLDivElement>(null);
   const editEventModalRef = useRef<HTMLDivElement>(null);
@@ -98,6 +99,11 @@ const EventsPage: React.FC = () => {
 
   // Image upload error state
   const [imageError, setImageError] = useState<string>("");
+
+  const { panels, headerNavProps } = useNewsFeedNavPanels({
+    mainContentRef,
+    refetchMainFeedAfterPost: false,
+  });
 
   // User event lists (Going, Interested, etc.)
   const [userEventLists, setUserEventLists] = useState<{
@@ -206,41 +212,24 @@ const EventsPage: React.FC = () => {
   // Navigation tabs
   const tabs = ["Discover", "Going", "Interested", "Invited", "My Events"];
 
-  // Close create menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        createMenuRef.current &&
-        !createMenuRef.current.contains(event.target as Node)
-      ) {
-        setIsCreateMenuOpen(false);
-      }
       if (
         categoryMenuRef.current &&
         !categoryMenuRef.current.contains(event.target as Node)
       ) {
         setIsCategoryMenuOpen(false);
       }
-      if (
-        createEventModalRef.current &&
-        !createEventModalRef.current.contains(event.target as Node)
-      ) {
-        // Don't close on backdrop click, only on X button
-      }
     };
 
-    if (isCreateMenuOpen || isCategoryMenuOpen || isCreateEventModalOpen) {
+    if (isCategoryMenuOpen || isCreateEventModalOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isCreateMenuOpen, isCategoryMenuOpen, isCreateEventModalOpen]);
-
-  const handleCreateClick = () => {
-    setIsCreateMenuOpen(!isCreateMenuOpen);
-  };
+  }, [isCategoryMenuOpen, isCreateEventModalOpen]);
 
   const handleProfileClick = () => {
     const username = getProfileUsername();
@@ -573,85 +562,25 @@ const EventsPage: React.FC = () => {
   return (
     <div className="events-page-wrapper events-page">
       <div className="eventspage eventspage--with-fixed-header">
-      {/* Page header (below main site navbar) */}
-      <header className="newsfeed-header">
-        <div className="newsfeed-header__container">
-          <div className="newsfeed-header__left">
-            <div
-              className="newsfeed-header__logo"
-              onClick={() => navigate("/")}
-            >
-              <LazyImage src={primaryLogo} alt="JOSCity Logo" />
-            </div>
-          </div>
-          <div className="newsfeed-header__actions">
-            <div
-              className="newsfeed-header__create-wrapper"
-              ref={createMenuRef}
-            >
-              <button
-                className="newsfeed-header__icon-btn"
-                title="Create"
-                onClick={handleCreateClick}
-              >
-                <SquarePlus size={20} />
-              </button>
-              {isCreateMenuOpen && (
-                <div className="newsfeed-header__create-dropdown">
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  >
-                    <FileText size={18} />
-                    <span>Create Post</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  >
-                    <Clock size={18} />
-                    <span>Create Story</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  >
-                    <Users size={18} />
-                    <span>Create Group</span>
-                  </button>
-                </div>
-              )}
-            </div>
-            <button
-              className="newsfeed-header__icon-btn"
-              title="Messages"
-              onClick={() => {}}
-            >
-              <MessageCircle size={20} />
-            </button>
-            <button
-              className="newsfeed-header__icon-btn newsfeed-header__icon-btn--notifications"
-              title="Notifications"
-              onClick={() => {}}
-            >
-              <Bell size={20} />
-            </button>
-            <button
-              className="newsfeed-header__join-btn"
-              onClick={handleProfileClick}
-            >
-              <div className="newsfeed-header__join-initials">
-                <Avatar
-                  name={getUserName()}
-                  size={32}
-                  className="newsfeed-header__join-avatar"
-                />
-              </div>
-              <span className="newsfeed-header__join-text">Profile</span>
-            </button>
-          </div>
-        </div>
-      </header>
+      <NewsFeedHeader
+        isLeftSidebarOpen={isLeftSidebarOpen}
+        onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
+        onProfileClick={handleProfileClick}
+        showRightSidebarToggle={false}
+        {...headerNavProps}
+      />
+
+      {isLeftSidebarOpen && (
+        <div
+          className="newsfeed-overlay"
+          onClick={() => setIsLeftSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      <NewsFeedSidebar
+        isOpen={isLeftSidebarOpen}
+        onClose={() => setIsLeftSidebarOpen(false)}
+      />
 
       {/* Hero Section */}
       <section className="eventspage-hero">
@@ -742,7 +671,7 @@ const EventsPage: React.FC = () => {
           </aside>
 
           {/* Main Content */}
-          <main className="eventspage-main">
+          <main className="eventspage-main" ref={mainContentRef}>
             <div className="eventspage-main__header">
               <div className="eventspage-main__header-left">
                 <h2 className="eventspage-main__title">
@@ -1373,6 +1302,8 @@ const EventsPage: React.FC = () => {
         </>
       )}
       </div>
+
+      {panels}
     </div>
   );
 };

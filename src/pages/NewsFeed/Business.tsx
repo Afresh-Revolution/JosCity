@@ -1,15 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  SquarePlus,
   MessageCircle,
   Bell,
   Search,
-  Menu,
   X,
-  FileText,
-  Clock,
-  Users,
   Building2,
   Send,
   MoreVertical,
@@ -23,13 +18,12 @@ import {
   Video,
   User,
 } from "lucide-react";
-import primaryLogo from "../../image/primary-logo.png";
-import LazyImage from "../../components/LazyImage";
 import Avatar from "../../components/Avatar";
 import EmojiPicker from "../../components/EmojiPicker";
 import ProfileModal from "../../components/ProfileModal";
 import FindFriendsModal from "../../components/FindFriendsModal";
 import NewsFeedSidebar from "./NewsFeedSidebar";
+import NewsFeedHeader from "./NewsFeedHeader";
 import PostCard from "./PostCard";
 import NewsfeedRightAside from "./NewsfeedRightAside";
 import { useNewsfeedAsideTrending } from "../../hooks/useNewsfeedAsideTrending";
@@ -121,11 +115,10 @@ const Business: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
-  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [businessPosts, setBusinessPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
-  const createMenuRef = useRef<HTMLDivElement>(null);
+  const mainContentRef = useRef<HTMLElement>(null);
   const isBusinessAccount =
     getUserAccountType().toLowerCase() === "business";
 
@@ -266,7 +259,6 @@ const Business: React.FC = () => {
   };
 
   const openBusinessCreatePost = () => {
-    setIsCreateMenuOpen(false);
     if (!isBusinessAccount) {
       alert("Only business accounts can create posts in the Business section.");
       return;
@@ -285,30 +277,6 @@ const Business: React.FC = () => {
       post.action?.toLowerCase().includes(query)
     );
   });
-
-  // Close create menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        createMenuRef.current &&
-        !createMenuRef.current.contains(event.target as Node)
-      ) {
-        setIsCreateMenuOpen(false);
-      }
-    };
-
-    if (isCreateMenuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isCreateMenuOpen]);
-
-  const handleCreateClick = () => {
-    setIsCreateMenuOpen(!isCreateMenuOpen);
-  };
 
   const handleProfileClick = () => {
     const username = getProfileUsername();
@@ -340,6 +308,11 @@ const Business: React.FC = () => {
   const unreadNotificationsCount = notifications.filter(
     (n) => !n.isRead
   ).length;
+
+  const unreadMessagesCount = chatConversations.reduce(
+    (sum, c) => sum + (c.unreadCount || 0),
+    0
+  );
 
   const markNotificationAsRead = (notificationId: number) => {
     setNotifications((prev) =>
@@ -904,99 +877,21 @@ const Business: React.FC = () => {
   }, []);
 
   return (
-    <div className="newsfeed-page">
-      {/* Top Navigation Bar */}
-      <header className="newsfeed-header">
-        <div className="newsfeed-header__container">
-          <div className="newsfeed-header__left">
-            <button
-              className="newsfeed-header__menu-toggle"
-              onClick={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
-              aria-label="Toggle menu"
-            >
-              {isLeftSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-            <div
-              className="newsfeed-header__logo"
-              onClick={() => navigate("/")}
-            >
-              <LazyImage src={primaryLogo} alt="JOSCity Logo" />
-            </div>
-          </div>
-          <div className="newsfeed-header__actions">
-            <div
-              className="newsfeed-header__create-wrapper"
-              ref={createMenuRef}
-            >
-              <button
-                className="newsfeed-header__icon-btn"
-                title="Create"
-                onClick={handleCreateClick}
-              >
-                <SquarePlus size={20} />
-              </button>
-              {isCreateMenuOpen && (
-                <div className="newsfeed-header__create-dropdown">
-                  <button
-                    type="button"
-                    className="newsfeed-header__create-item"
-                    onClick={openBusinessCreatePost}
-                  >
-                    <FileText size={18} />
-                    <span>Create Post</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  >
-                    <Clock size={18} />
-                    <span>Create Story</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  >
-                    <Users size={18} />
-                    <span>Create Group</span>
-                  </button>
-                </div>
-              )}
-            </div>
-            <button
-              className="newsfeed-header__icon-btn"
-              title="Messages"
-              onClick={() => setIsChatPanelOpen(true)}
-            >
-              <MessageCircle size={20} />
-            </button>
-            <button
-              className="newsfeed-header__icon-btn newsfeed-header__icon-btn--notifications"
-              title="Notifications"
-              onClick={() => setIsNotificationPanelOpen(true)}
-            >
-              <Bell size={20} />
-              {unreadNotificationsCount > 0 && (
-                <span className="newsfeed-header__notification-badge">
-                  {unreadNotificationsCount}
-                </span>
-              )}
-            </button>
-            <button
-              className="newsfeed-header__join-btn"
-              onClick={handleProfileClick}
-            >
-              <div className="newsfeed-header__join-initials">
-                <Avatar
-                  name={getUserName()}
-                  size={32}
-                  className="newsfeed-header__join-avatar"
-                />
-              </div>
-              <span className="newsfeed-header__join-text">Profile</span>
-            </button>
-          </div>
-        </div>
-      </header>
+    <div className="newsfeed-page business-page">
+      <NewsFeedHeader
+        isLeftSidebarOpen={isLeftSidebarOpen}
+        onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
+        isRightSidebarOpen={isRightSidebarOpen}
+        onToggleRightSidebar={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+        onCreatePost={openBusinessCreatePost}
+        onProfileClick={handleProfileClick}
+        onAddFriend={() => setIsAddFriendModalOpen(true)}
+        onOpenChat={() => setIsChatPanelOpen(true)}
+        onOpenNotifications={() => setIsNotificationPanelOpen(true)}
+        unreadNotificationsCount={unreadNotificationsCount}
+        unreadMessagesCount={unreadMessagesCount}
+        mainContentRef={mainContentRef}
+      />
 
       {/* Main Content */}
       <div className="newsfeed-container">
@@ -1006,7 +901,7 @@ const Business: React.FC = () => {
           onClose={() => setIsLeftSidebarOpen(false)}
         />
 
-        <main className="newsfeed-main">
+        <main className="newsfeed-main" ref={mainContentRef}>
           {/* Header Section */}
           <div className="newsfeed-search-section">
             <div className="newsfeed-search-section__input-wrapper">

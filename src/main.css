@@ -18618,6 +18618,10 @@ body {
   }
 }
 
+.people-page .newsfeed-container {
+  margin-top: calc(6% + 20px);
+}
+
 .newsfeed-overlay {
   display: none;
 }

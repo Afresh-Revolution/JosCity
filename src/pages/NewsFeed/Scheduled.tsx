@@ -1,14 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  SquarePlus,
-  UserPlus,
-  MessageCircle,
-  Bell,
   Search,
-  Menu,
   X,
-  FileText,
   Clock,
   Users,
   Calendar,
@@ -23,12 +17,10 @@ import {
   Briefcase as Jobs,
   Video,
 } from "lucide-react";
-import primaryLogo from "../../image/primary-logo.png";
-import LazyImage from "../../components/LazyImage";
 import PostCard from "./PostCard";
+import NewsFeedHeader from "./NewsFeedHeader";
 import CreateScheduledPostModal from "./CreateScheduledPostModal";
 import type { CreatePostListingPayload } from "./CreatePostModal";
-import Avatar from "../../components/Avatar";
 import {
   getProfileUsername,
   getUserName,
@@ -36,8 +28,14 @@ import {
   getUserData,
 } from "../../utils/userUtils";
 import { feedApi, type ScheduledPostApiRow } from "../../services/feedApi";
+import "../../main.css";
 import "../../scss/_scheduled.scss";
 import "../../scss/_people.scss";
+import "../../scss/_newsfeed.scss";
+import "../../scss/_emojipicker.scss";
+import "../../scss/_profilemodal.scss";
+import "../../scss/_messagepopup.scss";
+import { useNewsFeedNavPanels } from "../../hooks/useNewsFeedNavPanels";
 
 function formatScheduledTimeAgo(iso: string): string {
   const scheduledDate = new Date(iso);
@@ -122,13 +120,12 @@ const Scheduled: React.FC = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
-  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [isCreateScheduledModalOpen, setIsCreateScheduledModalOpen] =
     useState(false);
   const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const createMenuRef = useRef<HTMLDivElement>(null);
+  const mainContentRef = useRef<HTMLElement>(null);
 
   const loadScheduledPosts = useCallback(async () => {
     setIsLoading(true);
@@ -170,35 +167,17 @@ const Scheduled: React.FC = () => {
     }
   }, []);
 
+  const { panels, headerNavProps } = useNewsFeedNavPanels({
+    mainContentRef,
+    refetchMainFeedAfterPost: false,
+    afterPostCreated: () => void loadScheduledPosts(),
+  });
+
   useEffect(() => {
     void loadScheduledPosts();
     const id = window.setInterval(() => void loadScheduledPosts(), 60_000);
     return () => clearInterval(id);
   }, [loadScheduledPosts]);
-
-  // Close create menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        createMenuRef.current &&
-        !createMenuRef.current.contains(event.target as Node)
-      ) {
-        setIsCreateMenuOpen(false);
-      }
-    };
-
-    if (isCreateMenuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isCreateMenuOpen]);
-
-  const handleCreateClick = () => {
-    setIsCreateMenuOpen(!isCreateMenuOpen);
-  };
 
   const handleProfileClick = () => {
     const username = getProfileUsername();
@@ -252,99 +231,13 @@ const Scheduled: React.FC = () => {
 
   return (
     <div className="people-page">
-      {/* Top Navigation Bar */}
-      <header className="newsfeed-header">
-        <div className="newsfeed-header__container">
-          <div className="newsfeed-header__left">
-            <button
-              className="newsfeed-header__menu-toggle"
-              onClick={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
-              aria-label="Toggle menu"
-            >
-              {isLeftSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-            <div
-              className="newsfeed-header__logo"
-              onClick={() => navigate("/")}
-            >
-              <LazyImage src={primaryLogo} alt="JOSCity Logo" />
-            </div>
-          </div>
-          <div className="newsfeed-header__actions">
-            <div
-              className="newsfeed-header__create-wrapper"
-              ref={createMenuRef}
-            >
-              <button
-                className="newsfeed-header__icon-btn"
-                title="Create"
-                onClick={handleCreateClick}
-              >
-                <SquarePlus size={20} />
-              </button>
-              {isCreateMenuOpen && (
-                <div className="newsfeed-header__create-dropdown">
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  >
-                    <FileText size={18} />
-                    <span>Create Post</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  >
-                    <Clock size={18} />
-                    <span>Create Story</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  >
-                    <Users size={18} />
-                    <span>Create Group</span>
-                  </button>
-                </div>
-              )}
-            </div>
-            <button
-              className="newsfeed-header__icon-btn"
-              title="Add Friend"
-              onClick={() => {}}
-            >
-              <UserPlus size={20} />
-            </button>
-            <button
-              className="newsfeed-header__icon-btn"
-              title="Messages"
-              onClick={() => {}}
-            >
-              <MessageCircle size={20} />
-            </button>
-            <button
-              className="newsfeed-header__icon-btn newsfeed-header__icon-btn--notifications"
-              title="Notifications"
-              onClick={() => {}}
-            >
-              <Bell size={20} />
-            </button>
-            <button
-              className="newsfeed-header__join-btn"
-              onClick={handleProfileClick}
-              title="View Profile"
-            >
-              <div className="newsfeed-header__join-initials">
-                <Avatar
-                  name={getUserName()}
-                  size={32}
-                  className="newsfeed-header__join-avatar"
-                />
-              </div>
-            </button>
-          </div>
-        </div>
-      </header>
+      <NewsFeedHeader
+        isLeftSidebarOpen={isLeftSidebarOpen}
+        onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
+        onProfileClick={handleProfileClick}
+        showRightSidebarToggle={false}
+        {...headerNavProps}
+      />
 
       <div className="newsfeed-container newsfeed-container--scheduled-no-aside">
         {/* Mobile Overlay */}
@@ -562,7 +455,7 @@ const Scheduled: React.FC = () => {
         </div>
 
         {/* Main Content Area */}
-        <main className="people-main">
+        <main className="people-main" ref={mainContentRef}>
           {/* Scheduled Posts Section */}
           <div className="people-section">
             {loadError && (
@@ -726,6 +619,8 @@ const Scheduled: React.FC = () => {
           onSchedule={handleSchedulePost}
         />
       </div>
+
+      {panels}
     </div>
   );
 };

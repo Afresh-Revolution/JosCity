@@ -1,41 +1,32 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  SquarePlus,
-  MessageCircle,
-  Bell,
-  Search,
-  Menu,
-  X,
-  FileText,
-  Clock,
-  Users,
-  Bookmark,
-} from "lucide-react";
-import primaryLogo from "../../image/primary-logo.png";
+import { Search, Bookmark } from "lucide-react";
 import "../../main.css";
-import LazyImage from "../../components/LazyImage";
-import Avatar from "../../components/Avatar";
 import NewsFeedSidebar from "./NewsFeedSidebar";
+import NewsFeedHeader from "./NewsFeedHeader";
 import PostCard from "./PostCard";
-import { getProfileUsername, getUserName } from "../../utils/userUtils";
+import { getProfileUsername } from "../../utils/userUtils";
 import { feedApi } from "../../services/feedApi";
 import {
   mapFeedApiItemToPost,
   type CardPostShape,
 } from "../../utils/mapFeedApiItemToPost";
+import { useNewsFeedNavPanels } from "../../hooks/useNewsFeedNavPanels";
 import "../../scss/_saved.scss";
+import "../../scss/_newsfeed.scss";
+import "../../scss/_emojipicker.scss";
+import "../../scss/_profilemodal.scss";
+import "../../scss/_messagepopup.scss";
 
 const Saved: React.FC = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
-  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [savedPosts, setSavedPosts] = useState<CardPostShape[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const createMenuRef = useRef<HTMLDivElement>(null);
+  const mainContentRef = useRef<HTMLElement>(null);
 
   const loadSavedPosts = useCallback(async () => {
     setIsLoading(true);
@@ -59,6 +50,12 @@ const Saved: React.FC = () => {
     }
   }, []);
 
+  const { panels, headerNavProps } = useNewsFeedNavPanels({
+    mainContentRef,
+    refetchMainFeedAfterPost: false,
+    afterPostCreated: () => void loadSavedPosts(),
+  });
+
   useEffect(() => {
     void loadSavedPosts();
     const handleSavedUpdated = () => {
@@ -70,7 +67,6 @@ const Saved: React.FC = () => {
     };
   }, [loadSavedPosts]);
 
-  // Filter posts based on search query
   const filteredPosts = savedPosts.filter((post) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
@@ -82,30 +78,6 @@ const Saved: React.FC = () => {
     );
   });
 
-  // Close create menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        createMenuRef.current &&
-        !createMenuRef.current.contains(event.target as Node)
-      ) {
-        setIsCreateMenuOpen(false);
-      }
-    };
-
-    if (isCreateMenuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isCreateMenuOpen]);
-
-  const handleCreateClick = () => {
-    setIsCreateMenuOpen(!isCreateMenuOpen);
-  };
-
   const handleProfileClick = () => {
     const username = getProfileUsername();
     if (username) {
@@ -114,95 +86,18 @@ const Saved: React.FC = () => {
   };
 
   return (
-    <div className="newsfeed-page">
-      {/* Top Navigation Bar */}
-      <header className="newsfeed-header">
-        <div className="newsfeed-header__container">
-          <div className="newsfeed-header__left">
-            <button
-              className="newsfeed-header__menu-toggle"
-              onClick={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
-              aria-label="Toggle menu"
-            >
-              {isLeftSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-            <div
-              className="newsfeed-header__logo"
-              onClick={() => navigate("/")}
-            >
-              <LazyImage src={primaryLogo} alt="JOSCity Logo" />
-            </div>
-          </div>
-          <div className="newsfeed-header__actions">
-            <div
-              className="newsfeed-header__create-wrapper"
-              ref={createMenuRef}
-            >
-              <button
-                className="newsfeed-header__icon-btn"
-                title="Create"
-                onClick={handleCreateClick}
-              >
-                <SquarePlus size={20} />
-              </button>
-              {isCreateMenuOpen && (
-                <div className="newsfeed-header__create-dropdown">
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  >
-                    <FileText size={18} />
-                    <span>Create Post</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  >
-                    <Clock size={18} />
-                    <span>Create Story</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  >
-                    <Users size={18} />
-                    <span>Create Group</span>
-                  </button>
-                </div>
-              )}
-            </div>
-            <button
-              className="newsfeed-header__icon-btn"
-              title="Messages"
-              onClick={() => {}}
-            >
-              <MessageCircle size={20} />
-            </button>
-            <button
-              className="newsfeed-header__icon-btn newsfeed-header__icon-btn--notifications"
-              title="Notifications"
-              onClick={() => {}}
-            >
-              <Bell size={20} />
-            </button>
-            <button
-              className="newsfeed-header__join-btn"
-              onClick={handleProfileClick}
-            >
-              <div className="newsfeed-header__join-initials">
-                <Avatar
-                  name={getUserName()}
-                  size={32}
-                  className="newsfeed-header__join-avatar"
-                />
-              </div>
-              <span className="newsfeed-header__join-text">Profile</span>
-            </button>
-          </div>
-        </div>
-      </header>
+    <div className="newsfeed-page saved-page">
+      <NewsFeedHeader
+        isLeftSidebarOpen={isLeftSidebarOpen}
+        onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
+        isRightSidebarOpen={isRightSidebarOpen}
+        onToggleRightSidebar={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+        onProfileClick={handleProfileClick}
+        showRightSidebarToggle={false}
+        {...headerNavProps}
+        showAddFriend={false}
+      />
 
-      {/* Mobile Overlay */}
       {(isLeftSidebarOpen || isRightSidebarOpen) && (
         <div
           className="newsfeed-overlay"
@@ -213,16 +108,13 @@ const Saved: React.FC = () => {
         />
       )}
 
-      {/* Main Content */}
       <div className="newsfeed-container newsfeed-container--no-aside">
-        {/* Left Sidebar */}
         <NewsFeedSidebar
           isOpen={isLeftSidebarOpen}
           onClose={() => setIsLeftSidebarOpen(false)}
         />
 
-        <main className="newsfeed-main">
-          {/* Header Section */}
+        <main className="newsfeed-main" ref={mainContentRef}>
           <div className="newsfeed-search-section">
             <div className="newsfeed-search-section__input-wrapper">
               <input
@@ -236,7 +128,6 @@ const Saved: React.FC = () => {
             </div>
           </div>
 
-          {/* Saved Posts Header */}
           <div className="newsfeed-posts">
             <div className="newsfeed-post">
               <div className="newsfeed-post__header">
@@ -271,7 +162,6 @@ const Saved: React.FC = () => {
               </div>
             )}
 
-            {/* Loading State */}
             {isLoading && (
               <div className="newsfeed-post">
                 <div className="newsfeed-post__caption">
@@ -280,7 +170,6 @@ const Saved: React.FC = () => {
               </div>
             )}
 
-            {/* Empty State */}
             {!isLoading && !loadError && filteredPosts.length === 0 && (
               <div className="newsfeed-post">
                 <div className="newsfeed-post__caption">
@@ -295,7 +184,6 @@ const Saved: React.FC = () => {
               </div>
             )}
 
-            {/* Saved Posts List */}
             {!isLoading &&
               !loadError &&
               filteredPosts.map((post) => (
@@ -304,6 +192,8 @@ const Saved: React.FC = () => {
           </div>
         </main>
       </div>
+
+      {panels}
     </div>
   );
 };

@@ -2112,6 +2112,7 @@
 
 // Scheduled: no right aside — use full width next to left menu
 .people-page .newsfeed-container.newsfeed-container--scheduled-no-aside {
+  margin-top: calc(6% + 10px);
   grid-template-columns: 280px minmax(0, 1fr);
   padding-right: 24px;
   gap: 24px;

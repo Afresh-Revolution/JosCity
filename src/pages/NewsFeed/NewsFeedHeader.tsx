@@ -34,15 +34,18 @@ interface NewsFeedHeaderProps {
   onProfileClick?: () => void;
   unreadNotificationsCount?: number;
   unreadMessagesCount?: number;
-  mainContentRef?: React.RefObject<HTMLElement>;
+  mainContentRef?: React.RefObject<HTMLElement | null>;
   /** Alternate prop names used by some pages */
   showCreateMenu?: boolean;
+  /** When false, hides the Add Friend (UserPlus) control */
+  showAddFriend?: boolean;
   showRightSidebarToggle?: boolean;
   onNotificationClick?: () => void;
   onCreateClick?: () => void;
   onMessageClick?: () => void;
   onAddFriendClick?: () => void;
-  
+  /** Extra controls before the profile button (e.g. People filters) */
+  extraActions?: React.ReactNode;
 }
 
 const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
@@ -60,11 +63,13 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
   unreadMessagesCount = 0,
   mainContentRef,
   showCreateMenu = true,
+  showAddFriend = true,
   showRightSidebarToggle = true,
   onNotificationClick,
   onCreateClick,
   onMessageClick,
   onAddFriendClick,
+  extraActions,
 }) => {
   const handleOpenNotifications = onOpenNotifications ?? onNotificationClick ?? (() => {});
   const handleOpenChat = onOpenChat ?? onMessageClick ?? (() => {});
@@ -265,13 +270,16 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
             )}
           </div>
           )}
-          <button
-            className="newsfeed-header__icon-btn"
-            title="Add Friend"
-            onClick={handleAddFriend}
-          >
-            <UserPlus size={20} />
-          </button>
+          {showAddFriend && (
+            <button
+              type="button"
+              className="newsfeed-header__icon-btn"
+              title="Add Friend"
+              onClick={handleAddFriend}
+            >
+              <UserPlus size={20} />
+            </button>
+          )}
           <button
             className="newsfeed-header__icon-btn newsfeed-header__icon-btn--messages"
             title="Messages"
@@ -298,6 +306,7 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
               </span>
             )}
           </button>
+          {extraActions}
           <button
             className="newsfeed-header__join-btn"
             onClick={onProfileClick ?? (() => {})}

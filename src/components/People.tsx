@@ -1,11 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  SquarePlus,
   UserPlus,
-  MessageCircle,
-  Bell,
-  Menu,
   X,
   Calendar,
   Bookmark,
@@ -24,13 +20,11 @@ import {
   SlidersHorizontal,
   Smile,
 } from "lucide-react";
-import primaryLogo from "../image/primary-logo.png";
-import LazyImage from "./LazyImage";
+import NewsFeedHeader from "../pages/NewsFeed/NewsFeedHeader";
 import Avatar from "./Avatar";
 import EmojiPicker from "./EmojiPicker";
 import {
   getProfileUsername,
-  getUserName,
   getUserData,
   isAuthenticated,
 } from "../utils/userUtils";
@@ -41,12 +35,15 @@ import {
 import { friendApi } from "../services/friendApi";
 import "../main.css";
 import "../scss/_emojipicker.scss";
+import "../scss/_newsfeed.scss";
+import "../scss/_profilemodal.scss";
+import "../scss/_messagepopup.scss";
+import { useNewsFeedNavPanels } from "../hooks/useNewsFeedNavPanels";
 
 interface User {
   id: number;
   name: string;
   avatar: string;
-  location?: string;
   mutualFriends?: number;
   accountType?: string;
   profileSlug?: string;
@@ -65,7 +62,6 @@ function mapDirectoryUser(u: ApprovedDirectoryUser): User {
     id: u.user_id,
     name,
     avatar: u.user_picture?.trim() || "/placeholder-avatar.png",
-    location: u.address?.trim() || undefined,
     accountType: u.account_type || "personal",
     profileSlug: u.user_name?.trim() || undefined,
     businessType: u.business_type?.trim() || undefined,
@@ -95,7 +91,6 @@ const People: React.FC = () => {
     navigate(`/profile/${encodeURIComponent(username)}`);
   };
   const [filterQuery, setFilterQuery] = useState("");
-  const [filterCity, setFilterCity] = useState("");
   const [filterState, setFilterState] = useState("Any");
   const [filterGender, setFilterGender] = useState("Any");
   const [filterRelationship, setFilterRelationship] = useState("Any");
@@ -103,11 +98,12 @@ const People: React.FC = () => {
   const [filterVerifiedStatus, setFilterVerifiedStatus] = useState("Any");
   const [isFilterQueryEmojiPickerOpen, setIsFilterQueryEmojiPickerOpen] =
     useState(false);
-  const [isFilterCityEmojiPickerOpen, setIsFilterCityEmojiPickerOpen] =
-    useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const filterQueryInputRef = useRef<HTMLInputElement>(null);
-  const filterCityInputRef = useRef<HTMLInputElement>(null);
+  const mainContentRef = useRef<HTMLElement>(null);
+  const { panels, headerNavProps } = useNewsFeedNavPanels({
+    mainContentRef,
+  });
 
   useEffect(() => {
     const loadDirectory = async () => {
@@ -222,9 +218,11 @@ const People: React.FC = () => {
     return (
       <div key={user.id} className="people-user-card">
         <div className="people-user-card__avatar">
-          <LazyImage
+          <Avatar
             src={user.avatar}
+            name={user.name}
             alt={user.name}
+            size={56}
             className="people-user-card__avatar-img"
           />
         </div>
@@ -251,13 +249,10 @@ const People: React.FC = () => {
           >
             {user.name}
           </h3>
-          <p className="people-user-card__location" style={{ marginTop: 4 }}>
+          <p className="people-user-card__meta" style={{ marginTop: 4 }}>
             {accountLabel}
             {user.businessType ? ` · ${user.businessType}` : ""}
           </p>
-          {user.location && (
-            <p className="people-user-card__location">{user.location}</p>
-          )}
           {user.mutualFriends !== undefined && user.mutualFriends > 0 && (
             <p className="people-user-card__mutual">
               {user.mutualFriends} mutual friend
@@ -300,28 +295,16 @@ const People: React.FC = () => {
     // Apply main search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
-      users = users.filter(
-        (user) =>
-          user.name.toLowerCase().includes(query) ||
-          user.location?.toLowerCase().includes(query)
+      users = users.filter((user) =>
+        user.name.toLowerCase().includes(query)
       );
     }
 
     // Apply filter query
     if (filterQuery.trim()) {
       const query = filterQuery.toLowerCase().trim();
-      users = users.filter(
-        (user) =>
-          user.name.toLowerCase().includes(query) ||
-          user.location?.toLowerCase().includes(query)
-      );
-    }
-
-    // Apply city filter
-    if (filterCity.trim()) {
-      const city = filterCity.toLowerCase().trim();
       users = users.filter((user) =>
-        user.location?.toLowerCase().includes(city)
+        user.name.toLowerCase().includes(query)
       );
     }
 
@@ -338,7 +321,6 @@ const People: React.FC = () => {
     directoryUsers,
     searchQuery,
     filterQuery,
-    filterCity,
     distance,
     filterState,
     filterGender,
@@ -383,62 +365,26 @@ const People: React.FC = () => {
         </div>
       )}
 
-      {/* Top Navigation Bar */}
-      <header className="newsfeed-header">
-        <div className="newsfeed-header__container">
-          <div className="newsfeed-header__left">
-            <button
-              className="newsfeed-header__menu-toggle"
-              onClick={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
-              aria-label="Toggle menu"
-            >
-              {isLeftSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-            <div className="newsfeed-header__logo" onClick={() => navigate("/")}>
-              <LazyImage src={primaryLogo} alt="JOSCity Logo" />
-              <span>JOSCity</span>
-            </div>
-          </div>
-          <div className="newsfeed-header__actions">
-            <button className="newsfeed-header__icon-btn" title="Create">
-              <SquarePlus size={20} />
-            </button>
-            <button className="newsfeed-header__icon-btn" title="Add Friend">
-              <UserPlus size={20} />
-            </button>
-            <button className="newsfeed-header__icon-btn" title="Messages">
-              <MessageCircle size={20} />
-            </button>
-            <button
-              className="newsfeed-header__icon-btn newsfeed-header__icon-btn--notifications"
-              title="Notifications"
-            >
-              <Bell size={20} />
-            </button>
-            <button
-              className="newsfeed-header__icon-btn newsfeed-header__icon-btn--filters"
-              onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
-              title="Search Filters"
-              aria-label="Toggle filters"
-            >
-              <SlidersHorizontal size={20} />
-            </button>
-            <button 
-              className="newsfeed-header__join-btn"
-              onClick={handleProfileClick}
-              title="View Profile"
-            >
-              <div className="newsfeed-header__join-initials">
-                <Avatar
-                  name={getUserName()}
-                  size={32}
-                  className="newsfeed-header__join-avatar"
-                />
-              </div>
-            </button>
-          </div>
-        </div>
-      </header>
+      <NewsFeedHeader
+        isLeftSidebarOpen={isLeftSidebarOpen}
+        onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
+        isRightSidebarOpen={isRightSidebarOpen}
+        onToggleRightSidebar={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+        onProfileClick={handleProfileClick}
+        showRightSidebarToggle={false}
+        extraActions={
+          <button
+            type="button"
+            className="newsfeed-header__icon-btn newsfeed-header__icon-btn--filters"
+            onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+            title="Search Filters"
+            aria-label="Toggle filters"
+          >
+            <SlidersHorizontal size={20} />
+          </button>
+        }
+        {...headerNavProps}
+      />
 
       <div className="newsfeed-container">
         {/* Mobile Overlay */}
@@ -745,7 +691,7 @@ const People: React.FC = () => {
         </div>
 
         {/* Main Content Area */}
-        <main className="people-main">
+        <main className="people-main" ref={mainContentRef}>
           {/* Search Results Section */}
           {searchQuery.trim() && (
             <div className="people-section">
@@ -918,75 +864,6 @@ const People: React.FC = () => {
               </div>
             </div>
 
-            {/* City */}
-            <div className="people-filters__group">
-              <label className="people-filters__label">City</label>
-              <div style={{ position: "relative" }}>
-                <input
-                  ref={filterCityInputRef}
-                  type="text"
-                  className="people-filters__input"
-                  placeholder=""
-                  value={filterCity}
-                  onChange={(e) => setFilterCity(e.target.value)}
-                  style={{ paddingRight: "40px" }}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    right: "8px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    zIndex: 10,
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setIsFilterCityEmojiPickerOpen(
-                        !isFilterCityEmojiPickerOpen
-                      )
-                    }
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      padding: "4px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                    aria-label="Add emoji"
-                    title="Add emoji"
-                  >
-                    <Smile size={16} />
-                  </button>
-                  {isFilterCityEmojiPickerOpen && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: "100%",
-                        right: 0,
-                        marginBottom: "8px",
-                        zIndex: 10001,
-                      }}
-                    >
-                      <EmojiPicker
-                        isOpen={isFilterCityEmojiPickerOpen}
-                        onClose={() => setIsFilterCityEmojiPickerOpen(false)}
-                        onEmojiSelect={(emoji) => {
-                          setFilterCity((prev) => prev + emoji);
-                          setIsFilterCityEmojiPickerOpen(false);
-                          filterCityInputRef.current?.focus();
-                        }}
-                        position="top"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
             {/* State */}
             <div className="people-filters__group">
               <label className="people-filters__label">State</label>
@@ -1106,7 +983,6 @@ const People: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setFilterQuery("");
-                  setFilterCity("");
                   setFilterState("Any");
                   setFilterGender("Any");
                   setFilterRelationship("Any");
@@ -1139,6 +1015,8 @@ const People: React.FC = () => {
           </div>
         </aside>
       </div>
+
+      {panels}
     </div>
   );
 };

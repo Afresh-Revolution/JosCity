@@ -90,7 +90,7 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
       setIsLoadingSuggestions(true);
       try {
         const rangeKm = userRange || 500;
-        const response = await userApi.getNearbyUsers(rangeKm);
+        const response = await userApi.getNearbyUsers({ rangeKm });
         if (cancelled) return;
         if (response.success && Array.isArray(response.data)) {
           const onlyBusiness = response.data

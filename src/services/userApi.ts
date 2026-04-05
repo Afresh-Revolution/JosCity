@@ -8,6 +8,10 @@ export interface User {
   user_picture?: string;
   user_cover?: string;
   account_type?: string;
+  user_name?: string | null;
+  address?: string | null;
+  business_name?: string | null;
+  business_type?: string | null;
   user_location?: {
     latitude: number;
     longitude: number;
@@ -87,14 +91,27 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
 };
 
 export const userApi = {
-  // Get nearby users within specified range (default 500km)
-  getNearbyUsers: async (
-    rangeKm: number = 500
-  ): Promise<{
+  /** Nearby users; optional lat/lng use browser geolocation as origin (see API). */
+  getNearbyUsers: async (params?: {
+    rangeKm?: number;
+    latitude?: number;
+    longitude?: number;
+  }): Promise<{
     success: boolean;
     data: User[];
   }> => {
-    return apiRequest(`/users/nearby?range=${rangeKm}`);
+    const range = params?.rangeKm ?? 500;
+    const q = new URLSearchParams({ range: String(range) });
+    if (
+      params?.latitude != null &&
+      params?.longitude != null &&
+      Number.isFinite(params.latitude) &&
+      Number.isFinite(params.longitude)
+    ) {
+      q.set("lat", String(params.latitude));
+      q.set("lng", String(params.longitude));
+    }
+    return apiRequest(`/users/nearby?${q.toString()}`);
   },
 
   /** Approved directory (personal + business), excludes current user. */

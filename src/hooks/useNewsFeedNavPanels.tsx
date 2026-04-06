@@ -18,6 +18,7 @@ import FindFriendsModal from "../components/FindFriendsModal";
 import MessagePopup from "../components/MessagePopup";
 import Avatar from "../components/Avatar";
 import chatService from "../services/chatService";
+import { useGlobalChatRealtime } from "./useGlobalChatRealtime";
 import {
   isAuthenticated,
   getUserAvatar as getUserAvatarUtil,
@@ -88,7 +89,6 @@ export function useNewsFeedNavPanels(options: UseNewsFeedNavPanelsOptions = {}) 
   const [notifications, setNotifications] = useState<FeedPanelNotification[]>(
     []
   );
-
   const displayName = useMemo(() => {
     if (!isAuthenticated()) return "";
     const user = getUserData();
@@ -273,7 +273,8 @@ export function useNewsFeedNavPanels(options: UseNewsFeedNavPanelsOptions = {}) 
       showBrowserNotification(
         payload.userName,
         messagePreview,
-        payload.userAvatar
+        payload.userAvatar,
+        { tag: `chat-${payload.conversationId}` }
       );
       setMessagePopup({
         userId: payload.userId,
@@ -285,6 +286,13 @@ export function useNewsFeedNavPanels(options: UseNewsFeedNavPanelsOptions = {}) 
       });
     },
     []
+  );
+
+  const { presenceByUserId, handleChatPeerUserIds } = useGlobalChatRealtime(
+    isChatPanelOpen,
+    activeChatConversationId,
+    handleIncomingChatMessage,
+    setUnreadMessagesCount
   );
 
   useEffect(() => {
@@ -504,8 +512,9 @@ export function useNewsFeedNavPanels(options: UseNewsFeedNavPanelsOptions = {}) 
           isOpen={isChatPanelOpen}
           onClose={closeChatPanel}
           onUnreadCountChange={setUnreadMessagesCount}
-          onIncomingMessage={handleIncomingChatMessage}
           activeConversationId={activeChatConversationId}
+          remotePresenceByUserId={presenceByUserId}
+          onChatPeerUserIds={handleChatPeerUserIds}
         />
 
         {isNotificationPanelOpen && (
@@ -745,8 +754,9 @@ export function useNewsFeedNavPanels(options: UseNewsFeedNavPanelsOptions = {}) 
       isAddFriendModalOpen,
       isChatPanelOpen,
       closeChatPanel,
-      handleIncomingChatMessage,
       activeChatConversationId,
+      presenceByUserId,
+      handleChatPeerUserIds,
       isNotificationPanelOpen,
       notifications,
       unreadNotificationsCount,

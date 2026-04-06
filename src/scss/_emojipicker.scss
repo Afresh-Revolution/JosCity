@@ -194,20 +194,25 @@
       z-index: 10003;
 
       @media (max-width: 768px) {
-        width: calc(100% - 20px);
-        max-width: 320px;
+        width: min(320px, calc(100vw - 32px));
+        max-width: calc(100vw - 24px);
         right: 0;
+        left: auto;
       }
 
       @media (max-width: 480px) {
-        width: calc(100% - 16px);
-        right: 0;
-        max-height: 300px;
+        /* Center above composer so the grid isn’t clipped off the narrow panel edge */
+        right: auto;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(300px, calc(100vw - 20px));
+        max-width: calc(100vw - 20px);
+        max-height: min(300px, 45vh);
       }
 
       @media (max-height: 600px) {
         max-height: 250px;
-        
+
         .emoji-picker__content {
           max-height: 200px;
         }

@@ -36,6 +36,7 @@ import FindFriendsModal from "../../components/FindFriendsModal";
 import CreateStoryPopup from "../../components/CreateStoryPopup";
 import MessagePopup from "../../components/MessagePopup";
 import chatService from "../../services/chatService";
+import { useGlobalChatRealtime } from "../../hooks/useGlobalChatRealtime";
 import {
   getProfileUsername,
   isAuthenticated,
@@ -963,7 +964,8 @@ const NewsFeed: React.FC = () => {
       showBrowserNotification(
         payload.userName,
         messagePreview,
-        payload.userAvatar
+        payload.userAvatar,
+        { tag: `chat-${payload.conversationId}` }
       );
       setMessagePopup({
         userId: payload.userId,
@@ -975,6 +977,13 @@ const NewsFeed: React.FC = () => {
       });
     },
     []
+  );
+
+  const { presenceByUserId, handleChatPeerUserIds } = useGlobalChatRealtime(
+    isChatPanelOpen,
+    activeChatConversationId,
+    handleIncomingChatMessage,
+    setUnreadMessagesCount
   );
 
   // Extract all hashtags from posts
@@ -1447,8 +1456,9 @@ const NewsFeed: React.FC = () => {
         isOpen={isChatPanelOpen}
         onClose={closeChatPanel}
         onUnreadCountChange={setUnreadMessagesCount}
-        onIncomingMessage={handleIncomingChatMessage}
         activeConversationId={activeChatConversationId}
+        remotePresenceByUserId={presenceByUserId}
+        onChatPeerUserIds={handleChatPeerUserIds}
       />
 
       {/* Notification Panel */}

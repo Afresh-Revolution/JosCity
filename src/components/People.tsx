@@ -40,6 +40,7 @@ import {
   type Friend,
   type FriendRequest,
 } from "../services/friendApi";
+import { CHAT_UI_REFRESH_EVENT } from "../services/chatService";
 import "../main.css";
 import "../scss/_emojipicker.scss";
 import "../scss/_newsfeed.scss";
@@ -427,7 +428,12 @@ const People: React.FC = () => {
     setRemoveFriendUserId(userId);
     try {
       const res = await friendApi.removeFriend(userId);
-      if (res.success) await syncFriendGraph();
+      if (res.success) {
+        await syncFriendGraph();
+        window.dispatchEvent(
+          new CustomEvent(CHAT_UI_REFRESH_EVENT, { detail: { peerUserId: userId } })
+        );
+      }
       else alert("Could not remove friend.");
     } catch {
       alert("Could not remove friend.");
@@ -1354,16 +1360,6 @@ const People: React.FC = () => {
                             flexShrink: 0,
                           }}
                         >
-                          {peer.profileSlug && (
-                            <button
-                              type="button"
-                              className="people-user-card__action-btn"
-                              disabled={busy}
-                              onClick={() => openProfile(peer)}
-                            >
-                              <span>Profile</span>
-                            </button>
-                          )}
                           <button
                             type="button"
                             className="people-user-card__action-btn"

@@ -4,13 +4,15 @@ import Avatar from "./Avatar";
 import EmojiPicker from "./EmojiPicker";
 import { getUserData } from "../utils/userUtils";
 import chatService, {
+  CHAT_UI_REFRESH_EVENT,
   type ChatConversation,
   type ChatMessage,
   normalizeChatConversation,
   normalizeChatMessage,
-  normalizeMessageNotification,
 } from "../services/chatService";
 import { feedApi } from "../services/feedApi";
+import { formatChatPresenceLabel } from "../utils/presenceUtils";
+import API_BASE_URL from "../api/config";
 
 export interface ChatPanelPopupPayload {
   messageId?: number;
@@ -26,14 +28,89 @@ interface ChatPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onUnreadCountChange?: (count: number) => void;
-  onIncomingMessage?: (payload: ChatPanelPopupPayload) => void;
   activeConversationId?: number | null;
+  /** Real-time presence from socket / optional REST batch (parent-owned). */
+  remotePresenceByUserId?: Record<number, { online?: boolean; lastSeenAt?: string }>;
+  /** Called with distinct other-user IDs from loaded conversations (for presence batch fetch). */
+  onChatPeerUserIds?: (userIds: number[]) => void;
 }
 
 interface TypingUser {
   userId: number;
   username: string;
 }
+
+/** Friend row from GET /friends/my — field names vary by account/backend. */
+interface FriendsApiRow {
+  user_id: number;
+  user_firstname?: string;
+  user_lastname?: string;
+  user_picture?: string;
+  profile_image_url?: string;
+}
+
+export interface ChatFriendContact {
+  userId: number;
+  displayName: string;
+  avatarUrl: string;
+}
+
+/** Turn relative or partial image paths into a usable URL for <img src>. */
+const resolveProfileImageUrl = (raw?: string | null): string => {
+  const s = raw?.trim();
+  if (!s || /placeholder-avatar/i.test(s)) return "";
+  if (/^https?:\/\//i.test(s)) return s;
+  if (s.startsWith("//")) return `https:${s}`;
+  const path = s.startsWith("/") ? s : `/${s}`;
+  if (typeof window !== "undefined") {
+    if (API_BASE_URL.startsWith("http")) {
+      try {
+        return new URL(path, new URL(API_BASE_URL).origin).href;
+      } catch {
+        /* fall through */
+      }
+    }
+    return `${window.location.origin}${path}`;
+  }
+  return path;
+};
+
+const friendDisplayName = (f: FriendsApiRow): string => {
+  const first = f.user_firstname?.trim();
+  const last = f.user_lastname?.trim();
+  const combined = [first, last].filter(Boolean).join(" ").trim();
+  if (combined) return combined;
+  const r = f as unknown as Record<string, unknown>;
+  const u = r.username ?? r.user_name ?? r.display_name;
+  if (typeof u === "string" && u.trim()) return u.trim();
+  return `User ${f.user_id}`;
+};
+
+const friendAvatarFromRow = (f: FriendsApiRow): string => {
+  const r = f as unknown as Record<string, unknown>;
+  const candidates = [
+    f.user_picture,
+    f.profile_image_url,
+    r.avatar,
+    r.picture,
+    r.user_avatar,
+    r.profileImage,
+  ];
+  for (const c of candidates) {
+    if (typeof c === "string" && c.trim()) {
+      return resolveProfileImageUrl(c);
+    }
+  }
+  return "";
+};
+
+const firstResolvedAvatar = (...candidates: (string | undefined | null)[]): string => {
+  for (const c of candidates) {
+    const v = resolveProfileImageUrl(c);
+    if (v) return v;
+  }
+  return "";
+};
 
 const currentUserId = (): number => {
   const user = getUserData();
@@ -61,6 +138,13 @@ const sortConversations = (items: ChatConversation[]) =>
     return right - left;
   });
 
+/** Green tick only when the other user read our outgoing message. */
+const isOutgoingReadByPeer = (message: ChatMessage): boolean => {
+  if (message.readByRecipient === true) return true;
+  if (message.readByRecipient === false) return false;
+  return message.isRead;
+};
+
 const upsertMessage = (items: ChatMessage[], next: ChatMessage) => {
   const existingIndex = items.findIndex((item) => item.messageId === next.messageId);
   if (existingIndex === -1) {
@@ -74,15 +158,38 @@ const upsertMessage = (items: ChatMessage[], next: ChatMessage) => {
   return updated;
 };
 
+const mergeRemotePresence = (
+  conversation: ChatConversation,
+  remote?: Record<number, { online?: boolean; lastSeenAt?: string }>
+): { isOnline: boolean; lastSeenIso?: string | null } => {
+  const oid = conversation.otherUserId;
+  if (oid == null || oid <= 0) {
+    return {
+      isOnline: conversation.isOnline,
+      lastSeenIso: conversation.otherUserLastSeen ?? null,
+    };
+  }
+  const row = remote?.[oid];
+  let isOnline = conversation.isOnline;
+  if (row?.online === true) isOnline = true;
+  else if (row?.online === false) isOnline = false;
+  const lastSeenIso =
+    row?.lastSeenAt ?? conversation.otherUserLastSeen ?? null;
+  return { isOnline, lastSeenIso };
+};
+
 const ChatPanel: React.FC<ChatPanelProps> = ({
   isOpen,
   onClose,
   onUnreadCountChange,
-  onIncomingMessage,
   activeConversationId,
+  remotePresenceByUserId,
+  onChatPeerUserIds,
 }) => {
   const userId = useMemo(() => currentUserId(), []);
-  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [activeChats, setActiveChats] = useState<ChatConversation[]>([]);
+  const activeChatsRef = useRef<ChatConversation[]>([]);
+  const [friendContacts, setFriendContacts] = useState<ChatFriendContact[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -95,39 +202,83 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const typingTimeoutRef = useRef<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const popupIdsRef = useRef<Set<number>>(new Set());
   const selectedConversationIdRef = useRef<number | null>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const messageInputRef = useRef<HTMLInputElement>(null);
 
-  const selectedConversation = useMemo(
+  const selectedConversation = useMemo((): ChatConversation | null => {
+    if (selectedConversationId == null) return null;
+    const chat = activeChats.find(
+      (c) => c.conversationId === selectedConversationId
+    );
+    if (chat) return chat;
+    if (selectedConversationId < 0) {
+      const uid = -selectedConversationId;
+      const fc = friendContacts.find((f) => f.userId === uid);
+      if (!fc) return null;
+      return {
+        conversationId: selectedConversationId,
+        conversationType: "direct",
+        conversationName: fc.displayName,
+        otherUserId: uid,
+        otherUsername: fc.displayName,
+        otherAvatar: fc.avatarUrl,
+        lastMessageContent: "",
+        unreadCount: 0,
+        isOnline: false,
+      };
+    }
+    return null;
+  }, [activeChats, friendContacts, selectedConversationId]);
+
+  const searchLower = searchQuery.toLowerCase().trim();
+
+  const filteredChats = useMemo(
     () =>
-      conversations.find(
-        (conversation) => conversation.conversationId === selectedConversationId
-      ) || null,
-    [conversations, selectedConversationId]
+      activeChats.filter((c) =>
+        !searchLower
+          ? true
+          : c.conversationName.toLowerCase().includes(searchLower) ||
+            (c.otherUsername?.toLowerCase().includes(searchLower) ?? false)
+      ),
+    [activeChats, searchLower]
   );
 
-  const filteredConversations = useMemo(
+  const filteredFriends = useMemo(
     () =>
-      conversations.filter((conversation) =>
-        conversation.conversationName
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase().trim())
+      friendContacts.filter((f) =>
+        !searchLower
+          ? true
+          : f.displayName.toLowerCase().includes(searchLower)
       ),
-    [conversations, searchQuery]
+    [friendContacts, searchLower]
   );
 
   const unreadCount = useMemo(
     () =>
-      conversations.reduce(
+      activeChats.reduce(
         (total, conversation) => total + Math.max(conversation.unreadCount, 0),
         0
       ),
-    [conversations]
+    [activeChats]
   );
 
   useEffect(() => {
     selectedConversationIdRef.current = selectedConversationId;
   }, [selectedConversationId]);
+
+  useEffect(() => {
+    activeChatsRef.current = activeChats;
+  }, [activeChats]);
+
+  useEffect(() => {
+    if (!isOpen || !onChatPeerUserIds) return;
+    const fromChats = activeChats
+      .map((c) => c.otherUserId)
+      .filter((id): id is number => typeof id === "number" && id > 0);
+    const fromFriends = friendContacts.map((f) => f.userId);
+    onChatPeerUserIds([...new Set([...fromChats, ...fromFriends])]);
+  }, [isOpen, activeChats, friendContacts, onChatPeerUserIds]);
 
   useEffect(() => {
     onUnreadCountChange?.(unreadCount);
@@ -139,75 +290,145 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   }, [messages, typingUsers]);
 
+  /** Full-screen chat on small viewports + shrink with on-screen keyboard (Visual Viewport API). */
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const el = overlayRef.current;
+    if (!el) return;
+
+    const mq = window.matchMedia("(max-width: 768px)");
+
+    const syncVisualViewport = () => {
+      if (!mq.matches) {
+        el.style.removeProperty("top");
+        el.style.removeProperty("left");
+        el.style.removeProperty("width");
+        el.style.removeProperty("height");
+        return;
+      }
+      const vv = window.visualViewport;
+      if (!vv) return;
+      el.style.setProperty("top", `${vv.offsetTop}px`);
+      el.style.setProperty("left", `${vv.offsetLeft}px`);
+      el.style.setProperty("width", `${vv.width}px`);
+      el.style.setProperty("height", `${vv.height}px`);
+    };
+
+    syncVisualViewport();
+
+    const onMq = () => syncVisualViewport();
+    mq.addEventListener("change", onMq);
+
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", syncVisualViewport);
+    vv?.addEventListener("scroll", syncVisualViewport);
+    window.addEventListener("resize", syncVisualViewport);
+
+    return () => {
+      mq.removeEventListener("change", onMq);
+      vv?.removeEventListener("resize", syncVisualViewport);
+      vv?.removeEventListener("scroll", syncVisualViewport);
+      window.removeEventListener("resize", syncVisualViewport);
+      el.style.removeProperty("top");
+      el.style.removeProperty("left");
+      el.style.removeProperty("width");
+      el.style.removeProperty("height");
+    };
+  }, [isOpen]);
+
   const loadConversations = useCallback(async () => {
     try {
       const [convResult, friendsResult] = await Promise.all([
         chatService.getUserConversations(1, 50),
         feedApi.getMyFriends().catch(() => ({
           success: false as const,
-          data: [] as Array<{
-            user_id: number;
-            user_firstname?: string;
-            user_lastname?: string;
-            user_picture?: string;
-          }>,
+          data: [] as FriendsApiRow[],
         })),
       ]);
 
-      const fromApi = sortConversations(convResult.conversations);
-      const friends =
+      const fromApiRaw = sortConversations(convResult.conversations);
+      const friends: FriendsApiRow[] =
         friendsResult.success && Array.isArray(friendsResult.data)
-          ? friendsResult.data
+          ? (friendsResult.data as FriendsApiRow[])
           : [];
 
-      const byOtherId = new Map<number, ChatConversation>();
-      for (const c of fromApi) {
-        if (c.otherUserId != null) {
-          byOtherId.set(c.otherUserId, c);
-        }
+      const avatarByUserId = new Map<number, string>();
+      for (const f of friends) {
+        const fid = f.user_id;
+        if (fid == null || fid === userId) continue;
+        const url = friendAvatarFromRow(f);
+        if (url) avatarByUserId.set(fid, url);
       }
 
-      const placeholders: ChatConversation[] = [];
+      const fromApi = fromApiRaw.map((c) => {
+        const oid = c.otherUserId;
+        if (oid == null) return c;
+        const missing = !c.otherAvatar?.trim();
+        const fromFriend = avatarByUserId.get(oid);
+        if (missing && fromFriend) {
+          return { ...c, otherAvatar: fromFriend };
+        }
+        if (c.otherAvatar?.trim()) {
+          return { ...c, otherAvatar: resolveProfileImageUrl(c.otherAvatar) };
+        }
+        return c;
+      });
+
+      const byOtherId = new Set<number>();
+      for (const c of fromApi) {
+        if (c.otherUserId != null) byOtherId.add(c.otherUserId);
+      }
+
+      const nextFriends: ChatFriendContact[] = [];
       for (const f of friends) {
         const fid = f.user_id;
         if (fid == null || fid === userId) continue;
         if (byOtherId.has(fid)) continue;
-        const name =
-          [f.user_firstname, f.user_lastname].filter(Boolean).join(" ").trim() ||
-          "Friend";
-        placeholders.push({
-          conversationId: -fid,
-          conversationType: "direct",
-          conversationName: name,
-          otherUserId: fid,
-          otherUsername: name,
-          otherAvatar: f.user_picture || "",
-          lastMessageContent: "",
-          lastMessageAt: undefined,
-          unreadCount: 0,
-          isOnline: false,
+        nextFriends.push({
+          userId: fid,
+          displayName: friendDisplayName(f),
+          avatarUrl: friendAvatarFromRow(f),
         });
       }
+      nextFriends.sort((a, b) => a.displayName.localeCompare(b.displayName));
 
-      setConversations(sortConversations([...fromApi, ...placeholders]));
+      setActiveChats(fromApi);
+      setFriendContacts(nextFriends);
       setChatError(null);
     } catch (error) {
       setChatError(error instanceof Error ? error.message : "Unable to load chats.");
     }
   }, [userId]);
 
+  useEffect(() => {
+    const onRefresh = (e: Event) => {
+      const peerUserId = (e as CustomEvent<{ peerUserId?: number }>).detail
+        ?.peerUserId;
+      void loadConversations();
+      if (peerUserId == null || peerUserId <= 0) return;
+      const sel = selectedConversationIdRef.current;
+      if (sel == null) return;
+      const isDraftWithPeer = sel < 0 && -sel === peerUserId;
+      const conv = activeChatsRef.current.find((c) => c.conversationId === sel);
+      const isOpenWithPeer = conv?.otherUserId === peerUserId;
+      if (isDraftWithPeer || isOpenWithPeer) {
+        setSelectedConversationId(null);
+        setMessages([]);
+        setTypingUsers([]);
+      }
+    };
+    window.addEventListener(CHAT_UI_REFRESH_EVENT, onRefresh);
+    return () => window.removeEventListener(CHAT_UI_REFRESH_EVENT, onRefresh);
+  }, [loadConversations]);
+
   const markConversationRead = useCallback(
     async (conversationId: number) => {
-      setConversations((prev) =>
+      setActiveChats((prev) =>
         prev.map((conversation) =>
           conversation.conversationId === conversationId
             ? { ...conversation, unreadCount: 0 }
             : conversation
-        )
-      );
-      setMessages((prev) =>
-        prev.map((message) =>
-          message.senderId === userId ? { ...message, isRead: true } : message
         )
       );
       try {
@@ -224,9 +445,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     async (conversationId: number) => {
       if (conversationId < 0) {
         const friendId = -conversationId;
-        const placeholder = conversations.find(
-          (c) => c.conversationId === conversationId
-        );
+        const fc = friendContacts.find((f) => f.userId === friendId);
         setSelectedConversationId(conversationId);
         setMessages([]);
         setIsLoading(true);
@@ -238,21 +457,22 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           if (!normalized) {
             throw new Error("Could not open this chat.");
           }
-          if (placeholder) {
-            normalized = {
-              ...normalized,
-              conversationName: placeholder.conversationName,
-              otherUsername: placeholder.otherUsername,
-              otherAvatar: placeholder.otherAvatar,
-              otherUserId: placeholder.otherUserId ?? friendId,
-            };
-          }
+          const mergedAvatar = firstResolvedAvatar(
+            normalized.otherAvatar,
+            fc?.avatarUrl
+          );
+          normalized = {
+            ...normalized,
+            conversationName: fc?.displayName ?? normalized.conversationName,
+            otherUsername: fc?.displayName ?? normalized.otherUsername,
+            otherAvatar: mergedAvatar,
+            otherUserId: normalized.otherUserId ?? friendId,
+          };
           const realId = normalized.conversationId;
-          setConversations((prev) =>
+          setFriendContacts((prev) => prev.filter((f) => f.userId !== friendId));
+          setActiveChats((prev) =>
             sortConversations([
-              ...prev.filter(
-                (c) => c.conversationId !== conversationId && c.conversationId !== realId
-              ),
+              ...prev.filter((c) => c.conversationId !== realId),
               normalized,
             ])
           );
@@ -262,6 +482,25 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           setTypingUsers([]);
           chatService.joinConversation(realId);
           await markConversationRead(realId);
+          const apiConv = result.conversation;
+          if (apiConv) {
+            const patchedAvatar = firstResolvedAvatar(
+              apiConv.otherAvatar,
+              mergedAvatar,
+              fc?.avatarUrl
+            );
+            if (patchedAvatar && patchedAvatar !== apiConv.otherAvatar) {
+              setActiveChats((prev) =>
+                sortConversations(
+                  prev.map((c) =>
+                    c.conversationId === realId
+                      ? { ...c, otherAvatar: patchedAvatar }
+                      : c
+                  )
+                )
+              );
+            }
+          }
         } catch (error) {
           setSelectedConversationId(null);
           setChatError(
@@ -284,6 +523,31 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         chatService.joinConversation(conversationId);
         await markConversationRead(conversationId);
         setChatError(null);
+        const apiConv = result.conversation;
+        const oid = apiConv?.otherUserId;
+        if (apiConv && oid != null) {
+          const fromFriendList = friendContacts.find((f) => f.userId === oid);
+          const patchedAvatar = firstResolvedAvatar(
+            apiConv.otherAvatar,
+            fromFriendList?.avatarUrl
+          );
+          if (patchedAvatar) {
+            setActiveChats((prev) =>
+              sortConversations(
+                prev.map((c) =>
+                  c.conversationId === conversationId
+                    ? {
+                        ...c,
+                        otherAvatar: patchedAvatar,
+                        conversationName:
+                          c.conversationName || apiConv.conversationName,
+                      }
+                    : c
+                )
+              )
+            );
+          }
+        }
       } catch (error) {
         setChatError(
           error instanceof Error
@@ -294,7 +558,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         setIsLoading(false);
       }
     },
-    [conversations, markConversationRead]
+    [friendContacts, markConversationRead]
   );
 
   useEffect(() => {
@@ -337,10 +601,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         const message =
           normalizeChatMessage((payload as Record<string, unknown>)?.message) ||
           normalizeChatMessage(payload);
-        const notification = normalizeMessageNotification(payload);
 
         if (message) {
-          setConversations((prev) =>
+          setActiveChats((prev) =>
             sortConversations(
               prev.map((conversation) =>
                 conversation.conversationId === message.conversationId
@@ -364,37 +627,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             if (message.senderId !== userId) {
               void markConversationRead(message.conversationId);
             }
-          } else if (
-            message.senderId !== userId &&
-            !popupIdsRef.current.has(message.messageId)
-          ) {
-            popupIdsRef.current.add(message.messageId);
-            onIncomingMessage?.({
-              messageId: message.messageId,
-              conversationId: message.conversationId,
-              userId: message.senderId,
-              userName: message.username,
-              userAvatar: message.senderAvatar || "",
-              message: message.messageContent,
-              timestamp: timeLabel(message.createdAt) || "Now",
-            });
           }
-        } else if (
-          notification &&
-          notification.senderId !== userId &&
-          notification.messageId &&
-          !popupIdsRef.current.has(notification.messageId)
-        ) {
-          popupIdsRef.current.add(notification.messageId);
-          onIncomingMessage?.({
-            messageId: notification.messageId,
-            conversationId: notification.conversationId,
-            userId: notification.senderId,
-            userName: notification.senderUsername,
-            userAvatar: notification.senderAvatar || "",
-            message: notification.messageContent,
-            timestamp: timeLabel(notification.createdAt) || "Now",
-          });
         }
 
         void loadConversations();
@@ -453,10 +686,42 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               : 0;
         setTypingUsers((prev) => prev.filter((user) => user.userId !== typingUserId));
       }),
-      chatService.onMessagesRead(() => {
+      chatService.onMessagesRead((payload) => {
+        const r = payload as Record<string, unknown>;
+        const readerId =
+          typeof r.userId === "number"
+            ? r.userId
+            : typeof r.user_id === "number"
+              ? r.user_id
+              : typeof r.readerId === "number"
+                ? r.readerId
+                : typeof r.reader_id === "number"
+                  ? r.reader_id
+                  : null;
+        if (readerId != null && readerId === userId) {
+          return;
+        }
+        const convId =
+          typeof r.conversationId === "number"
+            ? r.conversationId
+            : typeof r.conversation_id === "number"
+              ? r.conversation_id
+              : null;
+        if (
+          convId != null &&
+          convId !== selectedConversationIdRef.current
+        ) {
+          return;
+        }
         setMessages((prev) =>
           prev.map((message) =>
-            message.senderId === userId ? { ...message, isRead: true } : message
+            message.senderId === userId
+              ? {
+                  ...message,
+                  readByRecipient: true,
+                  isRead: true,
+                }
+              : message
           )
         );
       }),
@@ -468,9 +733,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       if (typingTimeoutRef.current) {
         window.clearTimeout(typingTimeoutRef.current);
       }
-      chatService.disconnect();
     };
-  }, [isOpen, loadConversations, markConversationRead, onIncomingMessage, userId]);
+  }, [isOpen, loadConversations, markConversationRead, userId]);
 
   const handleInputChange = (value: string) => {
     setMessageInput(value);
@@ -511,7 +775,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         setMessages((prev) => upsertMessage(prev, result.message!));
       }
 
-      setConversations((prev) =>
+      setActiveChats((prev) =>
         sortConversations(
           prev.map((conversation) =>
             conversation.conversationId === selectedConversationId
@@ -535,19 +799,35 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   };
 
+  const headerPresence = useMemo(() => {
+    if (!selectedConversation) {
+      return { showDot: false, label: "" };
+    }
+    const merged = mergeRemotePresence(
+      selectedConversation,
+      remotePresenceByUserId
+    );
+    return formatChatPresenceLabel({
+      isOnline: merged.isOnline,
+      lastSeenIso: merged.lastSeenIso,
+    });
+  }, [selectedConversation, remotePresenceByUserId]);
+
   const typingLabel =
     typingUsers.length > 0
       ? `${typingUsers.map((user) => user.username).join(", ")} ${
           typingUsers.length > 1 ? "are" : "is"
         } typing...`
-      : selectedConversation?.isOnline
-        ? "Online"
-        : "Offline";
+      : headerPresence.label || "Offline";
 
   if (!isOpen) return null;
 
   return (
-    <div className="newsfeed-chat-panel-overlay" onClick={onClose}>
+    <div
+      ref={overlayRef}
+      className="newsfeed-chat-panel-overlay"
+      onClick={onClose}
+    >
       <div className="newsfeed-chat-panel" onClick={(event) => event.stopPropagation()}>
         <div className="newsfeed-chat-panel__header">
           <h3>Messages</h3>
@@ -569,7 +849,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               <input
                 type="text"
                 className="newsfeed-chat-panel__search-input"
-                placeholder="Search conversations..."
+                placeholder="Search chats or friends..."
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
               />
@@ -578,53 +858,147 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             {chatError && <div className="newsfeed-chat-panel__status-banner">{chatError}</div>}
 
             <div className="newsfeed-chat-panel__conversations-list">
-              {filteredConversations.length > 0 ? (
-                filteredConversations.map((conversation) => (
+              {filteredChats.length > 0 && (
+                <>
                   <div
-                    key={conversation.conversationId}
-                    className={`newsfeed-chat-panel__conversation-item ${
-                      selectedConversationId === conversation.conversationId
-                        ? "newsfeed-chat-panel__conversation-item--active"
-                        : ""
-                    }`}
-                    onClick={() => void openConversation(conversation.conversationId)}
+                    className="newsfeed-chat-panel__section-title"
+                    id="chat-panel-section-chats"
                   >
-                    <div className="newsfeed-chat-panel__conversation-avatar-wrapper">
-                      <Avatar
-                        src={conversation.otherAvatar}
-                        name={conversation.otherUsername || conversation.conversationName}
-                        size={48}
-                        className="newsfeed-chat-panel__conversation-avatar"
-                      />
-                      {conversation.isOnline && (
-                        <span className="newsfeed-chat-panel__online-indicator"></span>
-                      )}
-                    </div>
-                    <div className="newsfeed-chat-panel__conversation-info">
-                      <div className="newsfeed-chat-panel__conversation-header">
-                        <p className="newsfeed-chat-panel__conversation-name">
-                          {conversation.conversationName}
-                        </p>
-                        <span className="newsfeed-chat-panel__conversation-time">
-                          {timeLabel(conversation.lastMessageAt)}
-                        </span>
-                      </div>
-                      <div className="newsfeed-chat-panel__conversation-preview">
-                        <p className="newsfeed-chat-panel__conversation-message">
-                          {conversation.lastMessageContent || "Start the conversation"}
-                        </p>
-                        {conversation.unreadCount > 0 && (
-                          <span className="newsfeed-chat-panel__unread-badge">
-                            {conversation.unreadCount}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                    Chats
                   </div>
-                ))
-              ) : (
+                  {filteredChats.map((conversation) => {
+                    const merged = mergeRemotePresence(
+                      conversation,
+                      remotePresenceByUserId
+                    );
+                    const listPresence = formatChatPresenceLabel({
+                      isOnline: merged.isOnline,
+                      lastSeenIso: merged.lastSeenIso,
+                    });
+                    return (
+                      <div
+                        key={`chat-${conversation.conversationId}`}
+                        className={`newsfeed-chat-panel__conversation-item ${
+                          selectedConversationId === conversation.conversationId
+                            ? "newsfeed-chat-panel__conversation-item--active"
+                            : ""
+                        }`}
+                        onClick={() => void openConversation(conversation.conversationId)}
+                      >
+                        <div className="newsfeed-chat-panel__conversation-avatar-wrapper">
+                          <Avatar
+                            src={conversation.otherAvatar}
+                            name={
+                              conversation.otherUsername || conversation.conversationName
+                            }
+                            size={48}
+                            className="newsfeed-chat-panel__conversation-avatar"
+                          />
+                          {listPresence.showDot && (
+                            <span className="newsfeed-chat-panel__online-indicator"></span>
+                          )}
+                        </div>
+                        <div className="newsfeed-chat-panel__conversation-info">
+                          <div className="newsfeed-chat-panel__conversation-header">
+                            <p className="newsfeed-chat-panel__conversation-name">
+                              {conversation.conversationName}
+                            </p>
+                            <span className="newsfeed-chat-panel__conversation-time">
+                              {timeLabel(conversation.lastMessageAt)}
+                            </span>
+                          </div>
+                          <div className="newsfeed-chat-panel__conversation-preview">
+                            <p className="newsfeed-chat-panel__conversation-message">
+                              {conversation.lastMessageContent ||
+                                "No messages yet"}
+                            </p>
+                            {conversation.unreadCount > 0 && (
+                              <span className="newsfeed-chat-panel__unread-badge">
+                                {conversation.unreadCount}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+
+              {filteredFriends.length > 0 && (
+                <>
+                  <div
+                    className="newsfeed-chat-panel__section-title"
+                    id="chat-panel-section-friends"
+                  >
+                    Friends
+                  </div>
+                  {filteredFriends.map((f) => {
+                    const pseudoConv: ChatConversation = {
+                      conversationId: -f.userId,
+                      conversationType: "direct",
+                      conversationName: f.displayName,
+                      otherUserId: f.userId,
+                      otherUsername: f.displayName,
+                      otherAvatar: f.avatarUrl,
+                      lastMessageContent: "",
+                      unreadCount: 0,
+                      isOnline: false,
+                    };
+                    const merged = mergeRemotePresence(
+                      pseudoConv,
+                      remotePresenceByUserId
+                    );
+                    const listPresence = formatChatPresenceLabel({
+                      isOnline: merged.isOnline,
+                      lastSeenIso: merged.lastSeenIso,
+                    });
+                    return (
+                      <div
+                        key={`friend-${f.userId}`}
+                        className={`newsfeed-chat-panel__conversation-item newsfeed-chat-panel__conversation-item--friend ${
+                          selectedConversationId === -f.userId
+                            ? "newsfeed-chat-panel__conversation-item--active"
+                            : ""
+                        }`}
+                        onClick={() => void openConversation(-f.userId)}
+                      >
+                        <div className="newsfeed-chat-panel__conversation-avatar-wrapper">
+                          <Avatar
+                            src={f.avatarUrl}
+                            name={f.displayName}
+                            size={48}
+                            className="newsfeed-chat-panel__conversation-avatar"
+                          />
+                          {listPresence.showDot && (
+                            <span className="newsfeed-chat-panel__online-indicator"></span>
+                          )}
+                        </div>
+                        <div className="newsfeed-chat-panel__conversation-info">
+                          <div className="newsfeed-chat-panel__conversation-header">
+                            <p className="newsfeed-chat-panel__conversation-name">
+                              {f.displayName}
+                            </p>
+                          </div>
+                          <div className="newsfeed-chat-panel__conversation-preview">
+                            <p className="newsfeed-chat-panel__conversation-message newsfeed-chat-panel__conversation-message--hint">
+                              Tap to start a conversation
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+
+              {filteredChats.length === 0 && filteredFriends.length === 0 && (
                 <div className="newsfeed-chat-panel__empty-conversations">
-                  {chatError ? "Chat is unavailable right now." : "No conversations yet."}
+                  {chatError
+                    ? "Chat is unavailable right now."
+                    : searchLower
+                      ? "No chats or friends match your search."
+                      : "No chats or friends to show yet."}
                 </div>
               )}
             </div>
@@ -659,7 +1033,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                         size={40}
                         className="newsfeed-chat-panel__chat-avatar"
                       />
-                      {selectedConversation.isOnline && (
+                      {headerPresence.showDot && (
                         <span className="newsfeed-chat-panel__online-indicator"></span>
                       )}
                     </div>
@@ -707,7 +1081,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                               {isCurrentUser && (
                                 <span
                                   className={`newsfeed-chat-panel__message-status ${
-                                    message.isRead
+                                    isOutgoingReadByPeer(message)
                                       ? "newsfeed-chat-panel__message-status--read"
                                       : "newsfeed-chat-panel__message-status--sent"
                                   }`}
@@ -736,11 +1110,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 <div className="newsfeed-chat-panel__input-area">
                   <div className="newsfeed-chat-panel__input-row">
                     <input
+                      ref={messageInputRef}
                       type="text"
                       className="newsfeed-chat-panel__input"
                       placeholder="Type a message..."
                       value={messageInput}
                       onChange={(event) => handleInputChange(event.target.value)}
+                      onFocus={() => {
+                        window.setTimeout(() => {
+                          messagesEndRef.current?.scrollIntoView({
+                            block: "end",
+                            behavior: "smooth",
+                          });
+                        }, 280);
+                      }}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" && !event.shiftKey) {
                           event.preventDefault();

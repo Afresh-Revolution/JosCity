@@ -1,6 +1,9 @@
 import { io, type Socket } from "socket.io-client";
 import API_BASE_URL from "../api/config";
 
+/** Window event: refresh chat lists / unread after peer removed (unfriend). */
+export const CHAT_UI_REFRESH_EVENT = "joscity-chat-refresh";
+
 type ChatEventName =
   | "new_message"
   | "message_edited"
@@ -11,7 +14,10 @@ type ChatEventName =
   | "user_joined"
   | "user_left"
   | "new_message_notification"
-  | "admin_notification";
+  | "admin_notification"
+  | "user_presence"
+  | "presence_update"
+  | "presence_snapshot";
 
 export interface ChatParticipant {
   userId: number;
@@ -31,7 +37,16 @@ export interface ChatConversation {
   lastMessageAt?: string;
   unreadCount: number;
   isOnline: boolean;
+  /** Last activity / disconnect time (ISO) for “last seen” when not online */
+  otherUserLastSeen?: string;
   participantCount?: number;
+}
+
+export interface UserPresencePayload {
+  userId: number;
+  online?: boolean;
+  lastSeenAt?: string;
+  last_seen_at?: string;
 }
 
 export interface ChatMessage {
@@ -49,6 +64,8 @@ export interface ChatMessage {
   updatedAt?: string;
   isRead: boolean;
   readAt?: string;
+  /** Outgoing messages: other participant has read (read receipt). */
+  readByRecipient?: boolean;
 }
 
 export interface ChatMessageNotification {
@@ -101,6 +118,49 @@ const pickBoolean = (...values: unknown[]): boolean | undefined => {
 
 const toRecord = (value: unknown): JsonRecord =>
   value && typeof value === "object" ? (value as JsonRecord) : {};
+
+function normalizePresencePayloads(payload: unknown): UserPresencePayload[] {
+  if (payload == null) return [];
+  if (Array.isArray(payload)) {
+    return payload.flatMap((item) => normalizePresencePayloads(item));
+  }
+  const r = toRecord(payload);
+  const uid =
+    pickNumber(r.userId, r.user_id, r.id) ??
+    (typeof r.userId === "string" && !Number.isNaN(Number(r.userId))
+      ? Number(r.userId)
+      : undefined);
+  if (uid != null && uid > 0) {
+    return [
+      {
+        userId: uid,
+        online: pickBoolean(r.online, r.is_online),
+        lastSeenAt: pickString(r.last_seen_at, r.lastSeenAt, r.last_seen),
+      },
+    ];
+  }
+  const nested = r.presence ?? r.users ?? r.data;
+  if (nested && typeof nested === "object") {
+    if (Array.isArray(nested)) {
+      return normalizePresencePayloads(nested);
+    }
+    const out: UserPresencePayload[] = [];
+    for (const [key, val] of Object.entries(nested as Record<string, unknown>)) {
+      const row = toRecord(val);
+      const id =
+        pickNumber(row.user_id, row.userId) ??
+        (Number.isFinite(Number(key)) ? Number(key) : undefined);
+      if (id == null || id <= 0) continue;
+      out.push({
+        userId: id,
+        online: pickBoolean(row.online, row.is_online),
+        lastSeenAt: pickString(row.last_seen_at, row.lastSeenAt, row.last_seen),
+      });
+    }
+    return out;
+  }
+  return [];
+}
 
 const getSocketBaseUrl = (): string => {
   if (/^https?:\/\//i.test(API_BASE_URL)) {
@@ -207,6 +267,12 @@ export const normalizeChatConversation = (value: unknown): ChatConversation | nu
         record.other_user_online,
         record.otherUserOnline
       ) ?? false,
+    otherUserLastSeen: pickString(
+      record.other_user_last_seen,
+      record.otherUserLastSeen,
+      record.other_last_seen,
+      record.otherLastSeen
+    ),
     participantCount:
       Array.isArray(record.participants)
         ? record.participants.length
@@ -304,6 +370,18 @@ export const normalizeChatMessage = (value: unknown): ChatMessage | null => {
         record.readByCurrentUser
       ) ?? Boolean(record.read_at ?? record.readAt),
     readAt: pickString(record.read_at, record.readAt),
+    readByRecipient: pickBoolean(
+      record.read_by_recipient,
+      record.readByRecipient,
+      record.recipient_read,
+      record.recipientRead,
+      record.peer_read,
+      record.peerRead,
+      record.read_receipt,
+      record.readReceipt,
+      record.seen_by_other,
+      record.seenByOther
+    ),
   };
 };
 
@@ -698,6 +776,84 @@ class ChatService {
 
   onAdminNotification(callback: SocketCallback): () => void {
     return this.on("admin_notification", callback);
+  }
+
+  /**
+   * Tell the server the user still has the app open. Backend should mark user online
+   * and broadcast `user_presence` / `presence_update` to relevant peers.
+   */
+  sendPresenceHeartbeat(): void {
+    if (!this.socket?.connected) return;
+    const visible =
+      typeof document !== "undefined" ? document.visibilityState === "visible" : true;
+    this.socket.emit("presence_heartbeat", {
+      at: new Date().toISOString(),
+      visible,
+    });
+  }
+
+  /**
+   * Optional: GET /chat/presence?userIds=1,2,3 — backend returns per-user online + last_seen.
+   */
+  async fetchPresenceBatch(
+    userIds: number[]
+  ): Promise<Record<number, { online: boolean; lastSeenAt?: string }>> {
+    const unique = [...new Set(userIds.filter((id) => Number.isFinite(id) && id > 0))];
+    if (!unique.length) return {};
+    try {
+      const response = await this.apiRequest<JsonRecord>(
+        `/presence?userIds=${encodeURIComponent(unique.join(","))}`
+      );
+      const out: Record<number, { online: boolean; lastSeenAt?: string }> = {};
+      const ingest = (uid: number, row: JsonRecord) => {
+        if (!Number.isFinite(uid)) return;
+        out[uid] = {
+          online: pickBoolean(row.online, row.is_online) ?? false,
+          lastSeenAt: pickString(row.last_seen_at, row.lastSeenAt, row.last_seen),
+        };
+      };
+      const data = toRecord(response.data ?? response);
+      const byId = data.byUserId ?? data.users ?? response;
+      if (byId && typeof byId === "object" && !Array.isArray(byId)) {
+        for (const [key, val] of Object.entries(byId as Record<string, unknown>)) {
+          const uid = Number(key) || pickNumber(toRecord(val).user_id, toRecord(val).userId);
+          if (uid != null) ingest(uid, toRecord(val));
+        }
+      }
+      const arr = response.users;
+      if (Array.isArray(arr)) {
+        for (const item of arr) {
+          const row = toRecord(item);
+          const uid = pickNumber(row.user_id, row.userId);
+          if (uid != null) ingest(uid, row);
+        }
+      }
+      return out;
+    } catch {
+      return {};
+    }
+  }
+
+  onUserPresence(callback: (payload: UserPresencePayload) => void): () => void {
+    const socket = this.initializeSocket();
+    if (!socket) return () => {};
+
+    const dispatch = (raw: unknown) => {
+      const list = normalizePresencePayloads(raw);
+      list.forEach((p) => {
+        if (p.userId > 0) callback(p);
+      });
+    };
+
+    socket.on("user_presence", dispatch);
+    socket.on("presence_update", dispatch);
+    socket.on("presence_snapshot", dispatch);
+
+    return () => {
+      socket.off("user_presence", dispatch);
+      socket.off("presence_update", dispatch);
+      socket.off("presence_snapshot", dispatch);
+    };
   }
 
   disconnect(): void {

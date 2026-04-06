@@ -160,7 +160,9 @@ function App() {
           aria-hidden="true"
         />
       )}
-      <nav className="navbar">
+      <div className="navbar-shell">
+        <div className="navbar-shell__glass" aria-hidden />
+        <nav className="navbar">
         <div className="navbar__left-section">
           <div
             className="navbar__brand"
@@ -264,6 +266,7 @@ function App() {
           </div>
         </div>
       </nav>
+      </div>
     </>
   );
 }

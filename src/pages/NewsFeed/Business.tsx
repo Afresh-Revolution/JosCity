@@ -1,25 +1,17 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  MessageCircle,
   Bell,
   Search,
   X,
   Building2,
-  Send,
-  MoreVertical,
-  Paperclip,
-  Smile,
   UserCheck,
   UserX,
   CheckCircle,
   Trash2,
-  Image,
-  Video,
-  User,
 } from "lucide-react";
 import Avatar from "../../components/Avatar";
-import EmojiPicker from "../../components/EmojiPicker";
+import ChatPanel from "../../components/ChatPanel";
 import ProfileModal from "../../components/ProfileModal";
 import FindFriendsModal from "../../components/FindFriendsModal";
 import NewsFeedSidebar from "./NewsFeedSidebar";
@@ -48,6 +40,7 @@ import {
 } from "../../utils/feedPanelNotifications";
 import { addFriend } from "../../utils/friendUtils";
 import { friendApi } from "../../services/friendApi";
+import { CHAT_UI_REFRESH_EVENT } from "../../services/chatService";
 import {
   playNotificationSound,
   showBrowserNotification,
@@ -83,33 +76,6 @@ interface Post {
   listingDetails?: import("../../utils/mapFeedApiItemToPost").ListingDetails | null;
 }
 
-// Chat interfaces
-interface ChatMessage {
-  id: number;
-  senderId: number;
-  text: string;
-  timestamp: string;
-  isRead: boolean;
-  attachment?: {
-    type: "image" | "video" | "file";
-    url: string;
-    fileName?: string;
-    fileSize?: number;
-  };
-}
-
-interface ChatConversation {
-  id: number;
-  userId: number;
-  userName: string;
-  userAvatar: string;
-  lastMessage: string;
-  lastMessageTime: string;
-  unreadCount: number;
-  isOnline: boolean;
-  messages: ChatMessage[];
-}
-
 const Business: React.FC = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
@@ -122,23 +88,11 @@ const Business: React.FC = () => {
   const isBusinessAccount =
     getUserAccountType().toLowerCase() === "business";
 
-  // Chat/Messages state
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
-  const [selectedChatId, setSelectedChatId] = useState<number | null>(null);
-  const [chatSearchQuery, setChatSearchQuery] = useState("");
-  const [messageInput, setMessageInput] = useState("");
-  const [chatConversations, setChatConversations] = useState<
-    ChatConversation[]
-  >([]);
-  const [messageAttachment, setMessageAttachment] = useState<{
-    type: "image" | "video" | "file";
-    url: string;
-    fileName?: string;
-    fileSize?: number;
-  } | null>(null);
-  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
-  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
-  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [activeChatConversationId, setActiveChatConversationId] = useState<
+    number | null
+  >(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedProfileUserId, setSelectedProfileUserId] = useState<
     number | null
@@ -153,16 +107,7 @@ const Business: React.FC = () => {
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   // Refs
-  const chatPanelRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const notificationPanelRef = useRef<HTMLDivElement>(null);
-  const attachmentMenuRef = useRef<HTMLDivElement>(null);
-  const attachmentButtonRef = useRef<HTMLButtonElement>(null);
-  const chatMenuRef = useRef<HTMLDivElement>(null);
-  const chatMenuButtonRef = useRef<HTMLButtonElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
 
   // Add Friend Modal state
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
@@ -309,11 +254,6 @@ const Business: React.FC = () => {
     (n) => !n.isRead
   ).length;
 
-  const unreadMessagesCount = chatConversations.reduce(
-    (sum, c) => sum + (c.unreadCount || 0),
-    0
-  );
-
   const markNotificationAsRead = (notificationId: number) => {
     setNotifications((prev) =>
       prev.map((notif) =>
@@ -374,11 +314,14 @@ const Business: React.FC = () => {
           data?.conversation_id != null ? Number(data.conversation_id) : undefined;
         if (cid != null && Number.isFinite(cid)) {
           handleFriendAdded(n.userId, n.userName, cid);
-          setSelectedChatId(cid);
+          setActiveChatConversationId(cid);
           setIsChatPanelOpen(true);
           setIsNotificationPanelOpen(false);
         } else {
           handleFriendAdded(n.userId, n.userName);
+          setActiveChatConversationId(-n.userId);
+          setIsChatPanelOpen(true);
+          setIsNotificationPanelOpen(false);
         }
       }
     } catch {
@@ -400,23 +343,6 @@ const Business: React.FC = () => {
       await fetchNotifications();
     }
   };
-
-  // Filter conversations based on search query
-  const filteredConversations = chatConversations.filter((chat) =>
-    chat.userName.toLowerCase().includes(chatSearchQuery.toLowerCase().trim())
-  );
-
-  // Get selected chat
-  const selectedChat = chatConversations.find(
-    (chat) => chat.id === selectedChatId
-  );
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [selectedChat?.messages]);
 
   // Request notification permission on mount
   useEffect(() => {
@@ -645,80 +571,11 @@ const Business: React.FC = () => {
     return () => clearInterval(interval);
   }, [loadFriendsList]);
 
-  // Add notification when receiving a new message
-  useEffect(() => {
-    chatConversations.forEach((chat) => {
-      if (chat.messages.length > 0) {
-        const lastMessage = chat.messages[chat.messages.length - 1];
-        // Only create notification for messages from other users that are unread
-        // and when chat is not currently selected (user is not viewing the chat)
-        if (
-          lastMessage &&
-          lastMessage.senderId !== 0 &&
-          !lastMessage.isRead &&
-          selectedChatId !== chat.id
-        ) {
-          setNotifications((prev) => {
-            // Check if notification already exists for this message
-            const existingNotification = prev.find(
-              (n) =>
-                n.type === "message" &&
-                n.relatedChatId === chat.id &&
-                n.userId === chat.userId
-            );
-
-            if (!existingNotification) {
-              const messageText = lastMessage.attachment
-                ? lastMessage.attachment.type === "image"
-                  ? "sent you a photo"
-                  : lastMessage.attachment.type === "video"
-                  ? "sent you a video"
-                  : "sent you a file"
-                : lastMessage.text
-                ? lastMessage.text
-                : "sent you a message";
-
-              const newNotification: FeedPanelNotification = {
-                id: Date.now(),
-                type: "message",
-                userId: chat.userId,
-                userName: chat.userName,
-                userAvatar: chat.userAvatar,
-                message:
-                  messageText.length > 50
-                    ? `sent you a message: "${messageText.substring(0, 50)}..."`
-                    : `sent you a message: "${messageText}"`,
-                timestamp: "Just now",
-                isRead: false,
-                relatedChatId: chat.id,
-              };
-
-              // Play notification sound
-              playNotificationSound();
-
-              // Show browser notification
-              showBrowserNotification(
-                chat.userName,
-                messageText.length > 50
-                  ? messageText.substring(0, 50) + "..."
-                  : messageText,
-                chat.userAvatar
-              );
-
-              return [newNotification, ...prev];
-            }
-            return prev;
-          });
-        }
-      }
-    });
-  }, [chatConversations, selectedChatId]);
-
   // Handle friend added
   const handleFriendAdded = (
     friendId: number,
     friendName: string,
-    conversationId?: number
+    _conversationId?: number
   ) => {
     // Add friend to friends list
     addFriend(friendId);
@@ -731,30 +588,7 @@ const Business: React.FC = () => {
       return prev;
     });
 
-    // Add friend to chat conversations if not already there
-    setChatConversations((prev) => {
-      const existingChat = prev.find((chat) => chat.userId === friendId);
-      if (!existingChat) {
-        const newChat: ChatConversation = {
-          id: conversationId ?? Date.now(),
-          userId: friendId,
-          userName: friendName,
-          userAvatar: "", // Avatar will be fetched from user data
-          lastMessage: "",
-          lastMessageTime: "",
-          unreadCount: 0,
-          isOnline: true,
-          messages: [],
-        };
-        return [...prev, newChat];
-      }
-      if (conversationId != null && existingChat.id !== conversationId) {
-        return prev.map((chat) =>
-          chat.userId === friendId ? { ...chat, id: conversationId } : chat
-        );
-      }
-      return prev;
-    });
+    window.dispatchEvent(new CustomEvent(CHAT_UI_REFRESH_EVENT));
 
     // Dispatch event for friend added notification
     const friendAddedEvent = new CustomEvent("friendAdded", {
@@ -767,115 +601,6 @@ const Business: React.FC = () => {
     window.dispatchEvent(friendAddedEvent);
   };
 
-  // Handle sending a message
-  const handleSendMessage = () => {
-    if ((!messageInput.trim() && !messageAttachment) || !selectedChatId) return;
-
-    const newMessage: ChatMessage = {
-      id: Date.now(),
-      senderId: 0, // Current user
-      text: messageInput.trim(),
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      isRead: false,
-      attachment: messageAttachment || undefined,
-    };
-
-    setChatConversations((prev) =>
-      prev.map((chat) => {
-        if (chat.id === selectedChatId) {
-          const lastMessageText = messageAttachment
-            ? messageAttachment.type === "image"
-              ? "📷 Photo"
-              : messageAttachment.type === "video"
-              ? "🎥 Video"
-              : `📎 ${messageAttachment.fileName || "File"}`
-            : newMessage.text;
-          return {
-            ...chat,
-            messages: [...chat.messages, newMessage],
-            lastMessage: lastMessageText,
-            lastMessageTime: "Just now",
-          };
-        }
-        return chat;
-      })
-    );
-
-    setMessageInput("");
-    setMessageAttachment(null);
-  };
-
-  // Handle file attachment
-  const handleFileSelect = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    type: "image" | "video" | "file"
-  ) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setMessageAttachment({
-          type: type,
-          url: reader.result as string,
-          fileName: file.name,
-          fileSize: file.size,
-        });
-      };
-      reader.readAsDataURL(file);
-    }
-    e.target.value = "";
-  };
-
-  // Handle attachment click
-  const handleAttachmentClick = (type: "image" | "video" | "file") => {
-    setIsAttachmentMenuOpen(false);
-    if (type === "image" && imageInputRef.current) {
-      imageInputRef.current.click();
-    } else if (type === "video" && videoInputRef.current) {
-      videoInputRef.current.click();
-    } else if (type === "file" && fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  // Handle key press in message input
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  // Close menus when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        attachmentMenuRef.current &&
-        attachmentButtonRef.current &&
-        !attachmentMenuRef.current.contains(event.target as Node) &&
-        !attachmentButtonRef.current.contains(event.target as Node)
-      ) {
-        setIsAttachmentMenuOpen(false);
-      }
-      if (
-        chatMenuRef.current &&
-        chatMenuButtonRef.current &&
-        !chatMenuRef.current.contains(event.target as Node) &&
-        !chatMenuButtonRef.current.contains(event.target as Node)
-      ) {
-        setIsChatMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
   return (
     <div className="newsfeed-page business-page">
       <NewsFeedHeader
@@ -886,7 +611,10 @@ const Business: React.FC = () => {
         onCreatePost={openBusinessCreatePost}
         onProfileClick={handleProfileClick}
         onAddFriend={() => setIsAddFriendModalOpen(true)}
-        onOpenChat={() => setIsChatPanelOpen(true)}
+        onOpenChat={() => {
+          setActiveChatConversationId(null);
+          setIsChatPanelOpen(true);
+        }}
         onOpenNotifications={() => setIsNotificationPanelOpen(true)}
         unreadNotificationsCount={unreadNotificationsCount}
         unreadMessagesCount={unreadMessagesCount}
@@ -1007,445 +735,15 @@ const Business: React.FC = () => {
         />
       )}
 
-      {/* Chat Panel */}
-      {isChatPanelOpen && (
-        <div
-          className="newsfeed-chat-panel-overlay"
-          onClick={() => setIsChatPanelOpen(false)}
-        >
-          <div
-            ref={chatPanelRef}
-            className="newsfeed-chat-panel"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="newsfeed-chat-panel__header">
-              <h3>Messages</h3>
-              <button
-                className="newsfeed-chat-panel__close"
-                onClick={() => setIsChatPanelOpen(false)}
-                aria-label="Close chat"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="newsfeed-chat-panel__container">
-              {/* Conversations List */}
-              <div
-                className={`newsfeed-chat-panel__conversations ${
-                  selectedChatId
-                    ? "newsfeed-chat-panel__conversations--hidden"
-                    : ""
-                }`}
-              >
-                <div className="newsfeed-chat-panel__search-wrapper">
-                  <Search
-                    size={18}
-                    className="newsfeed-chat-panel__search-icon"
-                  />
-                  <input
-                    type="text"
-                    className="newsfeed-chat-panel__search-input"
-                    placeholder="Search conversations..."
-                    value={chatSearchQuery}
-                    onChange={(e) => setChatSearchQuery(e.target.value)}
-                  />
-                </div>
-                <div className="newsfeed-chat-panel__conversations-list">
-                  {filteredConversations.length > 0 ? (
-                    filteredConversations.map((conversation) => (
-                      <div
-                        key={conversation.id}
-                        className={`newsfeed-chat-panel__conversation-item ${
-                          selectedChatId === conversation.id
-                            ? "newsfeed-chat-panel__conversation-item--active"
-                            : ""
-                        }`}
-                        onClick={() => {
-                          setSelectedChatId(conversation.id);
-                          // Mark messages as read when opening chat
-                          setChatConversations((prev) =>
-                            prev.map((chat) =>
-                              chat.id === conversation.id
-                                ? {
-                                    ...chat,
-                                    messages: chat.messages.map((msg) => ({
-                                      ...msg,
-                                      isRead: true,
-                                    })),
-                                    unreadCount: 0,
-                                  }
-                                : chat
-                            )
-                          );
-                        }}
-                      >
-                        <div className="newsfeed-chat-panel__conversation-avatar-wrapper">
-                          <Avatar
-                            src={conversation.userAvatar}
-                            alt={conversation.userName}
-                            name={conversation.userName}
-                            size={48}
-                            className="newsfeed-chat-panel__conversation-avatar"
-                          />
-                          {conversation.isOnline && (
-                            <span className="newsfeed-chat-panel__online-indicator"></span>
-                          )}
-                        </div>
-                        <div className="newsfeed-chat-panel__conversation-info">
-                          <div className="newsfeed-chat-panel__conversation-header">
-                            <p className="newsfeed-chat-panel__conversation-name">
-                              {conversation.userName}
-                            </p>
-                            <span className="newsfeed-chat-panel__conversation-time">
-                              {conversation.lastMessageTime}
-                            </span>
-                          </div>
-                          <div className="newsfeed-chat-panel__conversation-preview">
-                            <p className="newsfeed-chat-panel__conversation-message">
-                              {conversation.lastMessage}
-                            </p>
-                            {conversation.unreadCount > 0 && (
-                              <span className="newsfeed-chat-panel__unread-badge">
-                                {conversation.unreadCount}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="newsfeed-chat-panel__empty-conversations">
-                      <p>No conversations found</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Chat Window */}
-              <div
-                className={`newsfeed-chat-panel__chat-window ${
-                  selectedChatId
-                    ? "newsfeed-chat-panel__chat-window--visible"
-                    : ""
-                }`}
-              >
-                {selectedChat ? (
-                  <>
-                    <div className="newsfeed-chat-panel__chat-header">
-                      <button
-                        className="newsfeed-chat-panel__back-btn"
-                        onClick={() => setSelectedChatId(null)}
-                        aria-label="Back to conversations"
-                      >
-                        <X size={20} />
-                      </button>
-                      <div className="newsfeed-chat-panel__chat-user-info">
-                        <div className="newsfeed-chat-panel__chat-avatar-wrapper">
-                          <Avatar
-                            src={selectedChat.userAvatar}
-                            alt={selectedChat.userName}
-                            name={selectedChat.userName}
-                            size={40}
-                            className="newsfeed-chat-panel__chat-avatar"
-                          />
-                          {selectedChat.isOnline && (
-                            <span className="newsfeed-chat-panel__online-indicator"></span>
-                          )}
-                        </div>
-                        <div className="newsfeed-chat-panel__chat-user-details">
-                          <p className="newsfeed-chat-panel__chat-user-name">
-                            {selectedChat.userName}
-                          </p>
-                          <p className="newsfeed-chat-panel__chat-status">
-                            {selectedChat.isOnline ? "Online" : "Offline"}
-                          </p>
-                        </div>
-                      </div>
-                      <div
-                        className="newsfeed-chat-panel__chat-menu-wrapper"
-                        ref={chatMenuRef}
-                      >
-                        <button
-                          ref={chatMenuButtonRef}
-                          className="newsfeed-chat-panel__chat-menu-btn"
-                          aria-label="More options"
-                          onClick={() => setIsChatMenuOpen(!isChatMenuOpen)}
-                        >
-                          <MoreVertical size={20} />
-                        </button>
-                        {isChatMenuOpen && (
-                          <div className="newsfeed-chat-panel__chat-menu-dropdown">
-                            <button
-                              className="newsfeed-chat-panel__chat-menu-item"
-                              onClick={() => {
-                                setIsChatMenuOpen(false);
-                                if (selectedChat) {
-                                  setSelectedProfileUserId(selectedChat.userId);
-                                  setIsProfileModalOpen(true);
-                                }
-                              }}
-                            >
-                              <User size={18} />
-                              <span>View Profile</span>
-                            </button>
-                            <button
-                              className="newsfeed-chat-panel__chat-menu-item newsfeed-chat-panel__chat-menu-item--danger"
-                              onClick={() => {
-                                setIsChatMenuOpen(false);
-                                if (
-                                  window.confirm(
-                                    "Are you sure you want to delete this conversation?"
-                                  )
-                                ) {
-                                  setChatConversations((prev) =>
-                                    prev.filter(
-                                      (chat) => chat.id !== selectedChatId
-                                    )
-                                  );
-                                  setSelectedChatId(null);
-                                }
-                              }}
-                            >
-                              <X size={18} />
-                              <span>Delete Conversation</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="newsfeed-chat-panel__messages">
-                      {selectedChat.messages.map((message) => {
-                        const isCurrentUser = message.senderId === 0;
-                        return (
-                          <div
-                            key={message.id}
-                            className={`newsfeed-chat-panel__message ${
-                              isCurrentUser
-                                ? "newsfeed-chat-panel__message--sent"
-                                : "newsfeed-chat-panel__message--received"
-                            }`}
-                          >
-                            {!isCurrentUser && (
-                              <Avatar
-                                src={selectedChat.userAvatar}
-                                alt={selectedChat.userName}
-                                name={selectedChat.userName}
-                                size={32}
-                                className="newsfeed-chat-panel__message-avatar"
-                              />
-                            )}
-                            <div className="newsfeed-chat-panel__message-content">
-                              {message.attachment && (
-                                <div className="newsfeed-chat-panel__message-attachment">
-                                  {message.attachment.type === "image" && (
-                                    <img
-                                      src={message.attachment.url}
-                                      alt="Attachment"
-                                      className="newsfeed-chat-panel__attachment-image"
-                                    />
-                                  )}
-                                  {message.attachment.type === "video" && (
-                                    <video
-                                      src={message.attachment.url}
-                                      controls
-                                      className="newsfeed-chat-panel__attachment-video"
-                                    />
-                                  )}
-                                  {message.attachment.type === "file" && (
-                                    <div className="newsfeed-chat-panel__attachment-file">
-                                      <Paperclip size={20} />
-                                      <div>
-                                        <p className="newsfeed-chat-panel__attachment-filename">
-                                          {message.attachment.fileName ||
-                                            "File"}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                              {message.text && (
-                                <p className="newsfeed-chat-panel__message-text">
-                                  {message.text}
-                                </p>
-                              )}
-                              <div className="newsfeed-chat-panel__message-footer">
-                                <span className="newsfeed-chat-panel__message-time">
-                                  {message.timestamp}
-                                </span>
-                                {isCurrentUser && (
-                                  <span
-                                    className={`newsfeed-chat-panel__message-status ${
-                                      message.isRead
-                                        ? "newsfeed-chat-panel__message-status--read"
-                                        : "newsfeed-chat-panel__message-status--sent"
-                                    }`}
-                                    title={message.isRead ? "Read" : "Sent"}
-                                  >
-                                    {message.isRead ? (
-                                      <CheckCircle
-                                        size={14}
-                                        fill="currentColor"
-                                        color="currentColor"
-                                      />
-                                    ) : (
-                                      <CheckCircle size={14} />
-                                    )}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <div ref={messagesEndRef} />
-                    </div>
-
-                    <div className="newsfeed-chat-panel__input-area">
-                      {messageAttachment && (
-                        <div className="newsfeed-chat-panel__attachment-preview">
-                          <div className="newsfeed-chat-panel__attachment-preview-content">
-                            {messageAttachment.type === "image" && (
-                              <Image size={16} />
-                            )}
-                            {messageAttachment.type === "video" && (
-                              <Video size={16} />
-                            )}
-                            {messageAttachment.type === "file" && (
-                              <Paperclip size={16} />
-                            )}
-                            <span className="newsfeed-chat-panel__attachment-preview-name">
-                              {messageAttachment.fileName || "Attachment"}
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => setMessageAttachment(null)}
-                            className="newsfeed-chat-panel__attachment-preview-remove"
-                            aria-label="Remove attachment"
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-                      )}
-                      <div className="newsfeed-chat-panel__input-row">
-                        <div
-                          className="newsfeed-chat-panel__attachment-menu-wrapper"
-                          ref={attachmentMenuRef}
-                        >
-                          <button
-                            ref={attachmentButtonRef}
-                            className="newsfeed-chat-panel__input-btn"
-                            aria-label="Attach file"
-                            title="Attach file"
-                            onClick={() =>
-                              setIsAttachmentMenuOpen(!isAttachmentMenuOpen)
-                            }
-                          >
-                            <Paperclip size={20} />
-                          </button>
-                          {isAttachmentMenuOpen && (
-                            <div className="newsfeed-chat-panel__attachment-menu">
-                              <button
-                                className="newsfeed-chat-panel__attachment-menu-item"
-                                onClick={() => handleAttachmentClick("image")}
-                              >
-                                <Image size={18} />
-                                <span>Photo</span>
-                              </button>
-                              <button
-                                className="newsfeed-chat-panel__attachment-menu-item"
-                                onClick={() => handleAttachmentClick("video")}
-                              >
-                                <Video size={18} />
-                                <span>Video</span>
-                              </button>
-                              <button
-                                className="newsfeed-chat-panel__attachment-menu-item"
-                                onClick={() => handleAttachmentClick("file")}
-                              >
-                                <Paperclip size={18} />
-                                <span>File</span>
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        <input
-                          type="file"
-                          ref={fileInputRef}
-                          accept="*/*"
-                          onChange={(e) => handleFileSelect(e, "file")}
-                          style={{ display: "none" }}
-                        />
-                        <input
-                          type="file"
-                          ref={imageInputRef}
-                          accept="image/*"
-                          onChange={(e) => handleFileSelect(e, "image")}
-                          style={{ display: "none" }}
-                        />
-                        <input
-                          type="file"
-                          ref={videoInputRef}
-                          accept="video/*"
-                          onChange={(e) => handleFileSelect(e, "video")}
-                          style={{ display: "none" }}
-                        />
-                        <input
-                          type="text"
-                          className="newsfeed-chat-panel__input"
-                          placeholder="Type a message..."
-                          value={messageInput}
-                          onChange={(e) => setMessageInput(e.target.value)}
-                          onKeyPress={handleKeyPress}
-                        />
-                        <div className="newsfeed-chat-panel__emoji-wrapper">
-                          <button
-                            className="newsfeed-chat-panel__input-btn"
-                            aria-label="Add emoji"
-                            title="Add emoji"
-                            onClick={() =>
-                              setIsEmojiPickerOpen(!isEmojiPickerOpen)
-                            }
-                          >
-                            <Smile size={20} />
-                          </button>
-                          {isEmojiPickerOpen && (
-                            <EmojiPicker
-                              isOpen={isEmojiPickerOpen}
-                              onClose={() => setIsEmojiPickerOpen(false)}
-                              onEmojiSelect={(emoji) => {
-                                setMessageInput((prev) => prev + emoji);
-                                setIsEmojiPickerOpen(false);
-                              }}
-                              position="top"
-                            />
-                          )}
-                        </div>
-                        <button
-                          className="newsfeed-chat-panel__send-btn"
-                          onClick={handleSendMessage}
-                          disabled={!messageInput.trim() && !messageAttachment}
-                          aria-label="Send message"
-                          title="Send message"
-                        >
-                          <Send size={20} />
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="newsfeed-chat-panel__no-chat-selected">
-                    <MessageCircle size={64} />
-                    <p>Select a conversation to start chatting</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ChatPanel
+        isOpen={isChatPanelOpen}
+        onClose={() => {
+          setIsChatPanelOpen(false);
+          setActiveChatConversationId(null);
+        }}
+        onUnreadCountChange={setUnreadMessagesCount}
+        activeConversationId={activeChatConversationId}
+      />
 
       {/* Profile Modal */}
       {isProfileModalOpen && selectedProfileUserId && (
@@ -1456,24 +754,12 @@ const Business: React.FC = () => {
             setSelectedProfileUserId(null);
           }}
           userId={selectedProfileUserId}
-          userName={
-            chatConversations.find((c) => c.userId === selectedProfileUserId)
-              ?.userName || "User"
-          }
-          userAvatar={
-            chatConversations.find((c) => c.userId === selectedProfileUserId)
-              ?.userAvatar || ""
-          }
-          isOnline={
-            chatConversations.find((c) => c.userId === selectedProfileUserId)
-              ?.isOnline || false
-          }
+          userName="User"
+          userAvatar=""
+          isOnline={false}
           onMessage={() => {
-            const chat = chatConversations.find(
-              (c) => c.userId === selectedProfileUserId
-            );
-            if (chat) {
-              setSelectedChatId(chat.id);
+            if (selectedProfileUserId != null) {
+              setActiveChatConversationId(-selectedProfileUserId);
               setIsChatPanelOpen(true);
             }
           }}

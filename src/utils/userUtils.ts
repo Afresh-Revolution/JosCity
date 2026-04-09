@@ -3,6 +3,9 @@
  */
 
 export interface UserData {
+  id?: number;
+  user_id?: number;
+  userId?: number;
   user_firstname?: string;
   user_lastname?: string;
   user_email?: string;
@@ -28,6 +31,26 @@ export const getUserData = (): UserData | null => {
     console.error("Error parsing user data:", error);
   }
   return null;
+};
+
+/**
+ * Numeric user id from stored user object (JWT payload often synced here).
+ */
+export const getUserId = (): number => {
+  const user = getUserData();
+  if (!user) return 0;
+  const raw: unknown =
+    user.id ??
+    user.user_id ??
+    user.userId ??
+    (typeof (user as { userId?: unknown }).userId === "number"
+      ? (user as { userId: number }).userId
+      : undefined);
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return raw;
+  if (typeof raw === "string" && raw.trim() && !Number.isNaN(Number(raw))) {
+    return Number(raw);
+  }
+  return 0;
 };
 
 /**
@@ -127,6 +150,17 @@ export const getUserEmail = (): string => {
 export const getUserAccountType = (): string => {
   const user = getUserData();
   return user?.account_type || "Basic";
+};
+
+/** Business badge / seller accounts (marketplace create, "My offers"). */
+export const isBusinessUser = (): boolean => {
+  const t = (getUserAccountType() || "").toLowerCase();
+  return t === "business";
+};
+
+/** Personal (consumer) accounts — cart and checkout. */
+export const isPersonalConsumerUser = (): boolean => {
+  return isAuthenticated() && !isBusinessUser();
 };
 
 /**

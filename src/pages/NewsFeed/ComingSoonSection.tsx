@@ -15,7 +15,6 @@ const SECTION_NAMES: Record<string, string> = {
   reels: "Reels",
   news: "News",
   forums: "Forums",
-  marketplace: "Marketplace",
   offers: "Offers",
   jobs: "Jobs",
   movies: "Movies",

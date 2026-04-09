@@ -453,6 +453,71 @@ export const deleteGroup = async (id: string): Promise<{ success: boolean; messa
   return response.json();
 };
 
+// ==================== FORUMS ====================
+export interface AdminForumAdmin {
+  userId: number;
+  displayName: string;
+}
+
+export interface AdminForumRow {
+  id: number;
+  name: string;
+  description: string;
+  category: string;
+  visibility: string;
+  suspended: boolean;
+  created_by: number;
+  creator_name: string;
+  creator_picture?: string;
+  member_count: number;
+  created_at: string;
+  updated_at: string;
+  admins: AdminForumAdmin[];
+}
+
+export interface AdminForumsResponse {
+  success: boolean;
+  data: AdminForumRow[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export const getAdminForums = async (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}): Promise<AdminForumsResponse> => {
+  const queryParams = new URLSearchParams();
+  if (params?.page) queryParams.append("page", params.page.toString());
+  if (params?.limit) queryParams.append("limit", params.limit.toString());
+  if (params?.search) queryParams.append("search", params.search);
+  const qs = queryParams.toString();
+  const response = await adminApiRequest(`/forums${qs ? `?${qs}` : ""}`);
+  return response.json();
+};
+
+export const setAdminForumSuspended = async (
+  id: number,
+  suspended: boolean
+): Promise<{ success: boolean; data?: { id: number; suspended: boolean } }> => {
+  const response = await adminApiRequest(`/forums/${id}/suspend`, {
+    method: "PATCH",
+    body: JSON.stringify({ suspended }),
+  });
+  return response.json();
+};
+
+export const deleteAdminForum = async (id: number): Promise<{ success: boolean; message?: string }> => {
+  const response = await adminApiRequest(`/forums/${id}`, {
+    method: "DELETE",
+  });
+  return response.json();
+};
+
 // ==================== EVENTS ====================
 export interface Event {
   event_id: string;

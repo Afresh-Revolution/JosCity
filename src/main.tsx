@@ -34,6 +34,8 @@ import NavbarThemeToggle from "./components/NavbarThemeToggle";
 import Maintenance from "./pages/Maintenance";
 // import RoutingDisabled from "./pages/RoutingDisabled";
 import ComingSoonSection from "./pages/NewsFeed/ComingSoonSection";
+import Forums from "./pages/NewsFeed/Forums";
+import MarketPlace from "./pages/NewsFeed/MarketPlace";
 import Scheduled from "./pages/NewsFeed/Scheduled";
 import Saved from "./pages/NewsFeed/Saved";
 import People from "./components/People";
@@ -153,7 +155,7 @@ if (rootElement) {
                     path="/forums"
                     element={
                       <UserRoute>
-                        <ComingSoonSection />
+                        <Forums />
                       </UserRoute>
                     }
                   />
@@ -218,7 +220,7 @@ if (rootElement) {
                     path="/marketplace"
                     element={
                       <UserRoute>
-                        <ComingSoonSection />
+                        <MarketPlace />
                       </UserRoute>
                     }
                   />

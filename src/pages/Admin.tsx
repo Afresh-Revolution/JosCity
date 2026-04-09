@@ -60,6 +60,7 @@ import AdminUsers from "./AdminUsers";
 import AdminPosts from "./AdminPosts";
 import AdminPages from "./AdminPages";
 import AdminGroups from "./AdminGroups";
+import AdminForums from "./AdminForums";
 import AdminEvents from "./AdminEvents";
 import AdminReports from "./AdminReports";
 import AdminVerification from "./AdminVerification";
@@ -101,6 +102,7 @@ const Admin: React.FC = () => {
     | "posts"
     | "pages"
     | "groups"
+    | "forums"
     | "events"
     | "reports"
     | "verification"
@@ -539,6 +541,19 @@ const Admin: React.FC = () => {
                       }`}>
                       <Users size={18} />
                       <span>Groups</span>
+                      <ChevronRight size={16} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setActiveView("forums");
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`admin-modules-container__item ${
+                        activeView === "forums" ? "admin-modules-container__item--active" : ""
+                      }`}>
+                      <MessageSquare size={18} />
+                      <span>Forums</span>
                       <ChevronRight size={16} />
                     </button>
                     <button
@@ -1098,6 +1113,8 @@ const Admin: React.FC = () => {
               <AdminPages />
             ) : activeView === "groups" ? (
               <AdminGroups />
+            ) : activeView === "forums" ? (
+              <AdminForums />
             ) : activeView === "events" ? (
               <AdminEvents />
             ) : activeView === "reports" ? (

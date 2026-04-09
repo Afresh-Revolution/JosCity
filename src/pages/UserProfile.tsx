@@ -18,6 +18,7 @@ import {
   MapPin,
   IdCard,
   VenusAndMars,
+  Copy,
 } from "lucide-react";
 import "../main.css";
 import "../scss/_user-profile.scss";
@@ -27,11 +28,25 @@ import {
   getUserEmail,
   getUserAccountType,
   getUserInitials,
+  getUserId,
 } from "../utils/userUtils";
 import { userApi } from "../services/userApi";
 import { getUserProfile, uploadProfilePicture } from "../api/auth";
 import LazyImage from "../components/LazyImage";
 import ConfirmationModal from "../components/ConfirmationModal";
+import { formatMemberDisplayId } from "../utils/memberDisplayId";
+
+/** Numeric id from profile API or stored user object */
+function readNumericUserId(data: Record<string, unknown> | null): number {
+  if (!data) return 0;
+  const raw = data.user_id ?? data.id ?? data.userId;
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return raw;
+  if (typeof raw === "string" && raw.trim() && !Number.isNaN(Number(raw))) {
+    const n = Number(raw);
+    return n > 0 ? n : 0;
+  }
+  return 0;
+}
 
 const UserProfile: React.FC = () => {
   const navigate = useNavigate();
@@ -60,6 +75,7 @@ const UserProfile: React.FC = () => {
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [userIdCopied, setUserIdCopied] = useState(false);
   const accountType = getUserAccountType().toLowerCase();
   const isBusinessAccount = accountType === "business";
 
@@ -439,6 +455,19 @@ const UserProfile: React.FC = () => {
   };
 
   const displayName = getUserName();
+  const displayUserId = readNumericUserId(userData) || getUserId();
+
+  const handleCopyUserId = async () => {
+    const id = readNumericUserId(userData) || getUserId();
+    if (!id) return;
+    try {
+      await navigator.clipboard.writeText(String(id));
+      setUserIdCopied(true);
+      window.setTimeout(() => setUserIdCopied(false), 2000);
+    } catch {
+      window.prompt("Copy user ID", String(id));
+    }
+  };
 
   return (
     <div className="user-profile-page">
@@ -530,6 +559,38 @@ const UserProfile: React.FC = () => {
                       getUserEmail() ||
                       "No email provided"}
                 </p>
+                {displayUserId > 0 && (
+                  <div
+                    className="user-profile__user-id-row"
+                    role="group"
+                    aria-label="Member ID"
+                  >
+                    <span className="user-profile__user-id-label">Member ID</span>
+                    <code className="user-profile__user-id-value">
+                      {formatMemberDisplayId(displayUserId)}
+                    </code>
+                    <span
+                      className="user-profile__user-id-numeric"
+                      title="Use this number when adding people in Forums (admin)"
+                    >
+                      #{displayUserId}
+                    </span>
+                    <button
+                      type="button"
+                      className="user-profile__user-id-copy"
+                      onClick={() => void handleCopyUserId()}
+                      title="Copy numeric account ID (for forums & invites)"
+                      aria-label="Copy numeric account ID to clipboard"
+                    >
+                      <Copy size={16} aria-hidden />
+                    </button>
+                    {userIdCopied && (
+                      <span className="user-profile__user-id-feedback" role="status">
+                        Copied
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               <button
                 className="user-profile__edit-btn"

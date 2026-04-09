@@ -7,10 +7,69 @@
   width: 100%;
   max-width: 100vw;
   overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   box-sizing: border-box;
   position: relative;
   color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+// Override global .newsfeed-container (newsfeed uses position:fixed + overflow:hidden — breaks Forums scroll/layout)
+.forums-page .newsfeed-container {
+  position: relative !important;
+  inset: auto !important;
+  width: 100% !important;
+  max-width: min(1400px, 100%) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 0 auto !important;
+  overflow-x: hidden !important;
+  overflow-y: visible !important;
+  display: grid !important;
+  grid-template-columns: 280px minmax(0, 1fr) !important;
+  grid-template-rows: auto auto auto !important;
+  gap: 20px;
+  align-items: start;
+  justify-items: stretch;
+  box-sizing: border-box;
+  padding: 20px;
+  padding-top: 119px;
+
+  @media (max-width: 1200px) {
+    padding: 16px 20px;
+    padding-top: 109px;
+    gap: 16px;
+    grid-template-columns: 260px minmax(0, 1fr) !important;
+  }
+
+  @media (max-width: 992px) {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto !important;
+    padding: 12px 16px;
+    padding-top: calc(37px + 80px * 0.93 - 10px + 16px);
+    gap: 12px;
+  }
+
+  @media (max-width: 768px) {
+    padding: 12px;
+    padding-top: calc(37px + 15px + 80px * 0.93 - 10px + 16px);
+    gap: 12px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 8px 12px;
+    padding-top: calc(37px + 15px + 80px * 0.93 - 10px + 28px);
+    gap: 10px;
+  }
+
+  img,
+  video,
+  iframe {
+    max-width: 100%;
+    height: auto;
+  }
 }
 
 // Left Sidebar
@@ -167,7 +226,7 @@
   }
 }
 
-// Forums Banner
+// Forums Banner — full width of content column stack; responsive height
 .forums-banner {
   background-color: #0d4a1f;
   background-image: url("../image/newsfeed/forums-image.png");
@@ -175,20 +234,41 @@
   background-repeat: no-repeat;
   background-size: contain;
   border-radius: 12px;
-  padding: 40px 30px;
-  margin-bottom: 20px;
+  padding: clamp(24px, 4vw, 40px) clamp(16px, 3vw, 30px);
+  margin: 0;
   position: relative;
   overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: clamp(200px, 26vw, 320px);
+  box-sizing: border-box;
   grid-column: 1 / -1;
   grid-row: 1;
+  align-self: stretch;
+  justify-self: stretch;
+
+  // Light dark scrim over background image, under __content
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: rgba(0, 0, 0, 0.28);
+    z-index: 1;
+    pointer-events: none;
+  }
 
   @media (max-width: 992px) {
-    grid-column: 1;
-    padding: 30px 20px;
+    grid-column: 1 / -1;
+    min-height: clamp(180px, 40vw, 260px);
+    background-size: cover;
+    background-position: center;
   }
 
   @media (max-width: 768px) {
     padding: 24px 16px;
+    min-height: 200px;
   }
 
   &__content {
@@ -297,7 +377,7 @@
   }
 }
 
-// Navigation Tabs and Create Button
+// Navigation Tabs and Create Button — directly under banner, full content width
 .forums-nav {
   display: flex;
   align-items: center;
@@ -306,13 +386,21 @@
   border-radius: 12px;
   padding: 0 16px;
   box-shadow: 0 2px 8px var(--shadow-light);
-  margin-bottom: 20px;
-  grid-column: 2;
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  grid-column: 1 / -1;
   grid-row: 2;
+  align-self: stretch;
+  justify-self: stretch;
+  flex-wrap: wrap;
+  gap: 8px;
   transition: background-color 0.3s ease;
 
   @media (max-width: 992px) {
-    grid-column: 1;
+    grid-column: 1 / -1;
     flex-wrap: wrap;
     gap: 12px;
     padding: 12px 16px;
@@ -415,16 +503,18 @@
   }
 }
 
-// Categories Sidebar
+// Categories Sidebar — row 3, left column (desktop)
 .forums-categories {
   background-color: var(--card-bg);
   border-radius: 12px;
   padding: 20px;
   height: fit-content;
   position: sticky;
-  top: 0px;
+  top: 12px;
   box-shadow: 0 2px 8px var(--shadow-light);
-  width: 280px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   flex-shrink: 0;
   grid-column: 1;
   grid-row: 3;
@@ -493,27 +583,40 @@
   box-shadow: 0 2px 8px var(--shadow-light);
   grid-column: 2;
   grid-row: 3;
-  min-height: 400px;
+  min-height: 280px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: flex-start;
   color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
 
+  &--thread {
+    padding: 0;
+    min-height: auto;
+    align-items: stretch;
+    justify-content: flex-start;
+    overflow: visible; // emoji picker sits above composer; avoid clipping
+  }
+
   @media (max-width: 992px) {
-    grid-column: 1;
+    grid-column: 1 / -1;
+    grid-row: 3;
     padding: 30px 20px;
   }
 
   @media (max-width: 768px) {
     padding: 24px 16px;
-    min-height: 300px;
+    min-height: 240px;
   }
 
   @media (max-width: 480px) {
     padding: 20px 12px;
-    min-height: 250px;
+    min-height: 200px;
   }
 
   &__title {
@@ -522,6 +625,7 @@
     color: var(--color-primary);
     margin: 0 0 30px 0;
     align-self: flex-start;
+    width: 100%;
     transition: color 0.3s ease;
 
     @media (max-width: 768px) {
@@ -604,54 +708,142 @@
   }
 }
 
-// Container Layout
-.newsfeed-container {
-  max-width: 1400px;
-  margin: 6% auto;
-  padding: 20px;
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  grid-template-rows: auto auto 1fr;
-  gap: 20px;
-  align-items: start;
-  box-sizing: border-box;
-  min-height: calc(100vh - 120px);
+// Forum thread message composer — keep send control visible (not squeezed) on narrow screens
+.forums-composer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  min-width: 0;
   width: 100%;
-  max-width: 100vw;
-  overflow-x: hidden;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  border-top: 1px solid var(--border-color);
+  background-color: var(--card-bg);
+  position: relative;
+  overflow: visible;
 
-  // Prevent horizontal scroll
-  * {
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-
-  img,
-  video,
-  iframe {
-    max-width: 100%;
-    height: auto;
-  }
-
-  @media (max-width: 1400px) {
-    padding: 16px;
-    gap: 16px;
-  }
-
-  @media (max-width: 1200px) {
-    grid-template-columns: 260px 1fr;
-    padding: 16px;
-    gap: 16px;
-  }
-
-  @media (max-width: 992px) {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto auto;
-    padding: 12px;
-    gap: 12px;
-    min-height: auto;
+  @media (max-width: 480px) {
+    gap: 8px;
+    padding: 10px 12px;
   }
 }
+
+.forums-composer__attach {
+  flex-shrink: 0;
+  padding: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+
+  &:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+}
+
+.forums-composer__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 12px 16px;
+  border-radius: 24px;
+  border: 1px solid var(--border-color);
+  font-size: 14px;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+
+  @media (max-width: 480px) {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  &:disabled {
+    opacity: 0.85;
+  }
+}
+
+// Circular send — explicit equal width/height so border-radius: 50% stays round when flex would shrink
+.forums-composer__send {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  transition: opacity 0.2s, transform 0.12s ease, filter 0.15s;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  &:not(:disabled):hover {
+    filter: brightness(1.06);
+  }
+
+  &:not(:disabled):active {
+    transform: scale(0.96);
+  }
+
+  @media (max-width: 480px) {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    min-height: 42px;
+  }
+}
+
+.forums-composer__send-icon {
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+// Forum composer: emoji picker anchors to this wrapper (single positioning context)
+.forums-composer__emoji-wrap {
+  position: relative;
+  flex-shrink: 0;
+  z-index: 2;
+
+  > button[type="button"] {
+    padding: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+
+    &:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+  }
+
+  .emoji-picker {
+    z-index: 10050;
+  }
+}
+
+// (Layout for Forums is under `.forums-page .newsfeed-container` above — do not duplicate a bare `.newsfeed-container` block here; it would fight global NewsFeed rules.)
 
 // Responsive adjustments
 @media (max-width: 768px) {
@@ -918,5 +1110,31 @@
       padding-bottom: 16px;
       border-bottom: 1px solid var(--border-color);
     }
+  }
+}
+
+// Forum thread: glassmorphic message area (backdrop blur; almost-transparent tint)
+.forums-page .forums-chat-thread-glass {
+  isolation: isolate;
+}
+
+[data-theme="dark"] .forums-page .forums-chat-thread-glass {
+  background-color: rgba(255, 255, 255, 0.025) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+:not([data-theme="dark"]) .forums-page .forums-chat-thread-glass {
+  background-color: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(0, 0, 0, 0.07) !important;
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .forums-page .forums-chat-thread-glass {
+    background-color: var(--card-bg) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 }

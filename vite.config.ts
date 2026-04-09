@@ -28,6 +28,34 @@ const suppressProxyErrors = () => {
   };
 };
 
+/** Dev proxy options per upstream (main API vs forums microservice). */
+function devApiProxy(target: string) {
+  return {
+    target,
+    changeOrigin: true,
+    secure: false,
+    ws: true,
+    timeout: 10000,
+    configure: (proxy: {
+      on: (event: string, handler: (...args: unknown[]) => void) => void;
+    }) => {
+      proxy.on("error", (err: Error) => {
+        console.log("[Proxy] Backend connection issue:", err.message);
+      });
+      proxy.on("proxyReq", (_proxyReq, req) => {
+        if (process.env.NODE_ENV === "development") {
+          console.log("[Proxy]", req.method, req.url);
+        }
+      });
+      proxy.on("proxyRes", (proxyRes, req) => {
+        if (proxyRes.statusCode && proxyRes.statusCode >= 500) {
+          console.log("[Proxy]", req.method, req.url, "->", proxyRes.statusCode);
+        }
+      });
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
@@ -79,8 +107,10 @@ export default defineConfig({
         ],
         categories: ["social", "lifestyle"],
       },
+      // Disable dev service worker / injectManifest dev pipeline — avoids bare-import / SW
+      // issues during `vite` and matches “don’t register the SW in development”.
       devOptions: {
-        enabled: true,
+        enabled: false,
         type: "classic",
       },
     }),
@@ -90,36 +120,21 @@ export default defineConfig({
     allowedHosts: [
       "joscity-com.onrender.com",
     ],
+    // Forums microservice (New_Joscity/src/index.js) defaults to :3001; main API (server.js) :3000.
+    // Sending all /api to the forums port broke login and admin (they 404 on the forums app).
     proxy: {
-      "/api": {
-        target: process.env.VITE_API_TARGET || "http://localhost:3000",
-        changeOrigin: true,
-        secure: false,
-        ws: true, // Enable websocket proxying
-        timeout: 10000, // 10 second timeout
-        // Don't rewrite - backend expects /api in the path
-        // Note: Connection errors (ECONNREFUSED, ETIMEDOUT, ECONNRESET) are expected 
-        // when the backend server is not running. The app handles these gracefully.
-        configure: (proxy) => {
-          proxy.on('error', (err) => {
-            // Suppress proxy errors to prevent console spam
-            // The frontend will handle these gracefully
-            console.log('[Proxy] Backend connection issue:', err.message);
-          });
-          proxy.on('proxyReq', (proxyReq, req) => {
-            // Log only in development for debugging
-            if (process.env.NODE_ENV === 'development') {
-              console.log('[Proxy]', req.method, req.url);
-            }
-          });
-          proxy.on('proxyRes', (proxyRes, req) => {
-            // Suppress 502/503 errors from being logged repeatedly
-            if (proxyRes.statusCode && proxyRes.statusCode >= 500) {
-              console.log('[Proxy]', req.method, req.url, '->', proxyRes.statusCode);
-            }
-          });
-        },
-      },
+      "/api/forums": devApiProxy(
+        process.env.VITE_FORUMS_API_TARGET || "http://localhost:3001"
+      ),
+      "/api/admin/forums": devApiProxy(
+        process.env.VITE_FORUMS_API_TARGET || "http://localhost:3001"
+      ),
+      "/api/marketplace": devApiProxy(
+        process.env.VITE_MARKETPLACE_API_TARGET ||
+          process.env.VITE_FORUMS_API_TARGET ||
+          "http://localhost:3001"
+      ),
+      "/api": devApiProxy(process.env.VITE_API_TARGET || "http://localhost:3000"),
     },
   },
   build: {

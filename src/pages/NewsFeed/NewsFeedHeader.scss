@@ -433,7 +433,8 @@
     font-weight: 500;
 
     &:hover {
-      background-color: rgba(0, 0, 0, 0.05);
+      background-color: rgba(13, 74, 31, 0.12);
+      color: #0d4a1f;
     }
 
     &:active {
@@ -614,10 +615,13 @@
   }
 }
 
-// Header actions: icons and text white for contrast on header
+// Header actions: keep top-level controls white on green header.
+// Do not target all nested nodes, otherwise dropdown items become unreadable.
 .newsfeed-header__actions {
-  button,
-  div {
+  > .newsfeed-header__icon-btn,
+  > .newsfeed-header__join-btn,
+  > .newsfeed-header__sidebar-toggle,
+  > .newsfeed-header__create-wrapper > .newsfeed-header__icon-btn {
     color: #fff;
 
     svg {
@@ -628,4 +632,69 @@
       color: #fff;
     }
   }
+}
+
+// Explicit dropdown theming to avoid inheritance from header action controls.
+.newsfeed-header__create-dropdown {
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.newsfeed-header__create-item {
+  color: #111827;
+
+  svg,
+  span {
+    color: #111827;
+  }
+
+  &:hover {
+    background-color: rgba(13, 74, 31, 0.12);
+    color: #000000;
+
+    svg,
+    span {
+      color: #000000;
+    }
+  }
+}
+
+/* Light mode: keep default dropdown text/icon black (not only on hover) */
+:root .newsfeed-header__create-dropdown .newsfeed-header__create-item,
+:root .newsfeed-header__create-dropdown .newsfeed-header__create-item svg,
+:root .newsfeed-header__create-dropdown .newsfeed-header__create-item span {
+  color: #000000;
+}
+
+[data-theme="dark"] .newsfeed-header__create-dropdown {
+  background: #1f2937;
+  color: #f3f4f6;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .newsfeed-header__create-item {
+  color: #f3f4f6;
+
+  svg,
+  span {
+    color: #f3f4f6;
+  }
+
+  &:hover {
+    background-color: rgba(52, 184, 106, 0.2);
+    color: #d1fae5;
+
+    svg,
+    span {
+      color: #d1fae5;
+    }
+  }
+}
+
+/* Dark mode: keep default dropdown text/icon white */
+[data-theme="dark"] .newsfeed-header__create-dropdown .newsfeed-header__create-item,
+[data-theme="dark"] .newsfeed-header__create-dropdown .newsfeed-header__create-item svg,
+[data-theme="dark"] .newsfeed-header__create-dropdown .newsfeed-header__create-item span {
+  color: #ffffff;
 }

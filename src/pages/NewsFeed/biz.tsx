@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   Search,
   X,
-  Users,
   Building2,
   Send,
   MoreVertical,
@@ -11,6 +10,7 @@ import {
   Smile,
   Heart,
   MessageSquare,
+  MessageCircle,
   UserCheck,
   ThumbsUp,
   CheckCircle,
@@ -22,7 +22,6 @@ import {
   Hash,
   Bell,
 } from "lucide-react";
-import LazyImage from "../../components/LazyImage";
 import Avatar from "../../components/Avatar";
 import EmojiPicker from "../../components/EmojiPicker";
 import ProfileModal from "../../components/ProfileModal";
@@ -31,10 +30,7 @@ import NewsFeedSidebar from "./NewsFeedSidebar";
 import NewsFeedHeader from "./NewsFeedHeader";
 import PostCard from "./PostCard";
 import SuggestedBusinesses from "./SuggestedBusinesses";
-import {
-  getUserInitials,
-  getProfileUsername,
-} from "../../utils/userUtils";
+import { getProfileUsername } from "../../utils/userUtils";
 import { addFriend } from "../../utils/friendUtils";
 import { friendApi } from "../../services/friendApi";
 import {

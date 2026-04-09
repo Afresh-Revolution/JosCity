@@ -2,26 +2,11 @@
 @use "./variables" as *;
 @use "./mixins" as *;
 
-// Wrapper when NavBar is above events content (move content below navbar)
-.events-page-wrapper {
-  .navbar {
-    .navbar__nav-item,
-    .navbar__nav-item a,
-    .navbar__logo span,
-    .navbar__menu-toggle span {
-      color: #fff !important;
-    }
-    .navbar__menu-toggle:hover span,
-    .navbar__nav-item:hover {
-      color: rgba(255, 255, 255, 0.9) !important;
-    }
-  }
-}
-
-.eventspage--below-navbar {
-  padding-top: 129px; // Space for fixed navbar (PWA 22px lower)
+// Events app shell (no landing NavBar): only fixed PWA strip + newsfeed-style header
+.eventspage--with-fixed-header {
+  padding-top: calc(37px + (80px * 0.93 - 10px) + 16px);
   @media (max-width: 768px) {
-    padding-top: 119px;
+    padding-top: calc(37px + 15px + (80px * 0.93 - 10px) + 16px);
   }
 }
 
@@ -276,7 +261,7 @@
   border-bottom: 1px solid var(--border-color);
   padding: 0 24px;
   position: sticky;
-  top: 64px;
+  top: calc(37px + (80px * 0.93 - 10px));
   z-index: 100;
   width: 100%;
   transition: background-color 0.3s ease, border-color 0.3s ease;
@@ -286,12 +271,11 @@
   }
 
   @media (max-width: 992px) {
-    top: 68px;
     padding: 0 16px;
   }
 
   @media (max-width: 768px) {
-    top: 64px;
+    top: calc(37px + 15px + (80px * 0.93 - 10px));
     padding: 0 12px;
   }
 
@@ -312,6 +296,13 @@
       align-items: stretch;
       gap: 12px;
       padding: 12px 0;
+    }
+  }
+
+  /* Add event first in column layout so it stays above horizontal tab scroll */
+  &__container .eventspage-tabs__create-btn {
+    @media (max-width: 768px) {
+      order: -1;
     }
   }
 

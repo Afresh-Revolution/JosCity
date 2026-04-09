@@ -11,37 +11,32 @@ import {
   Search,
   Hash,
   User,
-  Send,
-  MoreVertical,
-  Paperclip,
-  Smile,
-  Heart,
-  MessageSquare,
   UserCheck,
-  ThumbsUp,
+  UserX,
   CheckCircle,
   Trash2,
-  Image,
-  Video,
   Bell,
-  MessageCircle,
-  Calendar,
   FileText,
 } from "lucide-react";
 import NewsFeedSidebar from "./NewsFeedSidebar";
 import NewsFeedHeader from "./NewsFeedHeader";
 import StoriesSection from "./StoriesSection";
 import CreatePostInput from "./CreatePostInput";
-import CreatePostModal from "./CreatePostModal";
+import CreatePostModal, {
+  type CreatePostListingPayload,
+} from "./CreatePostModal";
+import CreateReelModal from "../../components/CreateReelModal";
 import PostCard from "./PostCard";
-import TrendingSection from "./TrendingSection";
-import SuggestedFriends from "./SuggestedFriends";
+import NewsfeedRightAside from "./NewsfeedRightAside";
+import { useNewsfeedAsideTrending } from "../../hooks/useNewsfeedAsideTrending";
 import "../../main.css";
 import Avatar from "../../components/Avatar";
-import EmojiPicker from "../../components/EmojiPicker";
-import ProfileModal from "../../components/ProfileModal";
+import ChatPanel, { type ChatPanelPopupPayload } from "../../components/ChatPanel";
 import FindFriendsModal from "../../components/FindFriendsModal";
 import CreateStoryPopup from "../../components/CreateStoryPopup";
+import MessagePopup from "../../components/MessagePopup";
+import chatService from "../../services/chatService";
+import { useGlobalChatRealtime } from "../../hooks/useGlobalChatRealtime";
 import {
   getProfileUsername,
   isAuthenticated,
@@ -50,18 +45,31 @@ import {
   getUserData,
   getUserAccountType,
 } from "../../utils/userUtils";
-import { addFriend } from "../../utils/friendUtils";
 import {
   playNotificationSound,
   showBrowserNotification,
   requestNotificationPermission,
 } from "../../utils/notificationUtils";
+import {
+  mapFeedApiItemToPost,
+  type ListingDetails,
+} from "../../utils/mapFeedApiItemToPost";
 import { getUserLocation, saveUserLocation } from "../../utils/locationUtils";
 import "../../scss/_emojipicker.scss";
 import "../../scss/_profilemodal.scss";
 import "../../scss/_messagepopup.scss";
 import "../../scss/_newsfeed.scss";
 import { feedApi } from "../../services/feedApi";
+import AdminBroadcastStrip, {
+  type AdminBroadcastItem,
+  normalizeAdminBroadcastType,
+} from "../../components/AdminBroadcastStrip";
+import {
+  type FeedPanelNotification,
+  mapApiRowToFeedPanelNotification,
+  getFeedPanelNotificationIcon,
+  getFeedPanelNotificationColor,
+} from "../../utils/feedPanelNotifications";
 
 interface SearchResult {
   type: "person" | "hashtag" | "post";
@@ -70,6 +78,20 @@ interface SearchResult {
   subtitle?: string;
   avatar?: string;
   postCount?: number;
+}
+
+interface EmbeddedPost {
+  id: number;
+  userId?: number;
+  userName: string;
+  userAvatar: string;
+  timeAgo: string;
+  caption?: string;
+  image?: string;
+  images?: string[];
+  video?: string;
+  videos?: string[];
+  unavailable?: boolean;
 }
 
 interface Post {
@@ -90,6 +112,10 @@ interface Post {
   caption: string;
   hashtags?: string;
   accountType?: string;
+  userReacted?: boolean;
+  userShared?: boolean;
+  originalPost?: EmbeddedPost;
+  listingDetails?: ListingDetails | null;
 }
 
 const NewsFeed: React.FC = () => {
@@ -114,6 +140,7 @@ const NewsFeed: React.FC = () => {
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [showGoodMorningCard, setShowGoodMorningCard] = useState(true);
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
+  const [isCreateReelModalOpen, setIsCreateReelModalOpen] = useState(false);
   const [isCreateStoryModalOpen, setIsCreateStoryModalOpen] = useState(false);
   const [isStoryPopupOpen, setIsStoryPopupOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -122,30 +149,18 @@ const NewsFeed: React.FC = () => {
   const [filteredHashtag, setFilteredHashtag] = useState<string | null>(null);
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
-  const [selectedChatId, setSelectedChatId] = useState<number | null>(null);
-  const [chatSearchQuery, setChatSearchQuery] = useState("");
-  const [messageInput, setMessageInput] = useState("");
-  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
-  const [messageAttachment, setMessageAttachment] = useState<{
-    type: "image" | "video" | "file";
-    url: string;
-    fileName?: string;
-    fileSize?: number;
-  } | null>(null);
-  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
-  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
-  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [selectedProfileUserId, setSelectedProfileUserId] = useState<
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [activeChatConversationId, setActiveChatConversationId] = useState<
     number | null
   >(null);
-  const [, setMessagePopup] = useState<{
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const [messagePopup, setMessagePopup] = useState<{
     userId: number;
     userName: string;
     userAvatar: string;
     message: string;
     timestamp: string;
-    chatId: number;
+    conversationId: number;
   } | null>(null);
   // const [isNavbarVisible, setIsNavbarVisible] = useState(true);
   // const [lastScrollY, setLastScrollY] = useState(0);
@@ -156,16 +171,7 @@ const NewsFeed: React.FC = () => {
 
   const searchRef = useRef<HTMLDivElement>(null);
   const addFriendModalRef = useRef<HTMLDivElement>(null);
-  const chatPanelRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const notificationPanelRef = useRef<HTMLDivElement>(null);
-  const attachmentMenuRef = useRef<HTMLDivElement>(null);
-  const attachmentButtonRef = useRef<HTMLButtonElement>(null);
-  const chatMenuRef = useRef<HTMLDivElement>(null);
-  const chatMenuButtonRef = useRef<HTMLButtonElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
   const mainContentRef = useRef<HTMLElement>(null);
 
   // Get time-based greeting with motivational messages
@@ -287,6 +293,7 @@ const NewsFeed: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoadingFeeds, setIsLoadingFeeds] = useState(true);
   const [feedError, setFeedError] = useState<string | null>(null);
+  const trending = useNewsfeedAsideTrending(posts);
 
   // Safety timeout to ensure loading state doesn't get stuck
   useEffect(() => {
@@ -307,7 +314,7 @@ const NewsFeed: React.FC = () => {
       setIsLoadingFeeds(true);
       console.log("Fetching feeds from API endpoint: /feed/feeds");
 
-      const response = await feedApi.getFeeds();
+      const response = await feedApi.getFeeds({ feedChannel: "main" });
       console.log("Feeds API response:", response);
 
       if (
@@ -322,152 +329,10 @@ const NewsFeed: React.FC = () => {
           console.log("API returned empty array - no posts available");
           setPosts([]);
         } else {
-          // Transform API data to match backend getNewsFeed/formatPost shape
           try {
-            interface FeedItem {
-              post_id?: number;
-              id?: number;
-              text?: string;
-              author?: {
-                id?: number;
-                name?: string;
-                username?: string;
-                picture?: string;
-                verified?: boolean;
-                type?: string;
-              };
-              user?: { name?: string; picture?: string };
-              user_name?: string;
-              user_avatar?: string;
-              action?: string;
-              time_ago?: string;
-              created_at?: string;
-              time?: string;
-              media?: Array<{ url?: string; type?: string }>;
-              media_urls?: string[];
-              media_types?: string[];
-              image_url?: string;
-              image?: string;
-              images?: string[];
-              video_url?: string;
-              video?: string;
-              videos?: string[];
-              reactions?: Array<{ count?: number }>;
-              reactions_count?: number;
-              likes_count?: number;
-              likes?: number;
-              user_reacted?: boolean;
-              comments_preview?: Array<{ id?: number; comment?: string; time_ago?: string; author?: { name?: string; picture?: string; verified?: boolean } }>;
-              comments_count?: number;
-              comments?: number;
-              views_count?: number;
-              views?: number;
-              reviews?: number;
-              caption?: string;
-              hashtags?: string;
-              account_type?: string;
-              accountType?: string;
-              [key: string]: unknown;
-            }
-
-            const transformedPosts: Post[] = (response.data as FeedItem[])
-              .filter((feed) => {
-                const hasId =
-                  feed.post_id !== undefined || feed.id !== undefined;
-                if (!hasId) {
-                  console.warn("Feed without ID filtered out:", feed);
-                }
-                return hasId;
-              })
-              .map((feed): Post => {
-                const author = feed.author || feed.user;
-                const userName =
-                  author?.name || feed.user_name || "Unknown User";
-                const userAvatar =
-                  author?.picture ?? feed.user_avatar ?? "";
-
-                let image = feed.image_url || feed.image || "";
-                let images = feed.images;
-                let video = feed.video_url || feed.video || "";
-                let videos = feed.videos;
-
-                // Backend formatPost: media = [{ url, type }, ...]; also media_urls + media_types
-                if (feed.media && Array.isArray(feed.media) && feed.media.length > 0) {
-                  const photoUrls = feed.media
-                    .filter((m) => (m.type || "").toLowerCase().startsWith("image") || (m.type || "").toLowerCase() === "photo")
-                    .map((m) => m.url)
-                    .filter((url): url is string => Boolean(url));
-                  const videoUrls = feed.media
-                    .filter((m) => (m.type || "").toLowerCase().startsWith("video"))
-                    .map((m) => m.url)
-                    .filter((url): url is string => Boolean(url));
-                  if (photoUrls.length > 0) {
-                    image = photoUrls[0];
-                    if (photoUrls.length > 1) images = photoUrls;
-                  }
-                  if (videoUrls.length > 0) {
-                    video = videoUrls[0];
-                    if (videoUrls.length > 1) videos = videoUrls;
-                  }
-                } else if (
-                  (feed.media_urls && feed.media_urls.length > 0) ||
-                  (feed.media_types && feed.media_types.length > 0)
-                ) {
-                  const urls = feed.media_urls || [];
-                  const types = feed.media_types || [];
-                  const photoUrls = urls.filter((_, i) => {
-                    const t = (types[i] || "").toLowerCase();
-                    return t.startsWith("image") || t === "photo";
-                  });
-                  const videoUrls = urls.filter((_, i) => {
-                    const t = (types[i] || "").toLowerCase();
-                    return t.startsWith("video");
-                  });
-                  if (photoUrls.length > 0) {
-                    image = photoUrls[0];
-                    if (photoUrls.length > 1) images = photoUrls;
-                  }
-                  if (videoUrls.length > 0) {
-                    video = videoUrls[0];
-                    if (videoUrls.length > 1) videos = videoUrls;
-                  }
-                }
-
-                const likes =
-                  feed.reactions_count ?? feed.likes_count ?? feed.likes ?? 0;
-                const comments =
-                  feed.comments_count ??
-                  feed.comments ??
-                  (Array.isArray(feed.comments_preview) ? feed.comments_preview.length : 0) ??
-                  0;
-
-                const authorId = (author as { id?: number })?.id ?? (feed as { user_id?: number }).user_id;
-                return {
-                  id: feed.post_id ?? feed.id ?? 0,
-                  userId: authorId !== undefined && authorId !== null ? Number(authorId) : undefined,
-                  userName,
-                  userAvatar,
-                  action: feed.action || "",
-                  timeAgo: feed.time_ago || feed.time || feed.created_at || "Just now",
-                  image,
-                  images: images || undefined,
-                  video,
-                  videos: videos || undefined,
-                  likes,
-                  comments,
-                  views: feed.views_count ?? feed.views ?? 0,
-                  reviews: feed.reviews ?? 0,
-                  caption: feed.text ?? feed.caption ?? "",
-                  hashtags: feed.hashtags || "",
-                  accountType:
-                    typeof feed.account_type === "string"
-                      ? feed.account_type
-                      : typeof feed.accountType === "string"
-                        ? feed.accountType
-                        : undefined,
-                };
-              });
-
+            const transformedPosts: Post[] = (response.data as unknown[])
+              .map((item) => mapFeedApiItemToPost(item))
+              .filter((p): p is Post => p != null);
             console.log(
               `Successfully transformed ${transformedPosts.length} posts`
             );
@@ -506,6 +371,28 @@ const NewsFeed: React.FC = () => {
     fetchFeeds();
   }, [fetchFeeds]);
 
+  const fetchFeedsByHashtag = useCallback((hashtag: string) => {
+    setFilteredHashtag(hashtag);
+    setTimeout(() => {
+      const postsSection = document.querySelector(".newsfeed-posts");
+      postsSection?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 100);
+  }, []);
+
+  useEffect(() => {
+    const handleFeedPostShared = () => {
+      void fetchFeeds();
+    };
+
+    window.addEventListener("feedPostShared", handleFeedPostShared);
+    return () => {
+      window.removeEventListener("feedPostShared", handleFeedPostShared);
+    };
+  }, [fetchFeeds]);
+
   // Helper function to normalize media URLs (handle relative paths)
   const normalizeMediaUrl = (url: string | undefined): string => {
     if (!url) return "";
@@ -525,7 +412,8 @@ const NewsFeed: React.FC = () => {
   const handleNewPost = async (
     caption: string,
     images: File[] | null,
-    videos: File[] | null
+    videos: File[] | null,
+    listingDetails?: CreatePostListingPayload | null
   ) => {
     // Check if user is authenticated
     if (!isAuthenticated()) {
@@ -546,6 +434,7 @@ const NewsFeed: React.FC = () => {
         caption: caption.trim() || undefined,
         images: images || undefined,
         videos: videos || undefined,
+        listingDetails: listingDetails ?? undefined,
       });
 
       console.log("Post creation response:", response);
@@ -713,100 +602,9 @@ const NewsFeed: React.FC = () => {
     // StoriesSection handles story creation internally now
   };
 
-  // Get account type
-  const accountType = getUserAccountType().toLowerCase();
-  const isBusinessAccount = accountType === "business";
-
-  // Calculate most common hashtags from posts
-  // For business accounts, only count hashtags from business posts
-  const calculateTrendingHashtags = () => {
-    const hashtagCounts: Record<string, number> = {};
-
-    // Filter posts based on account type
-    const postsToAnalyze = isBusinessAccount
-      ? posts.filter((post) => {
-          // For business accounts, only analyze business posts
-          const postAccountType = post.accountType?.toLowerCase();
-          return postAccountType === "business";
-        })
-      : posts; // For personal accounts, analyze all posts
-
-    postsToAnalyze.forEach((post) => {
-      if (post.hashtags) {
-        const hashtags = post.hashtags
-          .split(" ")
-          .filter((tag: string) => tag.startsWith("#") && tag.length > 1);
-        hashtags.forEach((hashtag: string) => {
-          hashtagCounts[hashtag] = (hashtagCounts[hashtag] || 0) + 1;
-        });
-      }
-    });
-
-    // Convert to array, sort by count, and take top 2
-    const sortedHashtags = Object.entries(hashtagCounts)
-      .map(([hashtag, count]) => ({ hashtag, posts: count }))
-      .sort((a, b) => b.posts - a.posts)
-      .slice(0, 2);
-
-    return sortedHashtags;
-  };
-
-  const trending = calculateTrendingHashtags();
-
-  // Mock chat conversations
-  interface ChatMessage {
-    id: number;
-    senderId: number;
-    text: string;
-    timestamp: string;
-    isRead: boolean;
-    attachment?: {
-      type: "image" | "video" | "file";
-      url: string;
-      fileName?: string;
-      fileSize?: number;
-    };
-  }
-
-  interface ChatConversation {
-    id: number;
-    userId: number;
-    userName: string;
-    userAvatar: string;
-    lastMessage: string;
-    lastMessageTime: string;
-    unreadCount: number;
-    isOnline: boolean;
-    messages: ChatMessage[];
-  }
-
-  const [chatConversations, setChatConversations] = useState<
-    ChatConversation[]
-  >([]);
-
-  // Mock notifications
-  interface Notification {
-    id: number;
-    type:
-      | "like"
-      | "comment"
-      | "friend_request"
-      | "mention"
-      | "share"
-      | "event"
-      | "message";
-    userId: number;
-    userName: string;
-    userAvatar: string;
-    message: string;
-    timestamp: string;
-    isRead: boolean;
-    relatedPostId?: number;
-    relatedEventId?: number;
-    relatedChatId?: number;
-  }
-
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<FeedPanelNotification[]>(
+    []
+  );
   const prevUnreadCountRef = useRef(0);
 
   // Fetch notifications from API and poll for new ones (comment/reaction)
@@ -815,17 +613,11 @@ const NewsFeed: React.FC = () => {
     try {
       const res = await feedApi.getNotifications();
       if (res.success && Array.isArray(res.data)) {
-        const mapped: Notification[] = res.data.map((n) => ({
-          id: n.id,
-          type: n.action?.toLowerCase().includes("like") || n.action?.toLowerCase().includes("react") ? "like" : n.action?.toLowerCase().includes("comment") ? "comment" : "mention",
-          userId: n.from_user_id ?? 0,
-          userName: n.from_user?.display_name ?? "Someone",
-          userAvatar: n.from_user?.profile_image_url ?? "",
-          message: n.action ?? "",
-          timestamp: n.time ?? "",
-          isRead: !!n.is_read,
-          relatedPostId: n.node_type === "post" ? n.node_id : undefined,
-        }));
+        const mapped: FeedPanelNotification[] = res.data.map((n) =>
+          mapApiRowToFeedPanelNotification(
+            n as unknown as Parameters<typeof mapApiRowToFeedPanelNotification>[0]
+          )
+        );
         setNotifications((prev) => {
           const prevUnread = prev.filter((x) => !x.isRead).length;
           const newUnread = mapped.filter((x) => !x.isRead).length;
@@ -862,65 +654,96 @@ const NewsFeed: React.FC = () => {
     feedApi.markNotificationRead(notificationId).catch(() => {});
   };
 
-  // Mark all notifications as read
-  const markAllAsRead = () => {
-    setNotifications((prev) =>
-      prev.map((notif) => ({ ...notif, isRead: true }))
-    );
-    feedApi.markAllNotificationsRead().catch(() => {});
-  };
-
-  // Clear all notifications
-  const clearAllNotifications = () => {
-    setNotifications([]);
-  };
-
-  // Delete notification
-  const deleteNotification = (notificationId: number) => {
-    setNotifications((prev) =>
-      prev.filter((notif) => notif.id !== notificationId)
-    );
-  };
-
-  // Get notification icon based on type
-  const getNotificationIcon = (type: Notification["type"]) => {
-    switch (type) {
-      case "like":
-        return <Heart size={20} />;
-      case "comment":
-        return <MessageSquare size={20} />;
-      case "friend_request":
-        return <UserCheck size={20} />;
-      case "mention":
-        return <Hash size={20} />;
-      case "share":
-        return <ThumbsUp size={20} />;
-      case "event":
-        return <Calendar size={20} />;
-      default:
-        return <Bell size={20} />;
+  const markAllAsRead = async () => {
+    try {
+      const res = await feedApi.markAllNotificationsRead();
+      if (res.success) {
+        setNotifications((prev) =>
+          prev.map((notif) => ({ ...notif, isRead: true }))
+        );
+      }
+    } catch {
+      await fetchNotifications();
     }
   };
 
-  // Get notification color based on type
-  const getNotificationColor = (type: Notification["type"]) => {
-    switch (type) {
-      case "like":
-        return "#e91e63";
-      case "comment":
-        return "#2196f3";
-      case "friend_request":
-        return "#4caf50";
-      case "mention":
-        return "#ff9800";
-      case "share":
-        return "#9c27b0";
-      case "event":
-        return "#00bcd4";
-      default:
-        return "#666";
+  const deleteAllNotificationsForUser = async () => {
+    try {
+      const res = await feedApi.deleteAllNotifications();
+      if (res.success) {
+        setNotifications([]);
+      }
+    } catch {
+      await fetchNotifications();
     }
   };
+
+  const deleteNotification = async (notificationId: number) => {
+    try {
+      const res = await feedApi.deleteNotificationById(notificationId);
+      if (res.success) {
+        setNotifications((prev) =>
+          prev.filter((notif) => notif.id !== notificationId)
+        );
+      }
+    } catch {
+      await fetchNotifications();
+    }
+  };
+
+  const acceptFriendFromNotification = async (
+    e: React.MouseEvent,
+    n: FeedPanelNotification
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (n.relatedFriendRequestId == null) return;
+    try {
+      const res = await feedApi.acceptFriendRequest(n.relatedFriendRequestId);
+      if (res.success) {
+        await fetchNotifications();
+        const data = res.data as { conversation_id?: number | null } | undefined;
+        const cid = data?.conversation_id;
+        if (cid != null && Number.isFinite(Number(cid))) {
+          setIsNotificationPanelOpen(false);
+          openChatPanel(Number(cid));
+        }
+      }
+    } catch {
+      await fetchNotifications();
+    }
+  };
+
+  const rejectFriendFromNotification = async (
+    e: React.MouseEvent,
+    n: FeedPanelNotification
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (n.relatedFriendRequestId == null) return;
+    try {
+      const res = await feedApi.rejectFriendRequest(n.relatedFriendRequestId);
+      if (res.success) await fetchNotifications();
+    } catch {
+      await fetchNotifications();
+    }
+  };
+
+  const adminBroadcastItems = useMemo((): AdminBroadcastItem[] => {
+    return notifications
+      .filter(
+        (n) =>
+          n.nodeType === "admin_notification" || n.createdByAdmin === true
+      )
+      .map((n) => ({
+        id: n.id,
+        title: n.title,
+        message: n.message,
+        notification_type: normalizeAdminBroadcastType(n.notificationType),
+        time: n.timestamp,
+        expires_at: n.expiresAt ?? undefined,
+      }));
+  }, [notifications]);
 
   // Extract all unique people from posts for search functionality
   const allPeople = [...new Set(posts.map((p) => p.userName))].map((name) => {
@@ -932,26 +755,104 @@ const NewsFeed: React.FC = () => {
     };
   });
 
-  // Filter conversations based on search query
-  const filteredConversations = chatConversations.filter((chat) =>
-    chat.userName.toLowerCase().includes(chatSearchQuery.toLowerCase().trim())
-  );
-
-  // Get selected chat
-  const selectedChat = chatConversations.find(
-    (chat) => chat.id === selectedChatId
-  );
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [selectedChat?.messages]);
-
   // Request notification permission on mount
   useEffect(() => {
     requestNotificationPermission();
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated()) return;
+    const unsubscribe = chatService.onAdminNotification((payload: unknown) => {
+      const data = payload as {
+        id?: number;
+        title?: string;
+        message?: string;
+        notification_type?: string;
+        time?: string;
+        event?: string;
+        expires_at?: string | null;
+      };
+      const adminNid = data.id;
+      if (adminNid == null) return;
+
+      if (data.event === "deleted") {
+        setNotifications((prev) => prev.filter((n) => n.id !== adminNid));
+        return;
+      }
+
+      if (data.event === "updated") {
+        setNotifications((prev) => {
+          const raw = String(data.notification_type || "normal").toLowerCase();
+          const typeForFeed: FeedPanelNotification["type"] =
+            raw === "danger" ? "danger" : "mention";
+          const idx = prev.findIndex((n) => n.id === adminNid);
+          if (idx === -1) {
+            const created: FeedPanelNotification = {
+              id: adminNid,
+              type: typeForFeed,
+              nodeType: "admin_notification",
+              createdByAdmin: true,
+              notificationType: data.notification_type || "normal",
+              title: data.title ?? null,
+              expiresAt: data.expires_at ?? null,
+              userId: 0,
+              userName: "Admin",
+              userAvatar: "",
+              message: data.message || data.title || "Admin update",
+              timestamp: data.time || new Date().toISOString(),
+              isRead: false,
+            };
+            return [created, ...prev];
+          }
+          return prev.map((n) => {
+            if (n.id !== adminNid) return n;
+            return {
+              ...n,
+              type: typeForFeed,
+              message:
+                data.message !== undefined && data.message !== null
+                  ? data.message
+                  : n.message,
+              title:
+                data.title !== undefined ? data.title : n.title,
+              notificationType:
+                data.notification_type || n.notificationType || "normal",
+              timestamp: data.time || n.timestamp,
+              expiresAt:
+                data.expires_at !== undefined ? data.expires_at : n.expiresAt,
+            };
+          });
+        });
+        return;
+      }
+
+      const raw = String(data.notification_type || "normal").toLowerCase();
+      const next: FeedPanelNotification = {
+        id: adminNid,
+        type: raw === "danger" ? "danger" : "mention",
+        nodeType: "admin_notification",
+        createdByAdmin: true,
+        notificationType: data.notification_type || "normal",
+        title: data.title ?? null,
+        expiresAt: data.expires_at ?? null,
+        userId: 0,
+        userName: "Admin",
+        userAvatar: "",
+        message: data.message || data.title || "Admin update",
+        timestamp: data.time || new Date().toISOString(),
+        isRead: false,
+      };
+
+      setNotifications((prev) => {
+        const withoutCurrent = prev.filter((n) => n.id !== next.id);
+        return [next, ...withoutCurrent];
+      });
+      playNotificationSound();
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // Handle navbar visibility on scroll
@@ -1013,239 +914,77 @@ const NewsFeed: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [prevScrollPos, isInitialMount]);
 
-  // Add notification when receiving a new message
-  useEffect(() => {
-    chatConversations.forEach((chat) => {
-      if (chat.messages.length > 0) {
-        const lastMessage = chat.messages[chat.messages.length - 1];
-        // Only create notification for messages from other users that are unread
-        // and when chat is not currently selected (user is not viewing the chat)
-        if (
-          lastMessage &&
-          lastMessage.senderId !== 0 &&
-          !lastMessage.isRead &&
-          selectedChatId !== chat.id
-        ) {
-          setNotifications((prev) => {
-            // Check if notification already exists for this message
-            const existingNotification = prev.find(
-              (n) =>
-                n.type === "message" &&
-                n.relatedChatId === chat.id &&
-                n.userId === chat.userId
-            );
+  const openChatPanel = useCallback((conversationId?: number | null) => {
+    setMessagePopup(null);
+    setActiveChatConversationId(conversationId ?? null);
+    setIsChatPanelOpen(true);
+  }, []);
 
-            if (!existingNotification) {
-              const messageText = lastMessage.attachment
-                ? lastMessage.attachment.type === "image"
-                  ? "sent you a photo"
-                  : lastMessage.attachment.type === "video"
-                  ? "sent you a video"
-                  : "sent you a file"
-                : lastMessage.text
-                ? lastMessage.text
-                : "sent you a message";
+  const closeChatPanel = useCallback(() => {
+    setIsChatPanelOpen(false);
+    setActiveChatConversationId(null);
+  }, []);
 
-              const newNotification: Notification = {
-                id: Date.now(),
-                type: "message",
-                userId: chat.userId,
-                userName: chat.userName,
-                userAvatar: chat.userAvatar,
-                message:
-                  messageText.length > 50
-                    ? `sent you a message: "${messageText.substring(0, 50)}..."`
-                    : `sent you a message: "${messageText}"`,
-                timestamp: "Just now",
-                isRead: false,
-                relatedChatId: chat.id,
-              };
+  const handleIncomingChatMessage = useCallback(
+    (payload: ChatPanelPopupPayload) => {
+      const messagePreview =
+        payload.message.length > 50
+          ? `${payload.message.substring(0, 50)}...`
+          : payload.message;
 
-              // Play notification sound
-              playNotificationSound();
+      setNotifications((prev) => {
+        const existingNotification = prev.find(
+          (notification) =>
+            notification.type === "message" &&
+            notification.relatedChatId === payload.conversationId &&
+            notification.userId === payload.userId &&
+            notification.timestamp === payload.timestamp
+        );
 
-              // Show browser notification
-              showBrowserNotification(
-                chat.userName,
-                messageText.length > 50
-                  ? messageText.substring(0, 50) + "..."
-                  : messageText,
-                chat.userAvatar
-              );
-
-              // Show message popup
-              setMessagePopup({
-                userId: chat.userId,
-                userName: chat.userName,
-                userAvatar: chat.userAvatar,
-                message: messageText,
-                timestamp: "Just now",
-                chatId: chat.id,
-              });
-
-              return [newNotification, ...prev];
-            }
-            return prev;
-          });
+        if (existingNotification) {
+          return prev;
         }
-      }
-    });
-  }, [chatConversations, selectedChatId]);
 
-  // Handle friend added
-  const handleFriendAdded = (friendId: number, friendName: string) => {
-    // Add friend to friends list
-    addFriend(friendId);
-
-    // Add friend to chat conversations if not already there
-    setChatConversations((prev) => {
-      const existingChat = prev.find((chat) => chat.userId === friendId);
-      if (!existingChat) {
-        const newChat: ChatConversation = {
+        const nextNotification: FeedPanelNotification = {
           id: Date.now(),
-          userId: friendId,
-          userName: friendName,
-          userAvatar: "", // Avatar will be fetched from user data
-          lastMessage: "",
-          lastMessageTime: "",
-          unreadCount: 0,
-          isOnline: true,
-          messages: [],
+          type: "message",
+          userId: payload.userId,
+          userName: payload.userName,
+          userAvatar: payload.userAvatar,
+          message: `sent you a message: "${messagePreview}"`,
+          timestamp: payload.timestamp,
+          isRead: false,
+          relatedChatId: payload.conversationId,
         };
-        return [...prev, newChat];
-      }
-      return prev;
-    });
-  };
 
-  // Handle sending a message
-  const handleSendMessage = () => {
-    if ((!messageInput.trim() && !messageAttachment) || !selectedChatId) return;
+        return [nextNotification, ...prev];
+      });
 
-    const newMessage: ChatMessage = {
-      id: Date.now(),
-      senderId: 0, // Current user
-      text: messageInput.trim(),
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      isRead: false,
-      attachment: messageAttachment || undefined,
-    };
+      playNotificationSound();
+      showBrowserNotification(
+        payload.userName,
+        messagePreview,
+        payload.userAvatar,
+        { tag: `chat-${payload.conversationId}` }
+      );
+      setMessagePopup({
+        userId: payload.userId,
+        userName: payload.userName,
+        userAvatar: payload.userAvatar,
+        message: payload.message,
+        timestamp: payload.timestamp,
+        conversationId: payload.conversationId,
+      });
+    },
+    []
+  );
 
-    setChatConversations((prev) =>
-      prev.map((chat) => {
-        if (chat.id === selectedChatId) {
-          const lastMessageText = messageAttachment
-            ? messageAttachment.type === "image"
-              ? "📷 Photo"
-              : messageAttachment.type === "video"
-              ? "🎥 Video"
-              : `📎 ${messageAttachment.fileName || "File"}`
-            : newMessage.text;
-          return {
-            ...chat,
-            messages: [...chat.messages, newMessage],
-            lastMessage: lastMessageText,
-            lastMessageTime: "Just now",
-          };
-        }
-        return chat;
-      })
-    );
-
-    setMessageInput("");
-    setMessageAttachment(null);
-  };
-
-  // Handle file attachment
-  const handleFileSelect = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    type: "image" | "video" | "file"
-  ) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setMessageAttachment({
-          type: type,
-          url: reader.result as string,
-          fileName: file.name,
-          fileSize: file.size,
-        });
-        setIsAttachmentMenuOpen(false);
-      };
-      reader.onerror = () => {
-        alert("Error reading file. Please try again.");
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // Handle attachment menu click
-  const handleAttachmentClick = (type: "image" | "video" | "file") => {
-    setIsAttachmentMenuOpen(false);
-    if (type === "image" && imageInputRef.current) {
-      imageInputRef.current.click();
-    } else if (type === "video" && videoInputRef.current) {
-      videoInputRef.current.click();
-    } else if (type === "file" && fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  // Close attachment menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        attachmentMenuRef.current &&
-        !attachmentMenuRef.current.contains(event.target as Node) &&
-        attachmentButtonRef.current &&
-        !attachmentButtonRef.current.contains(event.target as Node)
-      ) {
-        setIsAttachmentMenuOpen(false);
-      }
-    };
-
-    if (isAttachmentMenuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isAttachmentMenuOpen]);
-
-  // Close chat menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        chatMenuRef.current &&
-        !chatMenuRef.current.contains(event.target as Node) &&
-        chatMenuButtonRef.current &&
-        !chatMenuButtonRef.current.contains(event.target as Node)
-      ) {
-        setIsChatMenuOpen(false);
-      }
-    };
-
-    if (isChatMenuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isChatMenuOpen]);
-
-  // Handle Enter key to send message
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
+  const { presenceByUserId, handleChatPeerUserIds } = useGlobalChatRealtime(
+    isChatPanelOpen,
+    activeChatConversationId,
+    handleIncomingChatMessage,
+    setUnreadMessagesCount
+  );
 
   // Extract all hashtags from posts
   const allHashtags = useMemo(() => {
@@ -1429,6 +1168,10 @@ const NewsFeed: React.FC = () => {
     setIsCreatePostModalOpen(true);
   };
 
+  const handleCreateReel = () => {
+    setIsCreateReelModalOpen(true);
+  };
+
   const handleCreateStory = () => {
     setIsStoryPopupOpen(true);
   };
@@ -1450,11 +1193,13 @@ const NewsFeed: React.FC = () => {
         onToggleRightSidebar={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
         onCreatePost={handleCreatePost}
         onCreateStory={handleCreateStory}
+        onCreateReel={handleCreateReel}
         onAddFriend={() => setIsAddFriendModalOpen(true)}
-        onOpenChat={() => setIsChatPanelOpen(true)}
+        onOpenChat={() => openChatPanel()}
         onOpenNotifications={() => setIsNotificationPanelOpen(true)}
         onProfileClick={handleProfileClick}
         unreadNotificationsCount={unreadNotificationsCount}
+        unreadMessagesCount={unreadMessagesCount}
         mainContentRef={mainContentRef}
       />
 
@@ -1580,6 +1325,13 @@ const NewsFeed: React.FC = () => {
                 </button>
               </div>
             )}
+            {adminBroadcastItems.length > 0 && (
+              <AdminBroadcastStrip
+                variant="dashboard"
+                items={adminBroadcastItems}
+                className="admin-broadcast-strip--newsfeed-composer"
+              />
+            )}
           </div>
 
           {/* Posts */}
@@ -1595,7 +1347,10 @@ const NewsFeed: React.FC = () => {
                   </span>
                   <button
                     className="newsfeed-hashtag-filter__clear"
-                    onClick={() => setFilteredHashtag(null)}
+                    onClick={() => {
+                      setFilteredHashtag(null);
+                      fetchFeeds();
+                    }}
                     aria-label="Clear filter"
                   >
                     <X size={16} />
@@ -1610,7 +1365,7 @@ const NewsFeed: React.FC = () => {
             ) : feedError ? (
               <div className="newsfeed-no-posts">
                 <p style={{ color: "var(--error-color, #e74c3c)" }}>
-                  Error loading feeds: {feedError}
+                  We could not load your feed right now. {feedError}
                 </p>
                 <button
                   onClick={() => {
@@ -1683,84 +1438,12 @@ const NewsFeed: React.FC = () => {
           </div>
         </main>
 
-        {/* Right Sidebar - Aside */}
-        <aside
-          className={`newsfeed-aside ${
-            isRightSidebarOpen ? "newsfeed-aside--open" : ""
-          }`}
-        >
-          <div className="newsfeed-aside__header">
-            <h3>
-              {isBusinessAccount
-                ? "Trending & Businesses"
-                : "Trending & Friends"}
-            </h3>
-            <button
-              className="newsfeed-aside__close"
-              onClick={() => setIsRightSidebarOpen(false)}
-              aria-label="Close sidebar"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          <TrendingSection
-            trending={trending}
-            onHashtagClick={(hashtag) => {
-              setFilteredHashtag(hashtag);
-              // Scroll to posts section
-              setTimeout(() => {
-                const postsSection = document.querySelector(".newsfeed-posts");
-                postsSection?.scrollIntoView({
-                  behavior: "smooth",
-                  block: "start",
-                });
-              }, 100);
-            }}
-          />
-          <SuggestedFriends friends={[]} onFriendAdded={handleFriendAdded} />
-          {/* Footer under Suggested friends */}
-          <footer className="newsfeed-footer">
-            <p>© 2026 JOSCity</p>
-            <div className="newsfeed-footer__links">
-              <a
-                href="/about"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/about", { state: { fromNewsfeed: true } });
-                }}
-              >
-                About
-              </a>
-              <a
-                href="/terms-of-service"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/terms-of-service", { state: { fromNewsfeed: true } });
-                }}
-              >
-                Terms
-              </a>
-              <a
-                href="/privacy-policy"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/privacy-policy", { state: { fromNewsfeed: true } });
-                }}
-              >
-                Privacy
-              </a>
-              <a
-                href="/contact"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/contact", { state: { fromNewsfeed: true } });
-                }}
-              >
-                Contact Us
-              </a>
-            </div>
-          </footer>
-        </aside>
+        <NewsfeedRightAside
+          isOpen={isRightSidebarOpen}
+          onClose={() => setIsRightSidebarOpen(false)}
+          trending={trending}
+          onHashtagClick={fetchFeedsByHashtag}
+        />
       </div>
 
       {/* Add Friend Modal */}
@@ -1769,518 +1452,14 @@ const NewsFeed: React.FC = () => {
         onClose={() => setIsAddFriendModalOpen(false)}
       />
 
-      {/* Chat Panel */}
-      {isChatPanelOpen && (
-        <div
-          className="newsfeed-chat-panel-overlay"
-          onClick={() => setIsChatPanelOpen(false)}
-        >
-          <div
-            ref={chatPanelRef}
-            className="newsfeed-chat-panel"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="newsfeed-chat-panel__header">
-              <h3>Messages</h3>
-              <button
-                className="newsfeed-chat-panel__close"
-                onClick={() => setIsChatPanelOpen(false)}
-                aria-label="Close chat"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="newsfeed-chat-panel__container">
-              {/* Chat section: Coming Soon */}
-              <div className="coming-soon-section" style={{ minHeight: "40vh", padding: "2rem" }}>
-                <div className="coming-soon-section__card">
-                  <h2 className="coming-soon-section__title">Chat — Coming Soon</h2>
-                  <p className="coming-soon-section__message">
-                    Direct messaging is under development. We're bringing you a great experience — check back soon!
-                  </p>
-                </div>
-              </div>
-              {false && (
-              <>
-              <div
-                className={`newsfeed-chat-panel__conversations ${
-                  selectedChatId
-                    ? "newsfeed-chat-panel__conversations--hidden"
-                    : ""
-                }`}
-              >
-                <div className="newsfeed-chat-panel__search-wrapper">
-                  <Search
-                    size={18}
-                    className="newsfeed-chat-panel__search-icon"
-                  />
-                  <input
-                    type="text"
-                    className="newsfeed-chat-panel__search-input"
-                    placeholder="Search conversations..."
-                    value={chatSearchQuery}
-                    onChange={(e) => setChatSearchQuery(e.target.value)}
-                  />
-                </div>
-                <div className="newsfeed-chat-panel__conversations-list">
-                  {filteredConversations.length > 0 ? (
-                    filteredConversations.map((conversation) => (
-                      <div
-                        key={conversation.id}
-                        className={`newsfeed-chat-panel__conversation-item ${
-                          selectedChatId === conversation.id
-                            ? "newsfeed-chat-panel__conversation-item--active"
-                            : ""
-                        }`}
-                        onClick={() => {
-                          setSelectedChatId(conversation.id);
-                          // Mark messages as read when opening chat
-                          setChatConversations((prev) =>
-                            prev.map((chat) =>
-                              chat.id === conversation.id
-                                ? {
-                                    ...chat,
-                                    messages: chat.messages.map((msg) => ({
-                                      ...msg,
-                                      isRead: true,
-                                    })),
-                                    unreadCount: 0,
-                                  }
-                                : chat
-                            )
-                          );
-                        }}
-                      >
-                        <div className="newsfeed-chat-panel__conversation-avatar-wrapper">
-                          <Avatar
-                            src={conversation.userAvatar}
-                            alt={conversation.userName}
-                            name={conversation.userName}
-                            size={48}
-                            className="newsfeed-chat-panel__conversation-avatar"
-                          />
-                          {conversation.isOnline && (
-                            <span className="newsfeed-chat-panel__online-indicator"></span>
-                          )}
-                        </div>
-                        <div className="newsfeed-chat-panel__conversation-info">
-                          <div className="newsfeed-chat-panel__conversation-header">
-                            <p className="newsfeed-chat-panel__conversation-name">
-                              {conversation.userName}
-                            </p>
-                            <span className="newsfeed-chat-panel__conversation-time">
-                              {conversation.lastMessageTime}
-                            </span>
-                          </div>
-                          <div className="newsfeed-chat-panel__conversation-preview">
-                            <p className="newsfeed-chat-panel__conversation-message">
-                              {conversation.lastMessage}
-                            </p>
-                            {conversation.unreadCount > 0 && (
-                              <span className="newsfeed-chat-panel__unread-badge">
-                                {conversation.unreadCount}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="newsfeed-chat-panel__empty-conversations">
-                      <p>No conversations found</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Chat Window */}
-              <div
-                className={`newsfeed-chat-panel__chat-window ${
-                  selectedChatId
-                    ? "newsfeed-chat-panel__chat-window--visible"
-                    : ""
-                }`}
-              >
-                {selectedChat ? (
-                  <>
-                    <div className="newsfeed-chat-panel__chat-header">
-                      <div className="newsfeed-chat-panel__chat-user-info">
-                        <div className="newsfeed-chat-panel__chat-avatar-wrapper">
-                          <Avatar
-                            src={selectedChat?.userAvatar}
-                            alt={selectedChat?.userName}
-                            name={selectedChat?.userName}
-                            size={40}
-                            className="newsfeed-chat-panel__chat-avatar"
-                          />
-                          {selectedChat?.isOnline && (
-                            <span className="newsfeed-chat-panel__online-indicator"></span>
-                          )}
-                        </div>
-                        <div className="newsfeed-chat-panel__chat-user-details">
-                          <p className="newsfeed-chat-panel__chat-user-name">
-                            {selectedChat?.userName}
-                          </p>
-                          <span className="newsfeed-chat-panel__chat-status-separator">
-                            •
-                          </span>
-                          <p className="newsfeed-chat-panel__chat-status">
-                            {selectedChat?.isOnline ? "Online" : "Offline"}
-                          </p>
-                        </div>
-                      </div>
-                      <div
-                        className="newsfeed-chat-panel__chat-menu-wrapper"
-                        ref={chatMenuRef}
-                      >
-                        <button
-                          ref={chatMenuButtonRef}
-                          className="newsfeed-chat-panel__chat-menu-btn"
-                          aria-label="More options"
-                          onClick={() => setIsChatMenuOpen(!isChatMenuOpen)}
-                        >
-                          <MoreVertical size={20} />
-                        </button>
-                        {isChatMenuOpen && (
-                          <div className="newsfeed-chat-panel__chat-menu-dropdown">
-                            <button
-                              className="newsfeed-chat-panel__chat-menu-item"
-                              onClick={() => {
-                                setIsChatMenuOpen(false);
-                                if (selectedChat) {
-                                  setSelectedProfileUserId(selectedChat?.userId);
-                                  setIsProfileModalOpen(true);
-                                }
-                              }}
-                            >
-                              <User size={18} />
-                              <span>View Profile</span>
-                            </button>
-                            <button
-                              className="newsfeed-chat-panel__chat-menu-item"
-                              onClick={() => {
-                                setIsChatMenuOpen(false);
-                                console.log("Mute conversation");
-                              }}
-                            >
-                              <Bell size={18} />
-                              <span>Mute Notifications</span>
-                            </button>
-                            <button
-                              className="newsfeed-chat-panel__chat-menu-item"
-                              onClick={() => {
-                                setIsChatMenuOpen(false);
-                                console.log("Clear chat");
-                              }}
-                            >
-                              <Trash2 size={18} />
-                              <span>Clear Chat</span>
-                            </button>
-                            <button
-                              className="newsfeed-chat-panel__chat-menu-item newsfeed-chat-panel__chat-menu-item--danger"
-                              onClick={() => {
-                                setIsChatMenuOpen(false);
-                                if (
-                                  window.confirm(
-                                    "Are you sure you want to delete this conversation?"
-                                  )
-                                ) {
-                                  setChatConversations((prev) =>
-                                    prev.filter(
-                                      (chat) => chat.id !== selectedChatId
-                                    )
-                                  );
-                                  setSelectedChatId(null);
-                                }
-                              }}
-                            >
-                              <X size={18} />
-                              <span>Delete Conversation</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="newsfeed-chat-panel__messages">
-                      {selectedChat?.messages.map((message) => {
-                        const isCurrentUser = message.senderId === 0;
-                        return (
-                          <div
-                            key={message.id}
-                            className={`newsfeed-chat-panel__message ${
-                              isCurrentUser
-                                ? "newsfeed-chat-panel__message--sent"
-                                : "newsfeed-chat-panel__message--received"
-                            }`}
-                          >
-                            {!isCurrentUser && (
-                              <Avatar
-                                src={selectedChat?.userAvatar}
-                                alt={selectedChat?.userName}
-                                name={selectedChat?.userName}
-                                size={32}
-                                className="newsfeed-chat-panel__message-avatar"
-                              />
-                            )}
-                            <div className="newsfeed-chat-panel__message-content">
-                              {message.attachment && (
-                                <div className="newsfeed-chat-panel__message-attachment">
-                                  {message.attachment.type === "image" && (
-                                    <img
-                                      src={message.attachment.url}
-                                      alt="Attachment"
-                                      className="newsfeed-chat-panel__attachment-image"
-                                    />
-                                  )}
-                                  {message.attachment.type === "video" && (
-                                    <video
-                                      src={message.attachment.url}
-                                      controls
-                                      className="newsfeed-chat-panel__attachment-video"
-                                    />
-                                  )}
-                                  {message.attachment.type === "file" && (
-                                    <div className="newsfeed-chat-panel__attachment-file">
-                                      <Paperclip size={20} />
-                                      <div>
-                                        <p className="newsfeed-chat-panel__attachment-filename">
-                                          {message.attachment.fileName ||
-                                            "File"}
-                                        </p>
-                                        {message.attachment.fileSize && (
-                                          <p className="newsfeed-chat-panel__attachment-filesize">
-                                            {(
-                                              message.attachment.fileSize / 1024
-                                            ).toFixed(2)}{" "}
-                                            KB
-                                          </p>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                              {message.text && (
-                                <p className="newsfeed-chat-panel__message-text">
-                                  {message.text}
-                                </p>
-                              )}
-                              <div className="newsfeed-chat-panel__message-footer">
-                                <span className="newsfeed-chat-panel__message-time">
-                                  {message.timestamp}
-                                </span>
-                                {isCurrentUser && (
-                                  <span
-                                    className={`newsfeed-chat-panel__message-status ${
-                                      message.isRead
-                                        ? "newsfeed-chat-panel__message-status--read"
-                                        : "newsfeed-chat-panel__message-status--sent"
-                                    }`}
-                                    title={message.isRead ? "Read" : "Sent"}
-                                  >
-                                    {message.isRead ? (
-                                      <CheckCircle
-                                        size={14}
-                                        fill="currentColor"
-                                        color="currentColor"
-                                      />
-                                    ) : (
-                                      <CheckCircle size={14} />
-                                    )}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <div ref={messagesEndRef} />
-                    </div>
-
-                    <div className="newsfeed-chat-panel__input-area">
-                      {messageAttachment && (
-                        <div className="newsfeed-chat-panel__attachment-preview">
-                          <div className="newsfeed-chat-panel__attachment-preview-content">
-                            {messageAttachment?.type === "image" && (
-                              <Image size={16} />
-                            )}
-                            {messageAttachment?.type === "video" && (
-                              <Video size={16} />
-                            )}
-                            {messageAttachment?.type === "file" && (
-                              <Paperclip size={16} />
-                            )}
-                            <span className="newsfeed-chat-panel__attachment-preview-name">
-                              {messageAttachment?.fileName || "Attachment"}
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => setMessageAttachment(null)}
-                            className="newsfeed-chat-panel__attachment-preview-remove"
-                            aria-label="Remove attachment"
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-                      )}
-                      <div className="newsfeed-chat-panel__input-row">
-                        <div
-                          className="newsfeed-chat-panel__attachment-menu-wrapper"
-                          ref={attachmentMenuRef}
-                        >
-                          <button
-                            ref={attachmentButtonRef}
-                            className="newsfeed-chat-panel__input-btn"
-                            aria-label="Attach file"
-                            title="Attach file"
-                            onClick={() =>
-                              setIsAttachmentMenuOpen(!isAttachmentMenuOpen)
-                            }
-                          >
-                            <Paperclip size={20} />
-                          </button>
-                          {isAttachmentMenuOpen && (
-                            <div className="newsfeed-chat-panel__attachment-menu">
-                              <button
-                                className="newsfeed-chat-panel__attachment-menu-item"
-                                onClick={() => handleAttachmentClick("image")}
-                              >
-                                <Image size={18} />
-                                <span>Photo</span>
-                              </button>
-                              <button
-                                className="newsfeed-chat-panel__attachment-menu-item"
-                                onClick={() => handleAttachmentClick("video")}
-                              >
-                                <Video size={18} />
-                                <span>Video</span>
-                              </button>
-                              <button
-                                className="newsfeed-chat-panel__attachment-menu-item"
-                                onClick={() => handleAttachmentClick("file")}
-                              >
-                                <Paperclip size={18} />
-                                <span>File</span>
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        <input
-                          type="file"
-                          ref={fileInputRef}
-                          accept="*/*"
-                          onChange={(e) => handleFileSelect(e, "file")}
-                          style={{ display: "none" }}
-                        />
-                        <input
-                          type="file"
-                          ref={imageInputRef}
-                          accept="image/*"
-                          onChange={(e) => handleFileSelect(e, "image")}
-                          style={{ display: "none" }}
-                        />
-                        <input
-                          type="file"
-                          ref={videoInputRef}
-                          accept="video/*"
-                          onChange={(e) => handleFileSelect(e, "video")}
-                          style={{ display: "none" }}
-                        />
-                        <input
-                          type="text"
-                          className="newsfeed-chat-panel__input"
-                          placeholder="Type a message..."
-                          value={messageInput}
-                          onChange={(e) => setMessageInput(e.target.value)}
-                          onKeyPress={handleKeyPress}
-                        />
-                        <div className="newsfeed-chat-panel__emoji-wrapper">
-                          <button
-                            className="newsfeed-chat-panel__input-btn"
-                            aria-label="Add emoji"
-                            title="Add emoji"
-                            onClick={() =>
-                              setIsEmojiPickerOpen(!isEmojiPickerOpen)
-                            }
-                          >
-                            <Smile size={20} />
-                          </button>
-                          {isEmojiPickerOpen && (
-                            <EmojiPicker
-                              isOpen={isEmojiPickerOpen}
-                              onClose={() => setIsEmojiPickerOpen(false)}
-                              onEmojiSelect={(emoji) => {
-                                setMessageInput((prev) => prev + emoji);
-                                setIsEmojiPickerOpen(false);
-                              }}
-                              position="top"
-                            />
-                          )}
-                        </div>
-                        <button
-                          className="newsfeed-chat-panel__send-btn"
-                          onClick={handleSendMessage}
-                          disabled={!messageInput.trim() && !messageAttachment}
-                          aria-label="Send message"
-                          title="Send message"
-                        >
-                          <Send size={20} />
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="newsfeed-chat-panel__no-chat-selected">
-                    <MessageCircle size={64} />
-                    <p>Select a conversation to start chatting</p>
-                  </div>
-                )}
-              </div>
-              </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Profile Modal */}
-      {isProfileModalOpen && selectedProfileUserId && (
-        <ProfileModal
-          isOpen={isProfileModalOpen}
-          onClose={() => {
-            setIsProfileModalOpen(false);
-            setSelectedProfileUserId(null);
-          }}
-          userId={selectedProfileUserId}
-          userName={
-            chatConversations.find((c) => c.userId === selectedProfileUserId)
-              ?.userName || "User"
-          }
-          userAvatar={
-            chatConversations.find((c) => c.userId === selectedProfileUserId)
-              ?.userAvatar || "/placeholder-avatar.png"
-          }
-          isOnline={
-            chatConversations.find((c) => c.userId === selectedProfileUserId)
-              ?.isOnline || false
-          }
-          onMessage={() => {
-            const chat = chatConversations.find(
-              (c) => c.userId === selectedProfileUserId
-            );
-            if (chat) {
-              setSelectedChatId(chat.id);
-              setIsChatPanelOpen(true);
-            }
-          }}
-          onAddFriend={() => {
-            console.log("Add friend:", selectedProfileUserId);
-            // Handle add friend action
-          }}
-        />
-      )}
+      <ChatPanel
+        isOpen={isChatPanelOpen}
+        onClose={closeChatPanel}
+        onUnreadCountChange={setUnreadMessagesCount}
+        activeConversationId={activeChatConversationId}
+        remotePresenceByUserId={presenceByUserId}
+        onChatPeerUserIds={handleChatPeerUserIds}
+      />
 
       {/* Notification Panel */}
       {isNotificationPanelOpen && (
@@ -2306,7 +1485,7 @@ const NewsFeed: React.FC = () => {
                 {unreadNotificationsCount > 0 && (
                   <button
                     className="newsfeed-notification-panel__action-btn"
-                    onClick={markAllAsRead}
+                    onClick={() => void markAllAsRead()}
                     title="Mark all as read"
                   >
                     <CheckCircle size={18} />
@@ -2315,7 +1494,7 @@ const NewsFeed: React.FC = () => {
                 {notifications.length > 0 && (
                   <button
                     className="newsfeed-notification-panel__action-btn"
-                    onClick={clearAllNotifications}
+                    onClick={() => void deleteAllNotificationsForUser()}
                     title="Clear all"
                   >
                     <Trash2 size={18} />
@@ -2342,23 +1521,32 @@ const NewsFeed: React.FC = () => {
                           ? "newsfeed-notification-panel__item--unread"
                           : ""
                       }`}
-                      onClick={() => markNotificationAsRead(notification.id)}
+                      onClick={() => {
+                        markNotificationAsRead(notification.id);
+                        if (
+                          notification.type === "message" &&
+                          notification.relatedChatId
+                        ) {
+                          setIsNotificationPanelOpen(false);
+                          openChatPanel(notification.relatedChatId);
+                        }
+                      }}
                     >
                       <div
                         className="newsfeed-notification-panel__icon-wrapper"
                         style={{
-                          backgroundColor: `${getNotificationColor(
-                            notification.type
+                          backgroundColor: `${getFeedPanelNotificationColor(
+                            notification
                           )}20`,
                         }}
                       >
                         <div
                           className="newsfeed-notification-panel__icon"
                           style={{
-                            color: getNotificationColor(notification.type),
+                            color: getFeedPanelNotificationColor(notification),
                           }}
                         >
-                          {getNotificationIcon(notification.type)}
+                          {getFeedPanelNotificationIcon(notification)}
                         </div>
                       </div>
                       <div className="newsfeed-notification-panel__content-wrapper">
@@ -2380,6 +1568,44 @@ const NewsFeed: React.FC = () => {
                             <span className="newsfeed-notification-panel__timestamp">
                               {notification.timestamp}
                             </span>
+                            {notification.type === "friend_request" &&
+                              notification.relatedFriendRequestId != null && (
+                                <div
+                                  className="newsfeed-notification-panel__friend-actions"
+                                  role="group"
+                                  aria-label="Friend request actions"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <button
+                                    type="button"
+                                    className="newsfeed-notification-panel__friend-action-btn newsfeed-notification-panel__friend-action-btn--accept"
+                                    title="Accept friend request"
+                                    aria-label="Accept friend request"
+                                    onClick={(e) =>
+                                      void acceptFriendFromNotification(
+                                        e,
+                                        notification
+                                      )
+                                    }
+                                  >
+                                    <UserCheck size={18} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="newsfeed-notification-panel__friend-action-btn newsfeed-notification-panel__friend-action-btn--reject"
+                                    title="Decline friend request"
+                                    aria-label="Decline friend request"
+                                    onClick={(e) =>
+                                      void rejectFriendFromNotification(
+                                        e,
+                                        notification
+                                      )
+                                    }
+                                  >
+                                    <UserX size={18} />
+                                  </button>
+                                </div>
+                              )}
                           </div>
                         </div>
                         {!notification.isRead && (
@@ -2390,7 +1616,7 @@ const NewsFeed: React.FC = () => {
                         className="newsfeed-notification-panel__delete-btn"
                         onClick={(e) => {
                           e.stopPropagation();
-                          deleteNotification(notification.id);
+                          void deleteNotification(notification.id);
                         }}
                         aria-label="Delete notification"
                         title="Delete"
@@ -2414,6 +1640,18 @@ const NewsFeed: React.FC = () => {
         </div>
       )}
 
+      {messagePopup && (
+        <MessagePopup
+          userId={messagePopup.userId}
+          userName={messagePopup.userName}
+          userAvatar={messagePopup.userAvatar}
+          message={messagePopup.message}
+          timestamp={messagePopup.timestamp}
+          onClose={() => setMessagePopup(null)}
+          onOpenChat={() => openChatPanel(messagePopup.conversationId)}
+        />
+      )}
+
       {/* Create Post Modal */}
       {isAuthenticated() && userName && (
         <CreatePostModal
@@ -2421,7 +1659,24 @@ const NewsFeed: React.FC = () => {
           onClose={() => setIsCreatePostModalOpen(false)}
           userName={userName}
           userAvatar={getUserAvatar()}
+          businessListingFields={
+            getUserAccountType().toLowerCase() === "business"
+          }
+          businessFeedNotice="As a business account, this post appears only in the Business section, not on the main news feed."
           onPost={handleNewPost}
+        />
+      )}
+
+      {isAuthenticated() && userName && (
+        <CreateReelModal
+          isOpen={isCreateReelModalOpen}
+          onClose={() => setIsCreateReelModalOpen(false)}
+          userName={userName}
+          userAvatar={getUserAvatar()}
+          onCreated={() => {
+            setIsCreateReelModalOpen(false);
+            navigate("/reels");
+          }}
         />
       )}
 
@@ -2436,3 +1691,4 @@ const NewsFeed: React.FC = () => {
 };
 
 export default NewsFeed;
+

@@ -1,58 +1,57 @@
-import React, { useState, useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { Calendar, Clock, MapPin, XCircle } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import "../main.css";
 import "../scss/_events.scss";
-import multipleLaugh from "../image/multiple-laugh.png";
-import smile from "../image/smile.png";
-
+import ChatPanel from "../components/ChatPanel";
+import FindFriendsModal from "../components/FindFriendsModal";
 import NewsFeedHeader from "./NewsFeed/NewsFeedHeader";
 import NewsFeedSidebar from "./NewsFeed/NewsFeedSidebar";
+import { getEvents, type Event } from "../api/events";
+import { getProfileUsername } from "../utils/userUtils";
+
+const normalizeEvent = (event: Event) => ({
+  id: event.event_id ?? event.id,
+  title: event.event_title || event.title,
+  description: event.event_description || event.description || "",
+  date: event.event_date || event.date,
+  location: event.event_location || event.location || "",
+  image: event.event_cover || event.image || "",
+});
 
 const Events: React.FC = () => {
+  const navigate = useNavigate();
   const location = useLocation();
   const isStandalonePage = location.pathname === "/events";
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [visibleElements, setVisibleElements] = useState<Set<string>>(
-    new Set()
-  );
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const [events, setEvents] = useState<ReturnType<typeof normalizeEvent>[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] =
+    useState<ReturnType<typeof normalizeEvent> | null>(null);
+  const [visibleElements, setVisibleElements] = useState<Set<string>>(new Set());
   const badgeRef = useRef<HTMLDivElement>(null);
   const imageWrapperRef = useRef<HTMLDivElement>(null);
-
-  // Event images
-  const eventImages = [
-    {
-      id: 1,
-      url: multipleLaugh,
-      alt: "Community Gathering",
-    },
-    {
-      id: 2,
-      url: smile,
-      alt: "Happy Community",
-    },
-  ];
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           const elementId = entry.target.getAttribute("data-animate-id");
+          if (!elementId) return;
 
           if (entry.isIntersecting) {
-            if (elementId) {
-              setVisibleElements((prev) => new Set(prev).add(elementId));
-            }
+            setVisibleElements((prev) => new Set(prev).add(elementId));
           } else {
-            // Remove from visible when scrolling out
-            if (elementId) {
-              setVisibleElements((prev) => {
-                const newSet = new Set(prev);
-                newSet.delete(elementId);
-                return newSet;
-              });
-            }
+            setVisibleElements((prev) => {
+              const next = new Set(prev);
+              next.delete(elementId);
+              return next;
+            });
           }
         });
       },
@@ -60,40 +59,62 @@ const Events: React.FC = () => {
     );
 
     const elements = [badgeRef.current, imageWrapperRef.current];
-
-    elements.forEach((el) => {
-      if (el) observer.observe(el);
-    });
+    elements.forEach((el) => el && observer.observe(el));
 
     return () => {
-      elements.forEach((el) => {
-        if (el) observer.unobserve(el);
-      });
+      elements.forEach((el) => el && observer.unobserve(el));
     };
   }, []);
 
-  const handlePrevImage = () => {
-    setCurrentImageIndex((prev) =>
-      prev === 0 ? eventImages.length - 1 : prev - 1
-    );
-  };
-
-  const handleNextImage = () => {
-    setCurrentImageIndex((prev) =>
-      prev === eventImages.length - 1 ? 0 : prev + 1
-    );
-  };
-
-  // Auto-advance images every 5 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentImageIndex((prev) =>
-        prev === eventImages.length - 1 ? 0 : prev + 1
-      );
-    }, 5000);
+    const loadEvents = async () => {
+      setLoading(true);
+      setError(null);
 
-    return () => clearInterval(interval);
-  }, [eventImages.length]);
+      try {
+        const response = await getEvents({ limit: 6 });
+        const normalizedEvents = (response.data || [])
+          .map(normalizeEvent)
+          .filter((event) => !!event.image);
+        setEvents(normalizedEvents);
+      } catch (loadError) {
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Unable to load events right now."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadEvents();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedEvent) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedEvent(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [selectedEvent]);
+
+  const formatEventDate = (dateString: string) => {
+    if (!dateString) return "";
+
+    return new Date(dateString).toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   const eventsContent = (
     <section id="events" className="events">
@@ -113,60 +134,106 @@ const Events: React.FC = () => {
 
         <div
           ref={imageWrapperRef}
-          data-animate-id="events-image"
-          className={`events__image-wrapper ${
-            visibleElements.has("events-image") ? "fade-in" : ""
+          data-animate-id="events-grid"
+          className={`events__grid-wrapper ${
+            visibleElements.has("events-grid") ? "fade-in" : ""
           }`}
         >
-          {eventImages.length > 0 && (
-            <>
-              <img
-                src={eventImages[currentImageIndex].url}
-                alt={eventImages[currentImageIndex].alt}
-                className="events__image"
-              />
-              {eventImages.length > 1 && (
-                <>
-                  <button
-                    className="events__nav-button events__nav-button--prev"
-                    onClick={handlePrevImage}
-                    aria-label="Previous event"
-                  >
-                    <ChevronLeft size={20} />
-                  </button>
-                  <button
-                    className="events__nav-button events__nav-button--next"
-                    onClick={handleNextImage}
-                    aria-label="Next event"
-                  >
-                    <ChevronRight size={20} />
-                  </button>
-                </>
-              )}
-            </>
+          {loading ? (
+            <div className="events__state">Loading events...</div>
+          ) : error ? (
+            <div className="events__state">{error}</div>
+          ) : events.length === 0 ? (
+            <div className="events__state">No events have been added yet.</div>
+          ) : (
+            <div className="events__grid">
+              {events.map((event) => (
+                <button
+                  key={event.id}
+                  type="button"
+                  className="events__card"
+                  onClick={() => setSelectedEvent(event)}
+                >
+                  <div className="events__card-image-shell">
+                    <img
+                      src={event.image}
+                      alt={event.title}
+                      className="events__card-image"
+                    />
+                  </div>
+                  <div className="events__card-body">
+                    <h3 className="events__card-title">{event.title}</h3>
+                    {event.date && (
+                      <div className="events__meta">
+                        <Clock size={14} />
+                        <span>{formatEventDate(event.date)}</span>
+                      </div>
+                    )}
+                    {event.location && (
+                      <div className="events__meta">
+                        <MapPin size={14} />
+                        <span>{event.location}</span>
+                      </div>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
           )}
         </div>
+
+        {selectedEvent && (
+          <div
+            className="events__lightbox"
+            onClick={() => setSelectedEvent(null)}
+          >
+            <div
+              className="events__lightbox-dialog"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="events__lightbox-close"
+                onClick={() => setSelectedEvent(null)}
+                aria-label="Close event image"
+              >
+                <XCircle size={22} />
+              </button>
+              <img
+                src={selectedEvent.image}
+                alt={selectedEvent.title}
+                className="events__lightbox-image"
+              />
+              <div className="events__lightbox-caption">
+                <h3>{selectedEvent.title}</h3>
+                {selectedEvent.description && <p>{selectedEvent.description}</p>}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
 
-  // If used as standalone page, wrap with header and sidebar
   if (isStandalonePage) {
     return (
       <div className="events-page">
         <NewsFeedHeader
           isLeftSidebarOpen={isLeftSidebarOpen}
           onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
-          showCreateMenu={true}
-          showRightSidebarToggle={false}
           unreadNotificationsCount={0}
-          onNotificationClick={() => {}}
-          onAddFriendClick={() => {}}
-          onMessageClick={() => {}}
-          onCreateClick={() => {}}
+          unreadMessagesCount={unreadMessagesCount}
+          showRightSidebarToggle={false}
+          onNotificationClick={() => setIsNotificationPanelOpen(true)}
+          onMessageClick={() => setIsChatPanelOpen(true)}
+          onAddFriendClick={() => setIsAddFriendModalOpen(true)}
+          onCreatePost={() => navigate("/newsfeed")}
+          onCreateStory={() => navigate("/newsfeed")}
+          onProfileClick={() =>
+            navigate(`/profile/${encodeURIComponent(getProfileUsername())}`)
+          }
         />
         <div className="events-page__container">
-          {/* Mobile Overlay */}
           {isLeftSidebarOpen && (
             <div
               className={`events-overlay ${
@@ -181,11 +248,46 @@ const Events: React.FC = () => {
           />
           <main className="events-page__main">{eventsContent}</main>
         </div>
+        <ChatPanel
+          isOpen={isChatPanelOpen}
+          onClose={() => setIsChatPanelOpen(false)}
+          onUnreadCountChange={setUnreadMessagesCount}
+        />
+        <FindFriendsModal
+          isOpen={isAddFriendModalOpen}
+          onClose={() => setIsAddFriendModalOpen(false)}
+        />
+        {isNotificationPanelOpen && (
+          <div
+            className="newsfeed-notification-panel-overlay"
+            onClick={() => setIsNotificationPanelOpen(false)}
+          >
+            <div
+              className="newsfeed-notification-panel"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="newsfeed-notification-panel__header">
+                <h3>Notifications</h3>
+                <button
+                  className="newsfeed-notification-panel__close"
+                  onClick={() => setIsNotificationPanelOpen(false)}
+                  aria-label="Close panel"
+                >
+                  X
+                </button>
+              </div>
+              <div className="newsfeed-notification-panel__content">
+                <div className="newsfeed-notification-panel__empty">
+                  <p>No notifications</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  // If used as section in landing page, return just the content
   return eventsContent;
 };
 

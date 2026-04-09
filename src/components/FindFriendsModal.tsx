@@ -3,6 +3,7 @@ import { X, Search, UserPlus, Check, Clock } from "lucide-react";
 import { userApi, User } from "../services/userApi";
 import { friendApi } from "../services/friendApi";
 import { getUserLocation } from "../utils/locationUtils";
+import { getInitialsFromName } from "../utils/userUtils";
 import LazyImage from "./LazyImage";
 
 interface FindFriendsModalProps {
@@ -13,6 +14,8 @@ interface FindFriendsModalProps {
 interface FriendStatus {
   userId: number;
   status: "none" | "pending" | "friends" | "sent";
+  /** friend_requests.request_id when status is "sent" */
+  outgoingRequestId?: number;
 }
 
 const FindFriendsModal: React.FC<FindFriendsModalProps> = ({
@@ -45,7 +48,7 @@ const FindFriendsModal: React.FC<FindFriendsModalProps> = ({
       fetchNearbyUsers();
       checkFriendStatuses();
     }
-  }, [isOpen]);
+  }, [isOpen, currentUserId]);
 
   const fetchNearbyUsers = async () => {
     setLoading(true);
@@ -56,7 +59,7 @@ const FindFriendsModal: React.FC<FindFriendsModalProps> = ({
         // Still fetch users, backend can handle location filtering
       }
 
-      const response = await userApi.getNearbyUsers(500);
+      const response = await userApi.getNearbyUsers({ rangeKm: 500 });
       if (response.success && response.data) {
         // Filter out current user
         const filteredUsers = response.data.filter(
@@ -102,6 +105,7 @@ const FindFriendsModal: React.FC<FindFriendsModalProps> = ({
         statusMap.set(req.receiver_id, {
           userId: req.receiver_id,
           status: "sent",
+          outgoingRequestId: req.request_id,
         });
       });
 
@@ -123,20 +127,41 @@ const FindFriendsModal: React.FC<FindFriendsModalProps> = ({
     try {
       const response = await friendApi.sendFriendRequest(userId);
       if (response.success) {
-        // Update friend status
+        const rid = response.data?.request_id;
         setFriendStatuses((prev) => {
           const existing = prev.find((s) => s.userId === userId);
           if (existing) {
             return prev.map((s) =>
-              s.userId === userId ? { ...s, status: "sent" } : s
+              s.userId === userId
+                ? {
+                    ...s,
+                    status: "sent",
+                    outgoingRequestId: rid ?? s.outgoingRequestId,
+                  }
+                : s
             );
           }
-          return [...prev, { userId, status: "sent" }];
+          return [...prev, { userId, status: "sent", outgoingRequestId: rid }];
         });
       }
     } catch (error) {
       console.error("Error sending friend request:", error);
       alert("Failed to send friend request. Please try again.");
+    }
+  };
+
+  const handleCancelSent = async (userId: number, requestId: number) => {
+    try {
+      const res = await friendApi.cancelFriendRequest(requestId);
+      if (res.success) {
+        setFriendStatuses((prev) =>
+          prev.map((s) =>
+            s.userId === userId ? { ...s, status: "none", outgoingRequestId: undefined } : s
+          )
+        );
+      }
+    } catch {
+      alert("Could not cancel friend request. Please try again.");
     }
   };
 
@@ -154,8 +179,9 @@ const FindFriendsModal: React.FC<FindFriendsModalProps> = ({
     return user.user_email || `User ${user.user_id}`;
   };
 
-  const getUserAvatar = (user: User): string => {
-    return user.user_picture || "/placeholder-avatar.png";
+  const getUserAvatar = (user: User): string | null => {
+    const pic = user.user_picture?.trim();
+    return pic && !/placeholder-avatar|^\/?placeholder/i.test(pic) ? pic : null;
   };
 
   // Filter users based on search query
@@ -211,18 +237,27 @@ const FindFriendsModal: React.FC<FindFriendsModalProps> = ({
               {filteredUsers.map((user) => {
                 const status = getFriendStatus(user.user_id);
                 const displayName = getUserDisplayName(user);
-                const avatar = getUserAvatar(user);
+                const avatarSrc = getUserAvatar(user);
+                const initials = getInitialsFromName(displayName);
 
                 return (
                   <div
                     key={user.user_id}
                     className="newsfeed-add-friend-modal__item"
                   >
-                    <LazyImage
-                      src={avatar}
-                      alt={displayName}
-                      className="newsfeed-add-friend-modal__avatar"
-                    />
+                    <div className="lazy-image-wrapper newsfeed-add-friend-modal__avatar">
+                      {avatarSrc ? (
+                        <LazyImage
+                          src={avatarSrc}
+                          alt={displayName}
+                          className="newsfeed-add-friend-modal__avatar-img"
+                        />
+                      ) : (
+                        <span className="newsfeed-add-friend-modal__avatar-initials">
+                          {initials}
+                        </span>
+                      )}
+                    </div>
                     <div className="newsfeed-add-friend-modal__info">
                       <p className="newsfeed-add-friend-modal__name">
                         {displayName}
@@ -242,16 +277,31 @@ const FindFriendsModal: React.FC<FindFriendsModalProps> = ({
                         <UserPlus size={18} />
                       </button>
                     )}
-                    {status === "sent" && (
-                      <button
-                        className="newsfeed-add-friend-modal__add-btn"
-                        disabled
-                        aria-label="Friend request sent"
-                        title="Friend request sent"
-                      >
-                        <Clock size={18} />
-                      </button>
-                    )}
+                    {status === "sent" &&
+                      (() => {
+                        const st = friendStatuses.find((s) => s.userId === user.user_id);
+                        const rid = st?.outgoingRequestId;
+                        return rid != null ? (
+                          <button
+                            type="button"
+                            className="newsfeed-add-friend-modal__add-btn newsfeed-add-friend-modal__add-btn--cancel"
+                            onClick={() => void handleCancelSent(user.user_id, rid)}
+                            aria-label="Cancel friend request"
+                            title="Cancel friend request"
+                          >
+                            <X size={18} />
+                          </button>
+                        ) : (
+                          <button
+                            className="newsfeed-add-friend-modal__add-btn"
+                            disabled
+                            aria-label="Friend request sent"
+                            title="Friend request sent"
+                          >
+                            <Clock size={18} />
+                          </button>
+                        );
+                      })()}
                     {status === "friends" && (
                       <button
                         className="newsfeed-add-friend-modal__add-btn"

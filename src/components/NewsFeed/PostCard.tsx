@@ -15,6 +15,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import LazyImage from "../LazyImage";
+import { feedApi } from "../../services/feedApi";
 
 interface Comment {
   id: number;
@@ -48,6 +49,8 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(post.likes);
+  const [viewCount, setViewCount] = useState(post.views);
+  const [hasViewed, setHasViewed] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -57,6 +60,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
+  const postRef = useRef<HTMLElement>(null);
   const MAX_CAPTION_LENGTH = 150;
 
   // Fixed caption handling with null checks
@@ -158,6 +162,33 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
     };
   }, [showMenu]);
 
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !hasViewed) {
+          setHasViewed(true);
+          feedApi.viewPost(post.id)
+            .then((res) => {
+              if (res && res.views !== undefined) {
+                setViewCount(res.views);
+              }
+            })
+            .catch((err) => console.error("Failed to update view post:", err));
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.5 }
+    );
+
+    if (postRef.current) {
+      observer.observe(postRef.current);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasViewed]);
+
   // Get all images
   const getAllImages = useCallback(() => {
     const imageArray: string[] = [];
@@ -217,7 +248,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   ]);
 
   return (
-    <article className="newsfeed-post">
+    <article className="newsfeed-post" ref={postRef}>
       <div className="newsfeed-post__header">
         <div className="newsfeed-post__user-info">
           <LazyImage
@@ -393,7 +424,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
           </div>
           <div className="newsfeed-post__stat">
             <Eye size={16} />
-            <span>{post.views} Views</span>
+            <span>{viewCount} Views</span>
           </div>
           <div className="newsfeed-post__stat">
             <Star size={16} />

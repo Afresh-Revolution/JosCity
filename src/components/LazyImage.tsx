@@ -1,18 +1,30 @@
 import React, { useState, useRef, useEffect, forwardRef } from "react";
 
-interface LazyImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'fetchpriority'> {
+interface LazyImageProps
+  extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, "fetchpriority" | "fetchPriority"> {
   src: string;
   alt: string;
   placeholder?: string;
   className?: string;
   onLoad?: () => void;
   onError?: () => void;
+  /** Maps to DOM `fetchpriority` (React 18 expects lowercase on `img`). */
   fetchpriority?: "high" | "low" | "auto";
 }
 
 const LazyImage = forwardRef<HTMLDivElement, LazyImageProps>(
   (
-    { src, alt, placeholder, className = "", onLoad, onError, fetchpriority, ...props },
+    {
+      src,
+      alt,
+      placeholder,
+      className = "",
+      onLoad,
+      onError,
+      fetchpriority,
+      style,
+      ...props
+    },
     ref
   ) => {
     const [isLoaded, setIsLoaded] = useState(false);
@@ -118,15 +130,19 @@ const LazyImage = forwardRef<HTMLDivElement, LazyImageProps>(
               onError={handleError}
               loading="lazy"
               decoding="async"
-              fetchPriority={fetchpriority || "auto"}
               style={{
                 opacity: isLoaded ? 1 : 0,
                 transition: "opacity 0.3s ease-in-out",
                 width: "100%",
                 height: "100%",
-                objectFit: "cover",
+                objectFit: style?.objectFit ?? "cover",
+                ...style,
               }}
               {...props}
+              // React 18 warns on camelCase `fetchPriority`; DOM uses `fetchpriority`.
+              {...({
+                fetchpriority: fetchpriority ?? "auto",
+              } as React.ImgHTMLAttributes<HTMLImageElement>)}
             />
           </>
         )}

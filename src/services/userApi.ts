@@ -8,11 +8,28 @@ export interface User {
   user_picture?: string;
   user_cover?: string;
   account_type?: string;
+  user_name?: string | null;
+  address?: string | null;
+  business_name?: string | null;
+  business_type?: string | null;
   user_location?: {
     latitude: number;
     longitude: number;
   };
   distance?: number; // Distance in km from current user
+}
+
+export interface ApprovedDirectoryUser {
+  user_id: number;
+  user_firstname: string;
+  user_lastname: string;
+  user_email?: string;
+  user_picture?: string | null;
+  account_type?: string;
+  user_name?: string | null;
+  address?: string | null;
+  business_name?: string | null;
+  business_type?: string | null;
 }
 
 export interface UserProfile {
@@ -74,14 +91,47 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
 };
 
 export const userApi = {
-  // Get nearby users within specified range (default 500km)
-  getNearbyUsers: async (
-    rangeKm: number = 500
-  ): Promise<{
+  /** Nearby users; optional lat/lng use browser geolocation as origin (see API). */
+  getNearbyUsers: async (params?: {
+    rangeKm?: number;
+    latitude?: number;
+    longitude?: number;
+  }): Promise<{
     success: boolean;
     data: User[];
   }> => {
-    return apiRequest(`/users/nearby?range=${rangeKm}`);
+    const range = params?.rangeKm ?? 500;
+    const q = new URLSearchParams({ range: String(range) });
+    if (
+      params?.latitude != null &&
+      params?.longitude != null &&
+      Number.isFinite(params.latitude) &&
+      Number.isFinite(params.longitude)
+    ) {
+      q.set("lat", String(params.latitude));
+      q.set("lng", String(params.longitude));
+    }
+    return apiRequest(`/users/nearby?${q.toString()}`);
+  },
+
+  /** Approved directory (personal + business), excludes current user. */
+  getApprovedUsers: async (params?: {
+    page?: number;
+    limit?: number;
+    q?: string;
+  }): Promise<{
+    success: boolean;
+    data: ApprovedDirectoryUser[];
+    pagination?: { page: number; limit: number; hasMore: boolean };
+  }> => {
+    const page = params?.page ?? 1;
+    const limit = params?.limit ?? 100;
+    const q = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    if (params?.q?.trim()) q.set("q", params.q.trim());
+    return apiRequest(`/users/approved?${q.toString()}`);
   },
 
   // Search users by name

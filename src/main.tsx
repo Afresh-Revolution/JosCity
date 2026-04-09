@@ -27,8 +27,6 @@ import CookiePolicy from "./pages/CookiePolicy";
 import Accessibility from "./pages/Accessibility";
 import About from "./pages/About";
 import ContactPage from "./pages/ContactPage";
-import Request from "./components/Request";
-import SentRequest from "./components/SentRequest";
 import UserProfile from "./pages/UserProfile";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import NavbarThemeToggle from "./components/NavbarThemeToggle";
@@ -36,8 +34,25 @@ import NavbarThemeToggle from "./components/NavbarThemeToggle";
 import Maintenance from "./pages/Maintenance";
 // import RoutingDisabled from "./pages/RoutingDisabled";
 import ComingSoonSection from "./pages/NewsFeed/ComingSoonSection";
+import Forums from "./pages/NewsFeed/Forums";
+import MarketPlace from "./pages/NewsFeed/MarketPlace";
+import Scheduled from "./pages/NewsFeed/Scheduled";
+import Saved from "./pages/NewsFeed/Saved";
+import People from "./components/People";
 import PWAProvider from "./components/PWAProvider";
 import Business from "./pages/NewsFeed/Business";
+import ProtectedRoute from "./components/ProtectedRoute";
+import News from "./pages/NewsFeed/News";
+import Reels from "./pages/NewsFeed/Reels";
+
+/** Logged-in user areas (sidebar / feed); redirects to sign-in if no session. */
+function UserRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <ProtectedRoute requireAdmin={false} redirectTo="/signin">
+      {children}
+    </ProtectedRoute>
+  );
+}
 
 // Prevent browser inspection/devtools
 // preventInspect();
@@ -111,7 +126,14 @@ if (rootElement) {
                     element={<ServicesComingSoon />}
                   />
                   <Route path="/success" element={<Success />} />
-                  <Route path="/newsfeed" element={<NewsFeed />} />
+                  <Route
+                    path="/newsfeed"
+                    element={
+                      <UserRoute>
+                        <NewsFeed />
+                      </UserRoute>
+                    }
+                  />
                   <Route path="/admin/login" element={<AdminLogin />} />
                   <Route path="/admin" element={<Admin />} />
                   <Route path="/admin/profile" element={<AdminProfile />} />
@@ -121,22 +143,135 @@ if (rootElement) {
                   <Route path="/accessibility" element={<Accessibility />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/contact" element={<ContactPage />} />
-                  <Route path="/people" element={<ComingSoonSection />} />
-                  <Route path="/forums" element={<ComingSoonSection />} />
-                  <Route path="/news" element={<ComingSoonSection />} />
-                  <Route path="/reels" element={<ComingSoonSection />} />
-                  <Route path="/events" element={<EventsPage />} />
-                  <Route path="/events-old" element={<Events />} />
-                  <Route path="/request" element={<Request />} />
-                  <Route path="/sent-requests" element={<SentRequest />} />
+                  <Route
+                    path="/people"
+                    element={
+                      <UserRoute>
+                        <People />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/forums"
+                    element={
+                      <UserRoute>
+                        <Forums />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/news"
+                    element={
+                      <UserRoute>
+                        <News />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/reels"
+                    element={
+                      <UserRoute>
+                        <Reels />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/events"
+                    element={
+                      <UserRoute>
+                        <EventsPage />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/events-old"
+                    element={
+                      <UserRoute>
+                        <Events />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/request"
+                    element={
+                      <UserRoute>
+                        <People />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/sent-requests"
+                    element={
+                      <UserRoute>
+                        <People />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/my-friends"
+                    element={
+                      <UserRoute>
+                        <People />
+                      </UserRoute>
+                    }
+                  />
                   <Route path="/profile/:username" element={<UserProfile />} />
-                  <Route path="/marketplace" element={<ComingSoonSection />} />
-                  <Route path="/movies" element={<ComingSoonSection />} />
-                  <Route path="/offers" element={<ComingSoonSection />} />
-                  <Route path="/jobs" element={<ComingSoonSection />} />
-                  <Route path="/scheduled" element={<ComingSoonSection />} />
-                  <Route path="/saved" element={<ComingSoonSection />} />
-                  <Route path="/business" element={<Business />} />
+                  <Route
+                    path="/marketplace"
+                    element={
+                      <UserRoute>
+                        <MarketPlace />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/movies"
+                    element={
+                      <UserRoute>
+                        <ComingSoonSection />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/offers"
+                    element={
+                      <UserRoute>
+                        <ComingSoonSection />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/jobs"
+                    element={
+                      <UserRoute>
+                        <ComingSoonSection />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/scheduled"
+                    element={
+                      <UserRoute>
+                        <Scheduled />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/saved"
+                    element={
+                      <UserRoute>
+                        <Saved />
+                      </UserRoute>
+                    }
+                  />
+                  <Route
+                    path="/business"
+                    element={
+                      <UserRoute>
+                        <Business />
+                      </UserRoute>
+                    }
+                  />
                 </Routes>
               </>
             )}

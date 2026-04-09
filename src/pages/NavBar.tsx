@@ -122,23 +122,23 @@ function App() {
     }
   };
 
-  const scrollToGuidlines = () => {
+  const scrollToNews = () => {
     setIsMenuOpen(false);
     if (window.location.pathname !== "/") {
       navigate("/");
       setTimeout(() => {
-        const guidelinesSection = document.getElementById("guidelines");
-        if (guidelinesSection) {
-          guidelinesSection.scrollIntoView({
+        const newsSection = document.getElementById("news");
+        if (newsSection) {
+          newsSection.scrollIntoView({
             behavior: "smooth",
             block: "start",
           });
         }
       }, 100);
     } else {
-      const guidelinesSection = document.getElementById("guidelines");
-      if (guidelinesSection) {
-        guidelinesSection.scrollIntoView({
+      const newsSection = document.getElementById("news");
+      if (newsSection) {
+        newsSection.scrollIntoView({
           behavior: "smooth",
           block: "start",
         });
@@ -160,7 +160,9 @@ function App() {
           aria-hidden="true"
         />
       )}
-      <nav className="navbar">
+      <div className="navbar-shell">
+        <div className="navbar-shell__glass" aria-hidden />
+        <nav className="navbar">
         <div className="navbar__left-section">
           <div
             className="navbar__brand"
@@ -214,8 +216,8 @@ function App() {
                 <li className="navbar__nav-item" onClick={scrollToAbout}>
                   ABOUT
                 </li>
-                <li className="navbar__nav-item" onClick={scrollToGuidlines}>
-                  GUIDELINES
+                <li className="navbar__nav-item" onClick={scrollToNews}>
+                  NEWS
                 </li>
                 <li className="navbar__nav-item" onClick={scrollToServices}>
                   SERVICES
@@ -264,6 +266,7 @@ function App() {
           </div>
         </div>
       </nav>
+      </div>
     </>
   );
 }

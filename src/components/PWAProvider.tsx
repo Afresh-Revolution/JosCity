@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
+import { PWAInstallProvider } from "../contexts/PWAInstallContext";
 
 const PULL_THRESHOLD = 80;
 const MAX_PULL = 120;
@@ -79,19 +80,16 @@ function UpdateBadge({ onUpdate, onDismiss }: { onUpdate: () => void; onDismiss:
 }
 
 /**
- * PWAProvider: registers SW, shows update badge, and enables pull-to-refresh.
+ * Registers the service worker only in production builds (not during `vite dev`).
+ * Matches vite-plugin-pwa `devOptions.enabled: false` — avoids dev SW / import issues.
  */
-export default function PWAProvider({ children }: { children: React.ReactNode }) {
-  const [showUpdateBadge, setShowUpdateBadge] = useState(false);
-  const [pullDistance, setPullDistance] = useState(0);
-  const [pulling, setPulling] = useState(false);
-  const [showScrollTop, setShowScrollTop] = useState(false);
-  const startY = useRef(0);
-
-  const onRefresh = useCallback(() => {
-    window.location.reload();
-  }, []);
-
+function ProductionServiceWorkerRegistration({
+  onNeedRefresh,
+  updateFnRef,
+}: {
+  onNeedRefresh: (need: boolean) => void;
+  updateFnRef: React.MutableRefObject<((reload?: boolean) => Promise<void>) | null>;
+}) {
   const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW({
     onRegistered(registration: ServiceWorkerRegistration | undefined) {
       if (registration) {
@@ -104,13 +102,42 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
   });
 
   useEffect(() => {
-    if (needRefresh) setShowUpdateBadge(true);
-  }, [needRefresh]);
+    updateFnRef.current = updateServiceWorker;
+    return () => {
+      updateFnRef.current = null;
+    };
+  }, [updateServiceWorker, updateFnRef]);
+
+  useEffect(() => {
+    if (needRefresh) onNeedRefresh(true);
+  }, [needRefresh, onNeedRefresh]);
+
+  return null;
+}
+
+/**
+ * PWAProvider: registers SW (prod only), shows update badge, and enables pull-to-refresh.
+ */
+export default function PWAProvider({ children }: { children: React.ReactNode }) {
+  const [showUpdateBadge, setShowUpdateBadge] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [pulling, setPulling] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const startY = useRef(0);
+  const updateServiceWorkerRef = useRef<((reload?: boolean) => Promise<void>) | null>(null);
+
+  const onRefresh = useCallback(() => {
+    window.location.reload();
+  }, []);
+
+  const handleNeedRefresh = useCallback((need: boolean) => {
+    if (need) setShowUpdateBadge(true);
+  }, []);
 
   const handleUpdate = useCallback(() => {
-    updateServiceWorker(true);
+    void updateServiceWorkerRef.current?.(true);
     setShowUpdateBadge(false);
-  }, [updateServiceWorker]);
+  }, []);
 
   // Pull-to-refresh (touch only): only when at top of scroll container (fixes newsfeed glitch)
   const pullingRef = useRef(false);
@@ -195,7 +222,13 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
   }, []);
 
   return (
-    <>
+    <PWAInstallProvider>
+      {import.meta.env.PROD && (
+        <ProductionServiceWorkerRegistration
+          onNeedRefresh={handleNeedRefresh}
+          updateFnRef={updateServiceWorkerRef}
+        />
+      )}
       {children}
       {showUpdateBadge && (
         <UpdateBadge
@@ -215,6 +248,6 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
           ↑
         </button>
       )}
-    </>
+    </PWAInstallProvider>
   );
 }

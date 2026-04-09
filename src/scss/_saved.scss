@@ -78,56 +78,62 @@
   }
 }
 
-// Top Header
+// Top Header (match app newsfeed bar — solid green, full width)
 .newsfeed-header {
-  // Very light glassmorphism effect with subtle green tint
-  background: rgba(13, 74, 31, 0.15);
-  -webkit-backdrop-filter: blur(10px) saturate(150%);
-  backdrop-filter: blur(10px) saturate(150%);
-  box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.05),
-    0 0 0 1px rgba(13, 74, 31, 0.1) inset;
+  background: #1a5d3a;
+  background-color: #1a5d3a;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
   padding: 12px 0;
   position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 1000;
   width: 100%;
+  max-width: none;
   box-sizing: border-box;
   grid-column: 1 / -1; // Span all columns
+
+  @media (max-width: 768px) {
+    top: 15px; // PWA: below status chrome
+  }
   height: auto;
 
-  // Large screens
+  // Large screens (7% shorter than prior breakpoints)
   @media (min-width: 1400px) {
-    height: 92px;
+    height: calc(92px * 0.93 - 10px);
   }
 
   // Medium-large screens
   @media (max-width: 1399px) and (min-width: 1201px) {
-    height: 88px;
+    height: calc(88px * 0.93 - 10px);
   }
 
   // Medium screens
   @media (max-width: 1200px) {
-    height: 80px;
+    height: calc(80px * 0.93 - 10px);
   }
 
   // Tablets
   @media (max-width: 992px) {
-    height: 68px;
+    height: calc(68px * 0.93 - 10px);
   }
 
   // Small tablets and phones
   @media (max-width: 768px) {
-    height: 64px;
+    height: calc(64px * 0.93 - 10px);
   }
 
   // Small phones
   @media (max-width: 480px) {
-    height: 60px;
+    height: calc(60px * 0.93 - 10px);
   }
 
   // Very small phones
   @media (max-width: 360px) {
-    height: 56px;
+    height: calc(56px * 0.93 - 10px);
   }
 
   &__container {
@@ -848,10 +854,11 @@
   overflow-x: hidden;
   align-items: start;
 
-  // 2-column layout when there's no aside (right sidebar)
+  // Left nav + main only (no right aside): fixed nav column, capped feed width
   &--no-aside {
-    grid-template-columns: 1fr; // Single column for main content
-    grid-column: 2; // Position container in second column of parent grid (to the right of sidebar)
+    grid-template-columns: 260px minmax(0, 1fr);
+    align-items: start;
+    grid-column: 2; // Second column of .newsfeed-page grid
     max-width: 100%;
     padding: 20px 24px;
     position: relative;
@@ -862,34 +869,36 @@
     }
 
     @media (max-width: 1200px) {
+      grid-template-columns: 240px minmax(0, 1fr);
       padding: 16px 20px;
       position: absolute;
     }
 
     @media (max-width: 992px) {
+      grid-template-columns: 1fr;
       grid-column: 1; // Full width on mobile
-      padding: 0 16px 16px 16px; // Remove top padding to align to top
+      padding: 0 16px 16px 16px;
       position: relative;
       margin-top: 0;
       align-self: start;
     }
 
     @media (max-width: 768px) {
-      padding: 0 12px 12px 12px; // Remove top padding to align to top
+      padding: 0 12px 12px 12px;
       position: absolute;
       margin-top: 0;
       align-self: start;
     }
 
     @media (max-width: 480px) {
-      padding: 0 10px 10px 10px; // Remove top padding to align to top
+      padding: 0 10px 10px 10px;
       position: absolute;
       margin-top: 0;
       align-self: start;
     }
 
     @media (max-width: 360px) {
-      padding: 0 8px 8px 8px; // Remove top padding to align to top
+      padding: 0 8px 8px 8px;
       position: absolute;
       margin-top: 0;
       align-self: start;
@@ -901,6 +910,10 @@
     grid-template-columns: 240px minmax(0, 1fr) 280px;
     gap: 20px;
     padding: 16px 20px;
+
+    &--no-aside {
+      grid-template-columns: 240px minmax(0, 1fr);
+    }
   }
 
   @media (max-width: 992px) {
@@ -908,6 +921,10 @@
     padding: 16px;
     gap: 16px;
     max-width: 100vw;
+
+    &--no-aside {
+      grid-template-columns: 1fr;
+    }
   }
 
   @media (max-width: 768px) {
@@ -920,6 +937,14 @@
     padding: 8px;
     gap: 10px;
     max-width: 100vw;
+  }
+}
+
+.saved-page .newsfeed-container.newsfeed-container--no-aside {
+  margin-top: calc(6% + 20px);
+
+  @media (max-width: 992px) {
+    margin-top: 20px;
   }
 }
 
@@ -969,6 +994,41 @@
   @media (max-width: 360px) {
     gap: 8px;
     margin: 0 auto; // Center on extra small mobile
+  }
+}
+
+// Saved has no right aside: lock nav column on desktop (mobile drawer keeps its own widths)
+.newsfeed-container--no-aside .newsfeed-sidebar {
+  @media (min-width: 993px) {
+    min-width: 260px;
+    max-width: 260px;
+    width: 260px;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 1200px) and (min-width: 993px) {
+    min-width: 240px;
+    max-width: 240px;
+    width: 240px;
+  }
+}
+
+.newsfeed-container--no-aside .newsfeed-main {
+  grid-column: 2;
+  max-width: min(680px, 100%);
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  justify-self: start;
+
+  @media (min-width: 1400px) {
+    max-width: min(720px, 100%);
+  }
+
+  @media (max-width: 992px) {
+    grid-column: 1 / -1;
+    max-width: 100%;
+    justify-self: stretch;
   }
 }
 

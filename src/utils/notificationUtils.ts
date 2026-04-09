@@ -55,14 +55,20 @@ export const playNotificationSound = (): void => {
 export const showBrowserNotification = (
   title: string,
   message: string,
-  icon?: string
+  icon?: string,
+  options?: { tag?: string }
 ): void => {
   if ("Notification" in window && Notification.permission === "granted") {
-    new Notification(title, {
+    const base: NotificationOptions = {
       body: message,
       icon: icon || "/icon-192.png",
       badge: "/icon-192.png",
-    });
+      tag: options?.tag ?? "jos-notification",
+    };
+    new Notification(title, {
+      ...base,
+      ...(options?.tag ? { renotify: true } : {}),
+    } as NotificationOptions);
   }
 };
 

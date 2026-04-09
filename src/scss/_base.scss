@@ -54,11 +54,27 @@
   box-sizing: border-box;
 }
 
+html {
+  scrollbar-gutter: stable;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
 body {
   font-family: $font-family;
   color: var(--text-primary);
   background-color: var(--bg-secondary);
   transition: background-color 0.3s ease, color 0.3s ease;
+  overflow-x: clip;
+  max-width: 100%;
+  overscroll-behavior-x: none;
+}
+
+// Prevent horizontal pan/zoom jitter when descendants overflow (animations, shadows, 100vw bugs)
+#root {
+  overflow-x: clip;
+  min-width: 0;
+  max-width: 100%;
 }
 
 // ============================================

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   SquarePlus,
   UserPlus,
@@ -13,24 +13,22 @@ import {
   Users,
   Calendar,
   Search,
-  Hash,
   Send,
-  Paperclip,
   Smile,
-  Heart,
   MessageSquare,
   UserCheck,
-  ThumbsUp,
+  UserX,
   CheckCircle,
   Trash2,
   Image,
-  Video,
   Plus,
   Edit,
   Shield,
   ArrowLeft,
   MoreVertical,
-  UserX,
+  Copy,
+  Lock,
+  Link2,
 } from "lucide-react";
 import ConfirmationModal from "../../components/ConfirmationModal";
 
@@ -38,16 +36,59 @@ import primaryLogo from "../../image/primary-logo.png";
 import "../../main.css";
 import LazyImage from "../../components/LazyImage";
 import Avatar from "../../components/Avatar";
+import ChatPanel from "../../components/ChatPanel";
 import EmojiPicker from "../../components/EmojiPicker";
-import { getProfileUsername, getUserName, getUserAvatar } from "../../utils/userUtils";
+import {
+  getProfileUsername,
+  getUserName,
+  getUserAvatar,
+  isAuthenticated,
+  getUserId,
+} from "../../utils/userUtils";
+import { feedApi } from "../../services/feedApi";
+import { forumsApi } from "../../services/forumsApi";
+import { CHAT_UI_REFRESH_EVENT } from "../../services/chatService";
+import {
+  type Forum,
+  mapApiSummaryToForum,
+  mapApiDetailToForum,
+  type ForumMessage,
+  type ForumMemberDetail,
+  formatForumTime,
+  stripForumDisplayHandle,
+} from "./forumsHelpers";
+import {
+  type FeedPanelNotification,
+  mapApiRowToFeedPanelNotification,
+  getFeedPanelNotificationIcon,
+  getFeedPanelNotificationColor,
+} from "../../utils/feedPanelNotifications";
 import CreateForumModal from "./CreateForumModal";
 import FindFriendsModal from "../../components/FindFriendsModal";
 import "../../scss/_emojipicker.scss";
 import "../../scss/_forums.scss";
 import NewsFeedSidebar from "./NewsFeedSidebar";
 
+function forumMessageDisplayName(
+  message: ForumMessage,
+  memberDetails: ForumMemberDetail[] | undefined,
+  currentUserId: number | null
+): string {
+  const raw = message.senderName?.trim() || "";
+  const looksLikeIdPlaceholder = /^User\s+\d+$/i.test(raw);
+  if (!looksLikeIdPlaceholder && raw) return stripForumDisplayHandle(raw);
+  if (currentUserId != null && message.senderId === currentUserId) {
+    const self = getProfileUsername();
+    if (self?.trim()) return stripForumDisplayHandle(self.trim());
+  }
+  const row = memberDetails?.find((d) => d.userId === message.senderId);
+  if (row?.displayName?.trim()) return stripForumDisplayHandle(row.displayName.trim());
+  return stripForumDisplayHandle(raw || `User ${message.senderId}`);
+}
+
 const Forums: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
@@ -56,19 +97,11 @@ const Forums: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
-  const [selectedChatId, setSelectedChatId] = useState<number | null>(null);
-  const [chatSearchQuery, setChatSearchQuery] = useState("");
-  const [messageInput, setMessageInput] = useState("");
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [activeChatConversationId, setActiveChatConversationId] = useState<
+    number | null
+  >(null);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
-  const [messageAttachment, setMessageAttachment] = useState<{
-    type: "image" | "video" | "file";
-    url: string;
-    fileName?: string;
-    fileSize?: number;
-  } | null>(null);
-  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
-  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
-  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [isCreateForumModalOpen, setIsCreateForumModalOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [selectedForumId, setSelectedForumId] = useState<number | null>(null);
@@ -96,6 +129,7 @@ const Forums: React.FC = () => {
   const forumFileInputRef = useRef<HTMLInputElement>(null);
   const forumImageInputRef = useRef<HTMLInputElement>(null);
   const forumVideoInputRef = useRef<HTMLInputElement>(null);
+  const forumEmojiAnchorRef = useRef<HTMLDivElement>(null);
   const [joinedForumIds, setJoinedForumIds] = useState<Set<number>>(new Set());
   const [showDeleteForumConfirm, setShowDeleteForumConfirm] = useState(false);
   const [showRemoveUserConfirm, setShowRemoveUserConfirm] = useState(false);
@@ -105,17 +139,12 @@ const Forums: React.FC = () => {
     forumId: number;
     userId?: number;
   } | null>(null);
+  const [forumsLoadError, setForumsLoadError] = useState<string | null>(null);
+  const [forumDetailError, setForumDetailError] = useState<string | null>(null);
+  const [isForumListLoading, setIsForumListLoading] = useState(false);
+  const [addMemberUserId, setAddMemberUserId] = useState("");
   const createMenuRef = useRef<HTMLDivElement>(null);
-  const chatPanelRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const notificationPanelRef = useRef<HTMLDivElement>(null);
-  const attachmentMenuRef = useRef<HTMLDivElement>(null);
-  const attachmentButtonRef = useRef<HTMLButtonElement>(null);
-  const chatMenuRef = useRef<HTMLDivElement>(null);
-  const chatMenuButtonRef = useRef<HTMLButtonElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
 
   const categories = [
     "All",
@@ -138,43 +167,91 @@ const Forums: React.FC = () => {
     "Others",
   ];
 
-  // Forum interfaces and state
-  interface ForumMessage {
-    id: number;
-    senderId: number;
-    senderName: string;
-    senderAvatar?: string;
-    text: string;
-    timestamp: string;
-    attachment?: {
-      type: "image" | "video" | "file";
-      url: string;
-      fileName?: string;
-      fileSize?: number;
-    };
-  }
-
-  interface Forum {
-    id: number;
-    name: string;
-    description: string;
-    category: string;
-    createdAt: string;
-    memberCount: number;
-    postCount: number;
-    creatorId: number;
-    creatorName: string;
-    creatorAvatar?: string;
-    messages: ForumMessage[];
-    members: number[]; // Array of user IDs who are members
-    admins: number[]; // Array of user IDs who are admins
-    backgroundColor?: string; // Background color for chat
-    backgroundImage?: string; // Background image URL for chat
-    backgroundOpacity?: number; // Background image opacity (0-1)
-  }
-
   const [forums, setForums] = useState<Forum[]>([]);
-  const currentUserId = 0; // Current user ID
+  const currentUserId = getUserId();
+
+  const refreshForumList = useCallback(async () => {
+    if (!isAuthenticated()) return;
+    setIsForumListLoading(true);
+    setForumsLoadError(null);
+    try {
+      const tab =
+        activeTab === "discover"
+          ? "discover"
+          : activeTab === "joined"
+            ? "joined"
+            : "mine";
+      const res = await forumsApi.list(tab);
+      if (!res.success || !res.data) {
+        setForumsLoadError(res.message || "Could not load forums");
+        setForums([]);
+        return;
+      }
+      const mapped = res.data.map((row) => mapApiSummaryToForum(row));
+      setForums(mapped);
+      if (activeTab === "joined" || activeTab === "my-forums") {
+        setJoinedForumIds(new Set(mapped.map((f) => f.id)));
+      }
+    } catch {
+      setForumsLoadError("Network error");
+      setForums([]);
+    } finally {
+      setIsForumListLoading(false);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    void refreshForumList();
+  }, [refreshForumList]);
+
+  const refetchSelectedForum = useCallback(async () => {
+    if (!selectedForumId || !isAuthenticated()) return;
+    setForumDetailError(null);
+    const res = await forumsApi.getById(selectedForumId);
+    if (!res.success || !res.data) {
+      setForumDetailError(res.message || "Could not load forum");
+      return;
+    }
+    const mapped = mapApiDetailToForum(res.data);
+    setForums((prev) => {
+      const idx = prev.findIndex((p) => p.id === mapped.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], ...mapped };
+        return next;
+      }
+      return [...prev, mapped];
+    });
+    if (!mapped.joinRequired) {
+      setJoinedForumIds((prev) => new Set(prev).add(selectedForumId));
+    }
+  }, [selectedForumId]);
+
+  useEffect(() => {
+    void refetchSelectedForum();
+  }, [refetchSelectedForum]);
+
+  useEffect(() => {
+    const token = searchParams.get("invite")?.trim();
+    if (!token || !isAuthenticated()) return;
+    let cancelled = false;
+    (async () => {
+      const res = await forumsApi.joinByInviteToken(token);
+      if (cancelled) return;
+      const joinedId = res.data?.forumId;
+      if (res.success && joinedId != null) {
+        setSearchParams({});
+        setJoinedForumIds((s) => new Set(s).add(joinedId));
+        setActiveTab("joined");
+        setSelectedForumId(joinedId);
+      } else if (res.message) {
+        setForumsLoadError(res.message);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, setSearchParams]);
 
   // Get current user's forums (created by user)
   const myForums = forums.filter((forum) => forum.creatorId === currentUserId);
@@ -185,10 +262,11 @@ const Forums: React.FC = () => {
       forum.creatorId !== currentUserId && joinedForumIds.has(forum.id)
   );
 
-  // Get discover forums (all forums user hasn't joined)
+  // Discover: from API = public forums you’re not in + forums you created (you’re a member as creator).
+  // Still show your own public forum even if joinedForumIds was populated from another tab.
   const discoverForums = forums.filter(
     (forum) =>
-      forum.creatorId !== currentUserId && !joinedForumIds.has(forum.id)
+      !joinedForumIds.has(forum.id) || forum.creatorId === currentUserId
   );
 
   // Filter categories based on search
@@ -228,106 +306,104 @@ const Forums: React.FC = () => {
 
   const selectedForum = forums.find((f) => f.id === selectedForumId);
   const isForumAdmin = selectedForum
-    ? selectedForum.creatorId === currentUserId ||
-      selectedForum.admins.includes(currentUserId)
+    ? selectedForum.isAdmin !== undefined
+      ? selectedForum.isAdmin
+      : selectedForum.creatorId === currentUserId ||
+        selectedForum.admins.includes(currentUserId)
     : false;
 
   // Handle forum creation
-  const handleCreateForum = (forumData: {
+  const handleCreateForum = async (forumData: {
     name: string;
     description: string;
     category: string;
+    visibility: "public" | "private";
     backgroundColor?: string;
     backgroundImage?: string;
     backgroundOpacity?: number;
   }) => {
-    const newForum: Forum = {
-      id: Date.now(),
+    const res = await forumsApi.create({
       name: forumData.name,
       description: forumData.description,
       category: forumData.category,
-      createdAt: new Date().toISOString(),
-      memberCount: 1,
-      postCount: 0,
-      creatorId: currentUserId,
-      creatorName: getProfileUsername(),
-      messages: [],
-      members: [currentUserId],
-      admins: [currentUserId],
+      visibility: forumData.visibility,
       backgroundColor: forumData.backgroundColor,
       backgroundImage: forumData.backgroundImage,
       backgroundOpacity: forumData.backgroundOpacity,
-    };
-    setForums((prev) => [newForum, ...prev]);
-    setJoinedForumIds((prev) => new Set(prev).add(newForum.id));
-    // Auto-select the newly created forum
-    setSelectedForumId(newForum.id);
+    });
+    if (!res.success || !res.data) {
+      window.alert(res.message || "Could not create forum");
+      return;
+    }
+    const mapped = mapApiSummaryToForum(res.data);
+    setJoinedForumIds((prev) => new Set(prev).add(mapped.id));
+    setActiveTab("my-forums");
+    setSelectedForumId(mapped.id);
   };
 
   // Handle joining a forum
-  const handleJoinForum = (forumId: number) => {
-    setForums((prev) =>
-      prev.map((forum) => {
-        if (forum.id === forumId) {
-          const isAlreadyMember = forum.members.includes(currentUserId);
-          return {
-            ...forum,
-            memberCount: isAlreadyMember
-              ? forum.memberCount
-              : forum.memberCount + 1,
-            members: isAlreadyMember
-              ? forum.members
-              : [...forum.members, currentUserId],
-          };
-        }
-        return forum;
-      })
-    );
+  const handleJoinForum = async (forumId: number) => {
+    const res = await forumsApi.joinPublic(forumId);
+    if (!res.success) {
+      window.alert(res.message || "Could not join forum");
+      return;
+    }
     setJoinedForumIds((prev) => new Set(prev).add(forumId));
+    if (selectedForumId === forumId) {
+      await refetchSelectedForum();
+    } else {
+      await refreshForumList();
+    }
   };
 
   // Handle leaving a forum
-  const handleLeaveForum = (forumId: number) => {
-    setForums((prev) =>
-      prev.map((forum) => {
-        if (forum.id === forumId) {
-          return {
-            ...forum,
-            memberCount: Math.max(0, forum.memberCount - 1),
-            members: forum.members.filter((id) => id !== currentUserId),
-          };
-        }
-        return forum;
-      })
-    );
+  const handleLeaveForum = async (forumId: number) => {
+    const res = await forumsApi.leave(forumId);
+    if (!res.success) {
+      window.alert(res.message || "Could not leave forum");
+      return;
+    }
     setJoinedForumIds((prev) => {
-      const newSet = new Set(prev);
-      newSet.delete(forumId);
-      return newSet;
+      const next = new Set(prev);
+      next.delete(forumId);
+      return next;
     });
     if (selectedForumId === forumId) {
       setSelectedForumId(null);
     }
+    await refreshForumList();
   };
 
   // Handle sending a forum message
-  const handleSendForumMessage = () => {
+  const handleSendForumMessage = async () => {
     if (
       (!forumMessageInput.trim() && !forumMessageAttachment) ||
       !selectedForumId
     )
       return;
 
-    const newMessage: ForumMessage = {
-      id: Date.now(),
-      senderId: currentUserId,
-      senderName: getProfileUsername(),
+    const res = await forumsApi.sendMessage(selectedForumId, {
       text: forumMessageInput.trim(),
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
       attachment: forumMessageAttachment || undefined,
+    });
+    if (!res.success || !res.data) {
+      window.alert(res.message || "Could not send message");
+      return;
+    }
+    const m = res.data;
+    const newMessage: ForumMessage = {
+      id: m.id,
+      senderId: m.senderId,
+      senderName: stripForumDisplayHandle(m.senderName),
+      text: m.text,
+      timestamp:
+        typeof m.timestamp === "string"
+          ? formatForumTime(m.timestamp)
+          : new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+      attachment: m.attachment as ForumMessage["attachment"],
     };
 
     setForums((prev) =>
@@ -373,9 +449,14 @@ const Forums: React.FC = () => {
     setShowDeleteForumConfirm(true);
   };
 
-  const handleConfirmDeleteForum = () => {
+  const handleConfirmDeleteForum = async () => {
     if (!pendingAction || pendingAction.type !== "deleteForum") return;
     const { forumId } = pendingAction;
+    const res = await forumsApi.remove(forumId);
+    if (!res.success) {
+      window.alert(res.message || "Could not delete forum");
+      return;
+    }
     setForums((prev) => prev.filter((forum) => forum.id !== forumId));
     setJoinedForumIds((prev) => {
       const newSet = new Set(prev);
@@ -387,10 +468,11 @@ const Forums: React.FC = () => {
     }
     setShowDeleteForumConfirm(false);
     setPendingAction(null);
+    await refreshForumList();
   };
 
   // Handle edit forum (admin only)
-  const handleEditForum = (
+  const handleEditForum = async (
     forumId: number,
     forumData: {
       name: string;
@@ -401,24 +483,29 @@ const Forums: React.FC = () => {
       backgroundOpacity?: number;
     }
   ) => {
+    const res = await forumsApi.update(forumId, {
+      name: forumData.name,
+      description: forumData.description,
+      category: forumData.category,
+      backgroundColor: forumData.backgroundColor,
+      backgroundImage: forumData.backgroundImage,
+      backgroundOpacity: forumData.backgroundOpacity,
+    });
+    if (!res.success || !res.data) {
+      window.alert(res.message || "Could not update forum");
+      return;
+    }
+    const mapped = mapApiSummaryToForum(res.data);
     setForums((prev) =>
-      prev.map((forum) => {
-        if (forum.id === forumId) {
-          return {
-            ...forum,
-            name: forumData.name,
-            description: forumData.description,
-            category: forumData.category,
-            backgroundColor: forumData.backgroundColor,
-            backgroundImage: forumData.backgroundImage,
-            backgroundOpacity: forumData.backgroundOpacity,
-          };
-        }
-        return forum;
-      })
+      prev.map((forum) =>
+        forum.id === forumId ? { ...forum, ...mapped } : forum
+      )
     );
     setEditingForum(null);
     setIsEditForumModalOpen(false);
+    if (selectedForumId === forumId) {
+      await refetchSelectedForum();
+    }
   };
 
   // Handle remove user from forum (admin only)
@@ -427,43 +514,32 @@ const Forums: React.FC = () => {
     setShowRemoveUserConfirm(true);
   };
 
-  const handleConfirmRemoveUser = () => {
+  const handleConfirmRemoveUser = async () => {
     if (!pendingAction || pendingAction.type !== "removeUser" || !pendingAction.userId) return;
     const { forumId, userId } = pendingAction;
-    setForums((prev) =>
-      prev.map((forum) => {
-        if (forum.id === forumId) {
-          return {
-            ...forum,
-            members: forum.members.filter((id) => id !== userId),
-            admins: forum.admins.filter((id) => id !== userId),
-            memberCount: Math.max(0, forum.memberCount - 1),
-          };
-        }
-        return forum;
-      })
-    );
-    // If removed user was viewing the forum, close it
+    const res = await forumsApi.removeMember(forumId, userId);
+    if (!res.success) {
+      window.alert(res.message || "Could not remove member");
+      return;
+    }
     if (selectedForumId === forumId && userId === currentUserId) {
       setSelectedForumId(null);
+    } else {
+      await refetchSelectedForum();
     }
+    await refreshForumList();
     setShowRemoveUserConfirm(false);
     setPendingAction(null);
   };
 
   // Handle grant admin privileges (creator/admin only)
-  const handleGrantAdmin = (forumId: number, userId: number) => {
-    setForums((prev) =>
-      prev.map((forum) => {
-        if (forum.id === forumId && !forum.admins.includes(userId)) {
-          return {
-            ...forum,
-            admins: [...forum.admins, userId],
-          };
-        }
-        return forum;
-      })
-    );
+  const handleGrantAdmin = async (forumId: number, userId: number) => {
+    const res = await forumsApi.patchMember(forumId, userId, { role: "admin" });
+    if (!res.success) {
+      window.alert(res.message || "Could not update member");
+      return;
+    }
+    await refetchSelectedForum();
   };
 
   // Handle revoke admin privileges (creator only)
@@ -480,22 +556,80 @@ const Forums: React.FC = () => {
     setShowRevokeAdminConfirm(true);
   };
 
-  const handleConfirmRevokeAdmin = () => {
+  const handleConfirmRevokeAdmin = async () => {
     if (!pendingAction || pendingAction.type !== "revokeAdmin" || !pendingAction.userId) return;
     const { forumId, userId } = pendingAction;
-    setForums((prev) =>
-      prev.map((forum) => {
-        if (forum.id === forumId) {
-          return {
-            ...forum,
-            admins: forum.admins.filter((id) => id !== userId),
-          };
-        }
-        return forum;
-      })
-    );
+    const res = await forumsApi.patchMember(forumId, userId, { role: "member" });
+    if (!res.success) {
+      window.alert(res.message || "Could not update member");
+      return;
+    }
+    await refetchSelectedForum();
     setShowRevokeAdminConfirm(false);
     setPendingAction(null);
+  };
+
+  const handleToggleMemberCanPost = async (forumId: number, userId: number, canPost: boolean) => {
+    const res = await forumsApi.patchMember(forumId, userId, { canPost });
+    if (!res.success) {
+      window.alert(res.message || "Could not update member");
+      return;
+    }
+    await refetchSelectedForum();
+  };
+
+  const handleToggleLockReplies = async () => {
+    if (!selectedForumId || !selectedForum) return;
+    const next = !selectedForum.repliesLocked;
+    const res = await forumsApi.setSettings(selectedForumId, next);
+    if (!res.success) {
+      window.alert(res.message || "Could not update settings");
+      return;
+    }
+    await refetchSelectedForum();
+  };
+
+  const handleCopyInviteLink = async () => {
+    if (!selectedForum?.inviteToken) return;
+    const url = `${window.location.origin}/forums?invite=${selectedForum.inviteToken}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      window.prompt("Copy invite link", url);
+    }
+  };
+
+  const handleRegenerateInvite = async () => {
+    if (!selectedForumId) return;
+    const res = await forumsApi.regenerateInvite(selectedForumId);
+    if (!res.success || !res.data?.inviteToken) {
+      window.alert(res.message || "Could not regenerate invite");
+      return;
+    }
+    setForums((prev) =>
+      prev.map((f) =>
+        f.id === selectedForumId
+          ? { ...f, inviteToken: res.data!.inviteToken }
+          : f
+      )
+    );
+  };
+
+  const handleAddMemberById = async () => {
+    if (!selectedForumId || !addMemberUserId.trim()) return;
+    const uid = Number(addMemberUserId.trim());
+    if (!Number.isFinite(uid) || uid <= 0) {
+      window.alert("Enter a valid user ID");
+      return;
+    }
+    const res = await forumsApi.addMemberById(selectedForumId, uid);
+    if (!res.success) {
+      window.alert(res.message || "Could not add member");
+      return;
+    }
+    setAddMemberUserId("");
+    await refetchSelectedForum();
+    await refreshForumList();
   };
 
   // Scroll forum messages to bottom
@@ -531,60 +665,31 @@ const Forums: React.FC = () => {
     navigate(`/profile/${encodeURIComponent(username)}`);
   };
 
-  // Mock chat conversations
-  interface ChatMessage {
-    id: number;
-    senderId: number;
-    text: string;
-    timestamp: string;
-    isRead: boolean;
-    attachment?: {
-      type: "image" | "video" | "file";
-      url: string;
-      fileName?: string;
-      fileSize?: number;
-    };
-  }
+  const [notifications, setNotifications] = useState<FeedPanelNotification[]>(
+    []
+  );
 
-  interface ChatConversation {
-    id: number;
-    userId: number;
-    userName: string;
-    userAvatar: string;
-    lastMessage: string;
-    lastMessageTime: string;
-    unreadCount: number;
-    isOnline: boolean;
-    messages: ChatMessage[];
-  }
+  const fetchNotifications = useCallback(async () => {
+    if (!isAuthenticated()) return;
+    try {
+      const res = await feedApi.getNotifications();
+      if (res.success && Array.isArray(res.data)) {
+        setNotifications(
+          res.data.map((n) =>
+            mapApiRowToFeedPanelNotification(n as never)
+          )
+        );
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
-  const [chatConversations, setChatConversations] = useState<
-    ChatConversation[]
-  >([]);
-
-  // Mock notifications
-  interface Notification {
-    id: number;
-    type:
-      | "like"
-      | "comment"
-      | "friend_request"
-      | "mention"
-      | "share"
-      | "event"
-      | "message";
-    userId: number;
-    userName: string;
-    userAvatar: string;
-    message: string;
-    timestamp: string;
-    isRead: boolean;
-    relatedPostId?: number;
-    relatedEventId?: number;
-    relatedChatId?: number;
-  }
-
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
 
   const unreadNotificationsCount = notifications.filter(
     (n) => !n.isRead
@@ -596,152 +701,87 @@ const Forums: React.FC = () => {
         notif.id === notificationId ? { ...notif, isRead: true } : notif
       )
     );
+    feedApi.markNotificationRead(notificationId).catch(() => {});
   };
 
-  const markAllAsRead = () => {
-    setNotifications((prev) =>
-      prev.map((notif) => ({ ...notif, isRead: true }))
-    );
-  };
-
-  const clearAllNotifications = () => {
-    setNotifications([]);
-  };
-
-  const deleteNotification = (notificationId: number) => {
-    setNotifications((prev) =>
-      prev.filter((notif) => notif.id !== notificationId)
-    );
-  };
-
-  const getNotificationIcon = (type: Notification["type"]) => {
-    switch (type) {
-      case "like":
-        return <Heart size={20} />;
-      case "comment":
-        return <MessageSquare size={20} />;
-      case "friend_request":
-        return <UserCheck size={20} />;
-      case "mention":
-        return <Hash size={20} />;
-      case "share":
-        return <ThumbsUp size={20} />;
-      case "event":
-        return <Calendar size={20} />;
-      default:
-        return <Bell size={20} />;
+  const markAllAsRead = async () => {
+    try {
+      const res = await feedApi.markAllNotificationsRead();
+      if (res.success) {
+        setNotifications((prev) =>
+          prev.map((notif) => ({ ...notif, isRead: true }))
+        );
+      }
+    } catch {
+      await fetchNotifications();
     }
   };
 
-  const getNotificationColor = (type: Notification["type"]) => {
-    switch (type) {
-      case "like":
-        return "#e91e63";
-      case "comment":
-        return "#2196f3";
-      case "friend_request":
-        return "#4caf50";
-      case "mention":
-        return "#ff9800";
-      case "share":
-        return "#9c27b0";
-      case "event":
-        return "#00bcd4";
-      default:
-        return "#666";
+  const deleteAllNotificationsForUser = async () => {
+    try {
+      const res = await feedApi.deleteAllNotifications();
+      if (res.success) setNotifications([]);
+    } catch {
+      await fetchNotifications();
     }
   };
 
-
-  const filteredConversations = chatConversations.filter((chat) =>
-    chat.userName.toLowerCase().includes(chatSearchQuery.toLowerCase().trim())
-  );
-
-  const selectedChat = chatConversations.find(
-    (chat) => chat.id === selectedChatId
-  );
-
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+  const deleteNotification = async (notificationId: number) => {
+    try {
+      const res = await feedApi.deleteNotificationById(notificationId);
+      if (res.success) {
+        setNotifications((prev) =>
+          prev.filter((notif) => notif.id !== notificationId)
+        );
+      }
+    } catch {
+      await fetchNotifications();
     }
-  }, [selectedChat?.messages]);
-
-  const handleSendMessage = () => {
-    if ((!messageInput.trim() && !messageAttachment) || !selectedChatId) return;
-
-    const newMessage: ChatMessage = {
-      id: Date.now(),
-      senderId: 0,
-      text: messageInput.trim(),
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      isRead: false,
-      attachment: messageAttachment || undefined,
-    };
-
-    setChatConversations((prev) =>
-      prev.map((chat) => {
-        if (chat.id === selectedChatId) {
-          const lastMessageText = messageAttachment
-            ? messageAttachment.type === "image"
-              ? "📷 Photo"
-              : messageAttachment.type === "video"
-              ? "🎥 Video"
-              : `📎 ${messageAttachment.fileName || "File"}`
-            : newMessage.text;
-          return {
-            ...chat,
-            messages: [...chat.messages, newMessage],
-            lastMessage: lastMessageText,
-            lastMessageTime: "Just now",
-          };
-        }
-        return chat;
-      })
-    );
-
-    setMessageInput("");
-    setMessageAttachment(null);
   };
 
-  const handleFileSelect = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    type: "image" | "video" | "file"
+  const acceptFriendFromNotification = async (
+    e: React.MouseEvent,
+    n: FeedPanelNotification
   ) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setMessageAttachment({
-          type: type,
-          url: reader.result as string,
-          fileName: file.name,
-          fileSize: file.size,
-        });
-        setIsAttachmentMenuOpen(false);
-      };
-      reader.readAsDataURL(file);
+    e.preventDefault();
+    e.stopPropagation();
+    if (n.relatedFriendRequestId == null) return;
+    try {
+      const res = await feedApi.acceptFriendRequest(n.relatedFriendRequestId);
+      if (res.success) {
+        await fetchNotifications();
+        const data = res.data as { conversation_id?: number | null } | undefined;
+        const cid =
+          data?.conversation_id != null ? Number(data.conversation_id) : undefined;
+        if (cid != null && Number.isFinite(cid)) {
+          window.dispatchEvent(new CustomEvent(CHAT_UI_REFRESH_EVENT));
+          setActiveChatConversationId(cid);
+          setIsChatPanelOpen(true);
+          setIsNotificationPanelOpen(false);
+        } else {
+          window.dispatchEvent(new CustomEvent(CHAT_UI_REFRESH_EVENT));
+          setActiveChatConversationId(-n.userId);
+          setIsChatPanelOpen(true);
+          setIsNotificationPanelOpen(false);
+        }
+      }
+    } catch {
+      await fetchNotifications();
     }
   };
 
-  const handleAttachmentClick = (type: "image" | "video" | "file") => {
-    setIsAttachmentMenuOpen(false);
-    if (type === "image" && imageInputRef.current) {
-      imageInputRef.current.click();
-    } else if (type === "video" && videoInputRef.current) {
-      videoInputRef.current.click();
-    } else if (type === "file" && fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
+  const rejectFriendFromNotification = async (
+    e: React.MouseEvent,
+    n: FeedPanelNotification
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (n.relatedFriendRequestId == null) return;
+    try {
+      const res = await feedApi.rejectFriendRequest(n.relatedFriendRequestId);
+      if (res.success) await fetchNotifications();
+    } catch {
+      await fetchNotifications();
     }
   };
 
@@ -785,50 +825,6 @@ const Forums: React.FC = () => {
     };
   }, [isCreateMenuOpen, isAddFriendModalOpen, handleClickOutside]);
 
-  // Close attachment menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        attachmentMenuRef.current &&
-        !attachmentMenuRef.current.contains(event.target as Node) &&
-        attachmentButtonRef.current &&
-        !attachmentButtonRef.current.contains(event.target as Node)
-      ) {
-        setIsAttachmentMenuOpen(false);
-      }
-    };
-
-    if (isAttachmentMenuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isAttachmentMenuOpen]);
-
-  // Close chat menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        chatMenuRef.current &&
-        !chatMenuRef.current.contains(event.target as Node) &&
-        chatMenuButtonRef.current &&
-        !chatMenuButtonRef.current.contains(event.target as Node)
-      ) {
-        setIsChatMenuOpen(false);
-      }
-    };
-
-    if (isChatMenuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isChatMenuOpen]);
-
   return (
     <div className="forums-page">
       {/* Top Navigation Bar - Same as NewsFeed */}
@@ -844,7 +840,6 @@ const Forums: React.FC = () => {
             </button>
             <div className="newsfeed-header__logo" onClick={() => navigate("/")}>
               <LazyImage src={primaryLogo} alt="JOSCity Logo" />
-              <span>JOSCity</span>
             </div>
           </div>
           <div className="newsfeed-header__actions">
@@ -900,11 +895,19 @@ const Forums: React.FC = () => {
               <UserPlus size={20} />
             </button>
             <button
-              className="newsfeed-header__icon-btn"
+              className="newsfeed-header__icon-btn newsfeed-header__icon-btn--notifications"
               title="Messages"
-              onClick={() => setIsChatPanelOpen(true)}
+              onClick={() => {
+                setActiveChatConversationId(null);
+                setIsChatPanelOpen(true);
+              }}
             >
               <MessageCircle size={20} />
+              {unreadMessagesCount > 0 && (
+                <span className="newsfeed-header__badge">
+                  {unreadMessagesCount > 9 ? "9+" : unreadMessagesCount}
+                </span>
+              )}
             </button>
             <button
               className="newsfeed-header__icon-btn newsfeed-header__icon-btn--notifications"
@@ -1104,27 +1107,34 @@ const Forums: React.FC = () => {
 
         {/* Main Content Area */}
         <main
-          className="forums-main"
-          style={
-            selectedForum
-              ? {
-                  padding: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  height: "calc(100vh - 300px)",
-                  minHeight: "600px",
-                }
-              : {}
+          className={
+            selectedForum ? "forums-main forums-main--thread" : "forums-main"
           }
         >
+          {forumsLoadError && (
+            <div
+              style={{
+                margin: "0 0 12px 0",
+                padding: "10px 14px",
+                borderRadius: "8px",
+                backgroundColor: "rgba(211, 47, 47, 0.12)",
+                color: "var(--text-primary)",
+                fontSize: "14px",
+              }}
+              role="alert"
+            >
+              {forumsLoadError}
+            </div>
+          )}
           {selectedForum ? (
             /* Forum Chat View */
             <div
               style={{
                 width: "100%",
-                height: "100%",
+                maxWidth: "100%",
                 display: "flex",
                 flexDirection: "column",
+                minHeight: 0,
               }}
             >
               {/* Forum Header */}
@@ -1185,6 +1195,7 @@ const Forums: React.FC = () => {
                         gap: "12px",
                         fontSize: "14px",
                         color: "var(--text-tertiary)",
+                        flexWrap: "wrap",
                       }}
                     >
                       <span
@@ -1199,8 +1210,70 @@ const Forums: React.FC = () => {
                       >
                         {selectedForum.category}
                       </span>
+                      <span
+                        style={{
+                          padding: "4px 10px",
+                          borderRadius: "12px",
+                          fontSize: "11px",
+                          fontWeight: "600",
+                          textTransform: "uppercase",
+                          backgroundColor:
+                            selectedForum.visibility === "private"
+                              ? "rgba(128, 128, 128, 0.25)"
+                              : "rgba(46, 125, 50, 0.2)",
+                          color: "var(--text-primary)",
+                        }}
+                      >
+                        {selectedForum.visibility === "private" ? "Private" : "Public"}
+                      </span>
+                      {selectedForum.repliesLocked && (
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            fontSize: "12px",
+                            color: "var(--text-secondary)",
+                          }}
+                          title="Only admins can post"
+                        >
+                          <Lock size={14} />
+                          Replies locked
+                        </span>
+                      )}
+                      {selectedForum.suspended && (
+                        <span
+                          style={{
+                            padding: "2px 8px",
+                            borderRadius: "8px",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            background: "rgba(180, 50, 50, 0.2)",
+                            color: "var(--text-primary)",
+                          }}
+                        >
+                          Suspended
+                        </span>
+                      )}
                       <span>{selectedForum.memberCount} members</span>
                     </div>
+                    <p
+                      style={{
+                        margin: "8px 0 0 0",
+                        fontSize: "13px",
+                        color: "var(--text-tertiary)",
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      Created by {selectedForum.creatorName}
+                      {selectedForum.adminsPreview?.length ? (
+                        <>
+                          {" "}
+                          · Admins:{" "}
+                          {selectedForum.adminsPreview.map((a) => a.displayName).join(", ")}
+                        </>
+                      ) : null}
+                    </p>
                   </div>
                 </div>
                 {isForumAdmin && (
@@ -1268,6 +1341,83 @@ const Forums: React.FC = () => {
                           <span>Edit Forum</span>
                         </button>
                         <button
+                          type="button"
+                          onClick={() => {
+                            void handleToggleLockReplies();
+                            setIsForumAdminMenuOpen(false);
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "12px 16px",
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "12px",
+                            fontSize: "14px",
+                            color: "var(--text-primary)",
+                            borderBottom: "1px solid var(--border-color)",
+                          }}
+                        >
+                          <Lock size={16} />
+                          <span>
+                            {selectedForum.repliesLocked
+                              ? "Unlock replies (everyone can post)"
+                              : "Lock replies (admins only)"}
+                          </span>
+                        </button>
+                        {selectedForum.visibility === "private" && selectedForum.inviteToken && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void handleCopyInviteLink();
+                                setIsForumAdminMenuOpen(false);
+                              }}
+                              style={{
+                                width: "100%",
+                                padding: "12px 16px",
+                                background: "none",
+                                border: "none",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "12px",
+                                fontSize: "14px",
+                                color: "var(--text-primary)",
+                                borderBottom: "1px solid var(--border-color)",
+                              }}
+                            >
+                              <Copy size={16} />
+                              <span>Copy invite link</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void handleRegenerateInvite();
+                                setIsForumAdminMenuOpen(false);
+                              }}
+                              style={{
+                                width: "100%",
+                                padding: "12px 16px",
+                                background: "none",
+                                border: "none",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "12px",
+                                fontSize: "14px",
+                                color: "var(--text-primary)",
+                                borderBottom: "1px solid var(--border-color)",
+                              }}
+                            >
+                              <Link2 size={16} />
+                              <span>Regenerate invite link</span>
+                            </button>
+                          </>
+                        )}
+                        <button
                           onClick={() => {
                             handleDeleteForum(selectedForum.id);
                             setIsForumAdminMenuOpen(false);
@@ -1294,6 +1444,20 @@ const Forums: React.FC = () => {
                 )}
               </div>
 
+              {forumDetailError && (
+                <div
+                  style={{
+                    padding: "10px 20px",
+                    backgroundColor: "rgba(211, 47, 47, 0.1)",
+                    fontSize: "14px",
+                    color: "var(--text-primary)",
+                  }}
+                  role="alert"
+                >
+                  {forumDetailError}
+                </div>
+              )}
+
               {/* Forum Description */}
               <div
                 style={{
@@ -1314,19 +1478,75 @@ const Forums: React.FC = () => {
                 </p>
               </div>
 
+              {selectedForum.joinRequired && (
+                <div
+                  style={{
+                    padding: "14px 20px",
+                    backgroundColor: "var(--bg-secondary)",
+                    borderBottom: "1px solid var(--border-color)",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                  }}
+                >
+                  <p style={{ margin: 0, fontSize: "14px", color: "var(--text-secondary)" }}>
+                    This is a preview. Join this public forum to read the full conversation and post
+                    messages.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void handleJoinForum(selectedForum.id)}
+                    style={{
+                      padding: "10px 18px",
+                      backgroundColor: "var(--color-primary)",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "8px",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Join forum
+                  </button>
+                </div>
+              )}
+
               {/* Forum Messages */}
               <div
                 style={{
-                  flex: 1,
-                  overflowY: "auto",
+                  width: "100%",
+                  maxWidth: "100%",
+                  overflowX: "hidden",
+                  overflowY: "visible",
                   padding: "12px 16px",
                   display: "flex",
                   flexDirection: "column",
                   gap: "12px",
                   position: "relative",
-                  backgroundColor: selectedForum.backgroundColor || "#f8f9fa",
+                  backgroundColor: "var(--bg-secondary)",
+                  borderTop: "1px solid var(--border-color)",
+                  borderBottom: "1px solid var(--border-color)",
+                  minHeight: "120px",
                 }}
               >
+                {selectedForum.backgroundColor ? (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: 4,
+                      height: "100%",
+                      backgroundColor: selectedForum.backgroundColor,
+                      borderRadius: "0 2px 2px 0",
+                      zIndex: 0,
+                      opacity: 0.95,
+                    }}
+                  />
+                ) : null}
                 {selectedForum.backgroundImage && (
                   <div
                     style={{
@@ -1339,15 +1559,48 @@ const Forums: React.FC = () => {
                       backgroundSize: "cover",
                       backgroundPosition: "center",
                       backgroundRepeat: "no-repeat",
-                      opacity: selectedForum.backgroundOpacity ?? 0.5,
+                      opacity: Math.min(0.22, (selectedForum.backgroundOpacity ?? 0.35) * 0.45),
                       zIndex: 0,
+                      pointerEvents: "none",
                     }}
                   />
                 )}
-                <div style={{ position: "relative", zIndex: 1, width: "100%" }}>
+                <div
+                  className="forums-chat-thread-glass"
+                  style={{
+                    position: "relative",
+                    zIndex: 1,
+                    width: "100%",
+                    borderRadius: "12px",
+                    padding: "14px 12px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "12px",
+                    minHeight: "100px",
+                    /* Glassmorphic: ~transparent + blur; theme tweaks in _forums.scss */
+                    backgroundColor: "rgba(255, 255, 255, 0.02)",
+                    border: "1px solid rgba(255, 255, 255, 0.09)",
+                    backdropFilter: "blur(20px) saturate(1.4)",
+                    WebkitBackdropFilter: "blur(20px) saturate(1.4)",
+                    boxShadow:
+                      "0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+                  }}
+                >
                 {selectedForum.messages.length > 0 ? (
                   selectedForum.messages.map((message) => {
                     const isCurrentUser = message.senderId === currentUserId;
+                    const senderLabel = forumMessageDisplayName(
+                      message,
+                      selectedForum.memberDetails,
+                      currentUserId
+                    );
+                    const initials = senderLabel
+                      .split(/\s+/)
+                      .filter(Boolean)
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()
+                      .slice(0, 2);
                     return (
                       <div
                         key={message.id}
@@ -1377,22 +1630,21 @@ const Forums: React.FC = () => {
                             flexShrink: 0,
                           }}
                         >
-                          {message.senderName
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")
-                            .toUpperCase()
-                            .slice(0, 2)}
+                          {initials || "?"}
                         </div>
                         <div
                           style={{
                             padding: "10px 14px",
                             borderRadius: "16px",
                             backgroundColor: isCurrentUser
-                              ? "#0d4a1f"
+                              ? "var(--color-primary)"
                               : "var(--card-bg)",
                             color: isCurrentUser ? "white" : "var(--text-primary)",
-                            boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
+                            boxShadow:
+                              "0 2px 8px rgba(0,0,0,0.12), 0 0 0 1px rgba(255,255,255,0.06)",
+                            border: isCurrentUser
+                              ? "1px solid rgba(255,255,255,0.12)"
+                              : "1px solid var(--border-color)",
                           }}
                         >
                           <div
@@ -1401,11 +1653,11 @@ const Forums: React.FC = () => {
                               fontWeight: "600",
                               marginBottom: "4px",
                               color: isCurrentUser
-                                ? "rgba(255,255,255,0.9)"
-                                : "var(--text-primary)",
+                                ? "rgba(255,255,255,0.95)"
+                                : "var(--text-secondary)",
                             }}
                           >
-                            {message.senderName}
+                            {senderLabel}
                           </div>
                           {message.text && (
                             <p
@@ -1451,15 +1703,16 @@ const Forums: React.FC = () => {
 
               {/* Forum Message Input */}
               <div
+                className="forums-composer"
                 style={{
-                  padding: "16px 20px",
-                  borderTop: "1px solid var(--border-color)",
-                  backgroundColor: "var(--card-bg)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  position: "relative",
-                  overflow: "visible",
+                  opacity:
+                    selectedForum.joinRequired || selectedForum.canPost === false
+                      ? 0.55
+                      : 1,
+                  pointerEvents:
+                    selectedForum.joinRequired || selectedForum.canPost === false
+                      ? "none"
+                      : "auto",
                 }}
               >
                 <input
@@ -1484,41 +1737,41 @@ const Forums: React.FC = () => {
                   style={{ display: "none" }}
                 />
                 <button
+                  type="button"
+                  className="forums-composer__attach"
                   onClick={() => forumImageInputRef.current?.click()}
-                  style={{
-                    padding: "8px",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "var(--text-tertiary)",
-                  }}
                   title="Attach image"
                 >
                   <Image size={20} />
                 </button>
                 <input
                   type="text"
-                  placeholder="Type a message..."
+                  className="forums-composer__input"
+                  placeholder={
+                    selectedForum.joinRequired
+                      ? "Join the forum to post…"
+                      : selectedForum.canPost === false
+                        ? "Posting is disabled for you in this forum…"
+                        : "Type a message..."
+                  }
                   value={forumMessageInput}
                   onChange={(e) => setForumMessageInput(e.target.value)}
                   onKeyPress={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
-                      handleSendForumMessage();
+                      void handleSendForumMessage();
                     }
                   }}
-                  style={{
-                    flex: 1,
-                    padding: "12px 16px",
-                    borderRadius: "24px",
-                    border: "1px solid var(--border-color)",
-                    fontSize: "14px",
-                    backgroundColor: "var(--bg-secondary)",
-                    color: "var(--text-primary)",
-                  }}
+                  disabled={
+                    selectedForum.joinRequired || selectedForum.canPost === false
+                  }
                 />
-                <div style={{ position: "relative" }}>
+                <div
+                  ref={forumEmojiAnchorRef}
+                  className="forums-composer__emoji-wrap"
+                >
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       e.preventDefault();
@@ -1539,54 +1792,37 @@ const Forums: React.FC = () => {
                     <Smile size={20} />
                   </button>
                   {isForumEmojiPickerOpen && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: "100%",
-                        right: 0,
-                        marginBottom: "8px",
+                    <EmojiPicker
+                      isOpen={isForumEmojiPickerOpen}
+                      onClose={() => setIsForumEmojiPickerOpen(false)}
+                      onEmojiSelect={(emoji) => {
+                        setForumMessageInput((prev) => prev + emoji);
+                        setIsForumEmojiPickerOpen(false);
                       }}
-                      onMouseDown={(e) => e.stopPropagation()}
-                    >
-                      <EmojiPicker
-                        isOpen={isForumEmojiPickerOpen}
-                        onClose={() => setIsForumEmojiPickerOpen(false)}
-                        onEmojiSelect={(emoji) => {
-                          setForumMessageInput((prev) => prev + emoji);
-                          setIsForumEmojiPickerOpen(false);
-                        }}
-                        position="top"
-                      />
-                    </div>
+                      position="top"
+                      anchorRef={forumEmojiAnchorRef}
+                      detachToBody
+                    />
                   )}
                 </div>
                 <button
-                  onClick={handleSendForumMessage}
-                  disabled={!forumMessageInput.trim() && !forumMessageAttachment}
-                  style={{
-                    padding: "12px",
-                    background: "var(--color-primary)",
-                    border: "none",
-                    borderRadius: "50%",
-                    cursor: forumMessageInput.trim() || forumMessageAttachment
-                      ? "pointer"
-                      : "not-allowed",
-                    color: "white",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    opacity: forumMessageInput.trim() || forumMessageAttachment
-                      ? 1
-                      : 0.5,
-                  }}
+                  type="button"
+                  className="forums-composer__send"
+                  onClick={() => void handleSendForumMessage()}
+                  disabled={
+                    (!forumMessageInput.trim() && !forumMessageAttachment) ||
+                    selectedForum.joinRequired ||
+                    selectedForum.canPost === false
+                  }
                   title="Send message"
+                  aria-label="Send message"
                 >
-                  <Send size={20} />
+                  <Send size={20} className="forums-composer__send-icon" aria-hidden />
                 </button>
               </div>
 
               {/* Members Management (Admin only) */}
-              {isForumAdmin && selectedForum && (
+              {isForumAdmin && selectedForum && !selectedForum.joinRequired && (
                 <div
                   style={{
                     padding: "16px 20px",
@@ -1594,6 +1830,102 @@ const Forums: React.FC = () => {
                     backgroundColor: "var(--bg-secondary)",
                   }}
                 >
+                  {selectedForum.visibility === "private" && selectedForum.inviteToken && (
+                    <div
+                      style={{
+                        marginBottom: "16px",
+                        padding: "12px",
+                        borderRadius: "8px",
+                        border: "1px dashed var(--border-color)",
+                        fontSize: "13px",
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      <strong style={{ color: "var(--text-primary)" }}>Invite link</strong>
+                      <div
+                        style={{
+                          marginTop: "8px",
+                          wordBreak: "break-all",
+                          fontFamily: "monospace",
+                          fontSize: "12px",
+                        }}
+                      >
+                        {`${window.location.origin}/forums?invite=${selectedForum.inviteToken}`}
+                      </div>
+                      <div style={{ marginTop: "8px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          onClick={() => void handleCopyInviteLink()}
+                          style={{
+                            padding: "6px 12px",
+                            fontSize: "12px",
+                            borderRadius: "6px",
+                            border: "1px solid var(--border-color)",
+                            background: "var(--card-bg)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Copy size={14} style={{ verticalAlign: "middle", marginRight: "4px" }} />
+                          Copy
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleRegenerateInvite()}
+                          style={{
+                            padding: "6px 12px",
+                            fontSize: "12px",
+                            borderRadius: "6px",
+                            border: "1px solid var(--border-color)",
+                            background: "var(--card-bg)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          New link
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "8px",
+                      marginBottom: "12px",
+                      alignItems: "center",
+                    }}
+                  >
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Add member by user ID"
+                      value={addMemberUserId}
+                      onChange={(e) => setAddMemberUserId(e.target.value)}
+                      style={{
+                        flex: "1 1 180px",
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        border: "1px solid var(--border-color)",
+                        fontSize: "14px",
+                        backgroundColor: "var(--card-bg)",
+                        color: "var(--text-primary)",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleAddMemberById()}
+                      style={{
+                        padding: "8px 14px",
+                        borderRadius: "8px",
+                        border: "none",
+                        background: "var(--color-primary)",
+                        color: "white",
+                        fontSize: "14px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Add
+                    </button>
+                  </div>
                   <h3
                     style={{
                       fontSize: "16px",
@@ -1616,10 +1948,14 @@ const Forums: React.FC = () => {
                     {selectedForum.members.map((memberId) => {
                       const isMemberAdmin = selectedForum.admins.includes(memberId);
                       const isMemberCreator = selectedForum.creatorId === memberId;
+                      const rowDetail = selectedForum.memberDetails?.find(
+                        (d) => d.userId === memberId
+                      );
+                      const memberCanPost = rowDetail ? rowDetail.canPost : true;
                       const memberName =
                         memberId === currentUserId
                           ? getProfileUsername()
-                          : `User ${memberId}`;
+                          : rowDetail?.displayName?.trim() || `User ${memberId}`;
 
                       return (
                         <div
@@ -1686,10 +2022,49 @@ const Forums: React.FC = () => {
                                     (Admin)
                                   </span>
                                 )}
+                                {!isMemberCreator && !memberCanPost && (
+                                  <span
+                                    style={{
+                                      marginLeft: "8px",
+                                      fontSize: "12px",
+                                      color: "var(--text-tertiary)",
+                                    }}
+                                  >
+                                    (Muted)
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
-                          <div style={{ display: "flex", gap: "8px" }}>
+                          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                            {!isMemberCreator && isForumAdmin && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void handleToggleMemberCanPost(
+                                    selectedForum.id,
+                                    memberId,
+                                    !memberCanPost
+                                  )
+                                }
+                                style={{
+                                  padding: "6px 12px",
+                                  backgroundColor: "transparent",
+                                  border: "1px solid var(--border-color)",
+                                  borderRadius: "6px",
+                                  fontSize: "12px",
+                                  color: "var(--text-primary)",
+                                  cursor: "pointer",
+                                }}
+                                title={
+                                  memberCanPost
+                                    ? "Stop this member from posting"
+                                    : "Allow posting again"
+                                }
+                              >
+                                {memberCanPost ? "Mute" : "Unmute"}
+                              </button>
+                            )}
                             {!isMemberCreator &&
                               isForumAdmin &&
                               selectedForum.creatorId === currentUserId && (
@@ -1769,6 +2144,11 @@ const Forums: React.FC = () => {
                   : activeTab === "joined"
                   ? "Joined Forums"
                   : "My Forums"}
+                {isForumListLoading && (
+                  <span style={{ marginLeft: "12px", fontSize: "14px", fontWeight: "400", color: "var(--text-tertiary)" }}>
+                    Loading…
+                  </span>
+                )}
               </h2>
               {selectedCategory !== "All" && (
                 <div
@@ -1828,13 +2208,9 @@ const Forums: React.FC = () => {
                           backgroundColor: "var(--bg-secondary)",
                           borderRadius: "12px",
                           border: "1px solid var(--border-color)",
-                          cursor: isMember ? "pointer" : "default",
+                          cursor: "pointer",
                         }}
-                        onClick={() => {
-                          if (isMember) {
-                            setSelectedForumId(forum.id);
-                          }
-                        }}
+                        onClick={() => setSelectedForumId(forum.id)}
                       >
                         <div
                           style={{
@@ -1892,6 +2268,21 @@ const Forums: React.FC = () => {
                               >
                                 {forum.category}
                               </span>
+                              <span
+                                style={{
+                                  padding: "2px 8px",
+                                  borderRadius: "10px",
+                                  fontSize: "11px",
+                                  fontWeight: "600",
+                                  textTransform: "uppercase",
+                                  backgroundColor:
+                                    forum.visibility === "private"
+                                      ? "rgba(128, 128, 128, 0.2)"
+                                      : "rgba(46, 125, 50, 0.15)",
+                                }}
+                              >
+                                {forum.visibility === "private" ? "Private" : "Public"}
+                              </span>
                               <span>{forum.memberCount} members</span>
                               <span>{forum.postCount} messages</span>
                             </div>
@@ -1918,9 +2309,32 @@ const Forums: React.FC = () => {
                             style={{
                               fontSize: "12px",
                               color: "var(--text-tertiary)",
+                              lineHeight: 1.5,
                             }}
                           >
+                            {forum.suspended && (
+                              <span
+                                style={{
+                                  display: "inline-block",
+                                  marginRight: 8,
+                                  padding: "2px 6px",
+                                  borderRadius: 6,
+                                  fontSize: 10,
+                                  fontWeight: 600,
+                                  background: "rgba(180, 50, 50, 0.2)",
+                                }}
+                              >
+                                Suspended
+                              </span>
+                            )}
                             Created by {forum.creatorName}
+                            {forum.adminsPreview?.length ? (
+                              <>
+                                <br />
+                                Admins:{" "}
+                                {forum.adminsPreview.map((a) => a.displayName).join(", ")}
+                              </>
+                            ) : null}
                           </div>
                           {isMember ? (
                             <div style={{ display: "flex", gap: "8px" }}>
@@ -2017,317 +2431,15 @@ const Forums: React.FC = () => {
         onClose={() => setIsAddFriendModalOpen(false)}
       />
 
-      {/* Chat Panel - Same as NewsFeed */}
-      {isChatPanelOpen && (
-        <div
-          className="newsfeed-chat-panel-overlay"
-          onClick={() => setIsChatPanelOpen(false)}
-        >
-          <div
-            ref={chatPanelRef}
-            className="newsfeed-chat-panel"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="newsfeed-chat-panel__header">
-              <h3>Messages</h3>
-              <button
-                className="newsfeed-chat-panel__close"
-                onClick={() => setIsChatPanelOpen(false)}
-                aria-label="Close chat"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="newsfeed-chat-panel__container">
-              {/* Conversations List */}
-              <div
-                className={`newsfeed-chat-panel__conversations ${
-                  selectedChatId
-                    ? "newsfeed-chat-panel__conversations--hidden"
-                    : ""
-                }`}
-              >
-                <div className="newsfeed-chat-panel__search-wrapper">
-                  <Search
-                    size={18}
-                    className="newsfeed-chat-panel__search-icon"
-                  />
-                  <input
-                    type="text"
-                    className="newsfeed-chat-panel__search-input"
-                    placeholder="Search conversations..."
-                    value={chatSearchQuery}
-                    onChange={(e) => setChatSearchQuery(e.target.value)}
-                  />
-                </div>
-                <div className="newsfeed-chat-panel__conversations-list">
-                  {filteredConversations.length > 0 ? (
-                    filteredConversations.map((conversation) => (
-                      <div
-                        key={conversation.id}
-                        className={`newsfeed-chat-panel__conversation-item ${
-                          selectedChatId === conversation.id
-                            ? "newsfeed-chat-panel__conversation-item--active"
-                            : ""
-                        }`}
-                        onClick={() => {
-                          setSelectedChatId(conversation.id);
-                          setChatConversations((prev) =>
-                            prev.map((chat) =>
-                              chat.id === conversation.id
-                                ? {
-                                    ...chat,
-                                    messages: chat.messages.map((msg) => ({
-                                      ...msg,
-                                      isRead: true,
-                                    })),
-                                    unreadCount: 0,
-                                  }
-                                : chat
-                            )
-                          );
-                        }}
-                      >
-                        <div className="newsfeed-chat-panel__conversation-avatar-wrapper">
-                          <Avatar
-                            src={conversation.userAvatar}
-                            alt={conversation.userName}
-                            name={conversation.userName}
-                            size={48}
-                            className="newsfeed-chat-panel__conversation-avatar"
-                          />
-                          {conversation.isOnline && (
-                            <span className="newsfeed-chat-panel__online-indicator"></span>
-                          )}
-                        </div>
-                        <div className="newsfeed-chat-panel__conversation-info">
-                          <div className="newsfeed-chat-panel__conversation-header">
-                            <p className="newsfeed-chat-panel__conversation-name">
-                              {conversation.userName}
-                            </p>
-                            <span className="newsfeed-chat-panel__conversation-time">
-                              {conversation.lastMessageTime}
-                            </span>
-                          </div>
-                          <div className="newsfeed-chat-panel__conversation-preview">
-                            <p className="newsfeed-chat-panel__conversation-message">
-                              {conversation.lastMessage}
-                            </p>
-                            {conversation.unreadCount > 0 && (
-                              <span className="newsfeed-chat-panel__unread-badge">
-                                {conversation.unreadCount}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="newsfeed-chat-panel__empty-conversations">
-                      <p>No conversations found</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Chat Window */}
-              <div
-                className={`newsfeed-chat-panel__chat-window ${
-                  selectedChatId
-                    ? "newsfeed-chat-panel__chat-window--visible"
-                    : ""
-                }`}
-              >
-                {selectedChat ? (
-                  <>
-                    <div className="newsfeed-chat-panel__chat-header">
-                      <div className="newsfeed-chat-panel__chat-user-info">
-                        {/* Back button for mobile */}
-                        <button
-                          className="newsfeed-chat-panel__back-btn"
-                          onClick={() => setSelectedChatId(null)}
-                          aria-label="Back to conversations"
-                          title="Back"
-                        >
-                          <X size={20} />
-                        </button>
-                        <div className="newsfeed-chat-panel__chat-avatar-wrapper">
-                          <Avatar
-                            src={selectedChat.userAvatar}
-                            alt={selectedChat.userName}
-                            name={selectedChat.userName}
-                            size={40}
-                            className="newsfeed-chat-panel__chat-avatar"
-                          />
-                          {selectedChat.isOnline && (
-                            <span className="newsfeed-chat-panel__online-indicator"></span>
-                          )}
-                        </div>
-                        <div>
-                          <p className="newsfeed-chat-panel__chat-user-name">
-                            {selectedChat.userName}
-                          </p>
-                          <p className="newsfeed-chat-panel__chat-status">
-                            {selectedChat.isOnline ? "Online" : "Offline"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="newsfeed-chat-panel__messages">
-                      {selectedChat.messages.map((message) => {
-                        const isCurrentUser = message.senderId === 0;
-                        return (
-                          <div
-                            key={message.id}
-                            className={`newsfeed-chat-panel__message ${
-                              isCurrentUser
-                                ? "newsfeed-chat-panel__message--sent"
-                                : "newsfeed-chat-panel__message--received"
-                            }`}
-                          >
-                            {!isCurrentUser && (
-                              <Avatar
-                                src={selectedChat.userAvatar}
-                                alt={selectedChat.userName}
-                                name={selectedChat.userName}
-                                size={32}
-                                className="newsfeed-chat-panel__message-avatar"
-                              />
-                            )}
-                            <div className="newsfeed-chat-panel__message-content">
-                              {message.text && (
-                                <p className="newsfeed-chat-panel__message-text">
-                                  {message.text}
-                                </p>
-                              )}
-                              <span className="newsfeed-chat-panel__message-time">
-                                {message.timestamp}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <div ref={messagesEndRef} />
-                    </div>
-
-                    <div className="newsfeed-chat-panel__input-area">
-                      <div
-                        className="newsfeed-chat-panel__attachment-menu-wrapper"
-                        ref={attachmentMenuRef}
-                      >
-                        <button
-                          ref={attachmentButtonRef}
-                          className="newsfeed-chat-panel__input-btn"
-                          aria-label="Attach file"
-                          title="Attach file"
-                          onClick={() =>
-                            setIsAttachmentMenuOpen(!isAttachmentMenuOpen)
-                          }
-                        >
-                          <Paperclip size={20} />
-                        </button>
-                        {isAttachmentMenuOpen && (
-                          <div className="newsfeed-chat-panel__attachment-menu">
-                            <button
-                              className="newsfeed-chat-panel__attachment-menu-item"
-                              onClick={() => handleAttachmentClick("image")}
-                            >
-                              <Image size={18} />
-                              <span>Photo</span>
-                            </button>
-                            <button
-                              className="newsfeed-chat-panel__attachment-menu-item"
-                              onClick={() => handleAttachmentClick("video")}
-                            >
-                              <Video size={18} />
-                              <span>Video</span>
-                            </button>
-                            <button
-                              className="newsfeed-chat-panel__attachment-menu-item"
-                              onClick={() => handleAttachmentClick("file")}
-                            >
-                              <Paperclip size={18} />
-                              <span>File</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        accept="*/*"
-                        onChange={(e) => handleFileSelect(e, "file")}
-                        style={{ display: "none" }}
-                      />
-                      <input
-                        type="file"
-                        ref={imageInputRef}
-                        accept="image/*"
-                        onChange={(e) => handleFileSelect(e, "image")}
-                        style={{ display: "none" }}
-                      />
-                      <input
-                        type="file"
-                        ref={videoInputRef}
-                        accept="video/*"
-                        onChange={(e) => handleFileSelect(e, "video")}
-                        style={{ display: "none" }}
-                      />
-                      <input
-                        type="text"
-                        className="newsfeed-chat-panel__input"
-                        placeholder="Type a message..."
-                        value={messageInput}
-                        onChange={(e) => setMessageInput(e.target.value)}
-                        onKeyPress={handleKeyPress}
-                      />
-                      <div style={{ position: "relative", zIndex: 1000 }}>
-                        <button
-                          className="newsfeed-chat-panel__input-btn"
-                          aria-label="Add emoji"
-                          title="Add emoji"
-                          onClick={() =>
-                            setIsEmojiPickerOpen(!isEmojiPickerOpen)
-                          }
-                        >
-                          <Smile size={20} />
-                        </button>
-                        {isEmojiPickerOpen && (
-                          <EmojiPicker
-                            isOpen={isEmojiPickerOpen}
-                            onClose={() => setIsEmojiPickerOpen(false)}
-                            onEmojiSelect={(emoji) => {
-                              setMessageInput((prev) => prev + emoji);
-                              setIsEmojiPickerOpen(false);
-                            }}
-                            position="top"
-                          />
-                        )}
-                      </div>
-                      <button
-                        className="newsfeed-chat-panel__send-btn"
-                        onClick={handleSendMessage}
-                        disabled={!messageInput.trim() && !messageAttachment}
-                        aria-label="Send message"
-                        title="Send message"
-                      >
-                        <Send size={20} />
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="newsfeed-chat-panel__no-chat-selected">
-                    <MessageCircle size={64} />
-                    <p>Select a conversation to start chatting</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ChatPanel
+        isOpen={isChatPanelOpen}
+        onClose={() => {
+          setIsChatPanelOpen(false);
+          setActiveChatConversationId(null);
+        }}
+        onUnreadCountChange={setUnreadMessagesCount}
+        activeConversationId={activeChatConversationId}
+      />
 
       {/* Notification Panel - Same as NewsFeed */}
       {isNotificationPanelOpen && (
@@ -2353,7 +2465,7 @@ const Forums: React.FC = () => {
                 {unreadNotificationsCount > 0 && (
                   <button
                     className="newsfeed-notification-panel__action-btn"
-                    onClick={markAllAsRead}
+                    onClick={() => void markAllAsRead()}
                     title="Mark all as read"
                   >
                     <CheckCircle size={18} />
@@ -2362,7 +2474,7 @@ const Forums: React.FC = () => {
                 {notifications.length > 0 && (
                   <button
                     className="newsfeed-notification-panel__action-btn"
-                    onClick={clearAllNotifications}
+                    onClick={() => void deleteAllNotificationsForUser()}
                     title="Clear all"
                   >
                     <Trash2 size={18} />
@@ -2394,18 +2506,18 @@ const Forums: React.FC = () => {
                       <div
                         className="newsfeed-notification-panel__icon-wrapper"
                         style={{
-                          backgroundColor: `${getNotificationColor(
-                            notification.type
+                          backgroundColor: `${getFeedPanelNotificationColor(
+                            notification
                           )}20`,
                         }}
                       >
                         <div
                           className="newsfeed-notification-panel__icon"
                           style={{
-                            color: getNotificationColor(notification.type),
+                            color: getFeedPanelNotificationColor(notification),
                           }}
                         >
-                          {getNotificationIcon(notification.type)}
+                          {getFeedPanelNotificationIcon(notification)}
                         </div>
                       </div>
                       <div className="newsfeed-notification-panel__content-wrapper">
@@ -2427,6 +2539,44 @@ const Forums: React.FC = () => {
                             <span className="newsfeed-notification-panel__timestamp">
                               {notification.timestamp}
                             </span>
+                            {notification.type === "friend_request" &&
+                              notification.relatedFriendRequestId != null && (
+                                <div
+                                  className="newsfeed-notification-panel__friend-actions"
+                                  role="group"
+                                  aria-label="Friend request actions"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <button
+                                    type="button"
+                                    className="newsfeed-notification-panel__friend-action-btn newsfeed-notification-panel__friend-action-btn--accept"
+                                    title="Accept friend request"
+                                    aria-label="Accept friend request"
+                                    onClick={(e) =>
+                                      void acceptFriendFromNotification(
+                                        e,
+                                        notification
+                                      )
+                                    }
+                                  >
+                                    <UserCheck size={18} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="newsfeed-notification-panel__friend-action-btn newsfeed-notification-panel__friend-action-btn--reject"
+                                    title="Decline friend request"
+                                    aria-label="Decline friend request"
+                                    onClick={(e) =>
+                                      void rejectFriendFromNotification(
+                                        e,
+                                        notification
+                                      )
+                                    }
+                                  >
+                                    <UserX size={18} />
+                                  </button>
+                                </div>
+                              )}
                           </div>
                         </div>
                         {!notification.isRead && (
@@ -2437,7 +2587,7 @@ const Forums: React.FC = () => {
                         className="newsfeed-notification-panel__delete-btn"
                         onClick={(e) => {
                           e.stopPropagation();
-                          deleteNotification(notification.id);
+                          void deleteNotification(notification.id);
                         }}
                         aria-label="Delete notification"
                         title="Delete"

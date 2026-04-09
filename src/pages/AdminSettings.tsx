@@ -15,9 +15,7 @@ import {
 } from "lucide-react";
 import { fetchPendingRegistrations } from "../utils/fetchWithTimeout";
 import { approveAccount, rejectAccount } from "../services/adminApi";
-import {
-  // Citizen count is now fetched from API
-} from "../utils/citizenCountUtils";
+import { fetchRegisteredCitizensCount } from "../utils/citizenCountUtils";
 import "../main.css";
 import "../scss/_admin.scss";
 
@@ -232,7 +230,6 @@ const AdminSettings: React.FC = () => {
       if (result.success) {
         console.log("successful approval", result.message);
         // Refresh count from API after approval
-        const { fetchRegisteredCitizensCount } = await import("../utils/citizenCountUtils");
         await fetchRegisteredCitizensCount();
         // Dispatch custom event to update count in other components
         window.dispatchEvent(new Event("citizenCountUpdated"));
@@ -381,9 +378,9 @@ const AdminSettings: React.FC = () => {
                     <div className="admin-dashboard__card-content">
                       <div className="admin-dashboard__account-badge-container">
                         {registration.account_type === "business" ? (
-                          <Building2 size={20} color="#666" />
+                          <Building2 size={20} color="var(--text-tertiary)" />
                         ) : (
-                          <User size={20} color="#666" />
+                          <User size={20} color="var(--text-tertiary)" />
                         )}
                         <span className="admin-dashboard__account-badge">
                           {registration.account_type === "business"

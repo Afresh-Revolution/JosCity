@@ -26,31 +26,85 @@
   }
 }
 
-.navbar {
-  display: flex;
-  justify-content: center; // Center logo + nav items as a group
-  align-items: center;
-  column-gap: 70px; // more space between left-section and middle-section
-  // Very light glassmorphism effect
+// Fixed chrome lives on .navbar-shell (no backdrop-filter) so `position: fixed` mobile menu
+// is viewport-relative. Glass effect is on .navbar-shell__glass only.
+.navbar-shell {
+  position: fixed;
+  top: calc(1rem + 32px);
+  left: 0;
+  right: 0;
+  margin-left: auto;
+  margin-right: auto;
+  z-index: 1000;
+  width: calc(90% - 80px - 56px - 6px); // leave space for theme toggle (44px + 12px gap) on right
+  max-width: calc(1120px - 56px - 6px);
+  height: 80px;
+  border-radius: 50px;
+  box-sizing: border-box;
+}
+
+.navbar-shell__glass {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 0;
+  pointer-events: none;
   background: rgba(255, 255, 255, 0.15);
   -webkit-backdrop-filter: blur(10px) saturate(150%);
   backdrop-filter: blur(10px) saturate(150%);
   box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.05),
     0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+
+@media screen and (max-width: 1024px) {
+  .navbar-shell {
+    width: calc(95% - 52px - 6px);
+    height: 70px;
+    top: calc(1rem + 32px);
+    border-radius: 50px;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .navbar-shell {
+    width: calc(100% - 2rem - 6px);
+    max-width: 100%;
+    height: auto;
+    min-height: 60px;
+    top: calc(0.75rem + 32px);
+    border-radius: 35px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .navbar-shell {
+    min-height: 56px;
+    width: calc(100% - 1.5rem - 6px);
+    top: calc(0.5rem + 32px);
+    border-radius: 28px;
+  }
+}
+
+@media screen and (max-width: 360px) {
+  .navbar-shell {
+    min-height: 52px;
+    width: calc(100% - 1rem - 6px);
+    border-radius: 26px;
+  }
+}
+
+.navbar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center; // Center logo + nav items as a group
+  align-items: center;
+  column-gap: 70px; // more space between left-section and middle-section
+  background: transparent;
   padding: 1rem 6rem;
-  width: calc(90% - 80px - 56px); // leave space for theme toggle (44px + 12px gap) on right
-  max-width: calc(1120px - 56px);
-  height: 80px;
-  position: fixed;
-  top: calc(1rem + 22px); // PWA: 22px lower on all pages
-  left: 50%;
-  transform: translateX(-50%);
-  border-radius: 50px;
-  z-index: 1000;
-  // Prevent overflow
+  width: 100%;
+  height: 100%;
   box-sizing: border-box;
-  // Smooth entrance animation
-  animation: slide-down 0.6s ease-out;
 
   // Layout wrappers used by `src/pages/NavBar.tsx`
   &__left-section {
@@ -459,20 +513,7 @@
 
   // Tablet styles (768px - 1024px)
   @media screen and (max-width: 1024px) {
-    // Maintain consistent light glassmorphism
-    background: rgba(255, 255, 255, 0.15);
-    -webkit-backdrop-filter: blur(10px) saturate(150%);
-    backdrop-filter: blur(10px) saturate(150%);
-    box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.05),
-      0 0 0 1px rgba(255, 255, 255, 0.1) inset;
     padding: 1rem 3rem;
-    height: 70px;
-    width: calc(95% - 52px); // leave space for theme toggle (40px + 12px)
-    position: fixed;
-    top: calc(1rem + 22px); // PWA: 22px lower
-    left: 50%;
-    transform: translateX(-50%);
-    border-radius: 50px;
 
     &__logo {
       max-width: 90px;
@@ -513,25 +554,12 @@
 
   // Mobile styles (max-width: 768px)
   @media screen and (max-width: 768px) {
-    // Maintain consistent light glassmorphism
-    background: rgba(255, 255, 255, 0.15);
-    -webkit-backdrop-filter: blur(10px) saturate(150%);
-    backdrop-filter: blur(10px) saturate(150%);
-    box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.05),
-      0 0 0 1px rgba(255, 255, 255, 0.1) inset;
     flex-wrap: nowrap;
     justify-content: space-between;
     align-items: center;
     padding: 0.75rem 1.25rem;
     height: auto;
-    min-height: 60px;
-    width: calc(100% - 2rem);
-    max-width: 100%;
-    position: fixed;
-    top: calc(0.75rem + 22px); // PWA: 22px lower
-    left: 50%;
-    transform: translateX(-50%);
-    border-radius: 35px;
+    min-height: 0;
     column-gap: 0;
 
     // Equal thirds: logo | login | hamburger with equal spacing between
@@ -586,7 +614,7 @@
       align-items: center;
       justify-content: space-between;
       position: relative;
-      z-index: 1001;
+      z-index: 1002;
       cursor: pointer;
       width: 24px;
       height: 18px;
@@ -625,7 +653,7 @@
       backdrop-filter: blur(20px) saturate(150%);
       box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15),
         0 0 0 1px rgba(255, 255, 255, 0.3) inset;
-      z-index: 999;
+      z-index: 1001;
       display: none;
       transform: translateY(-10px);
       opacity: 0;
@@ -829,20 +857,7 @@
 
   // Small mobile styles (max-width: 480px)
   @media screen and (max-width: 480px) {
-    // Maintain consistent light glassmorphism
-    background: rgba(255, 255, 255, 0.15);
-    -webkit-backdrop-filter: blur(10px) saturate(150%);
-    backdrop-filter: blur(10px) saturate(150%);
-    box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.05),
-      0 0 0 1px rgba(255, 255, 255, 0.1) inset;
     padding: 0.65rem 1rem;
-    min-height: 56px;
-    width: calc(100% - 1.5rem);
-    position: fixed;
-    top: calc(0.5rem + 22px); // PWA: 22px lower
-    left: 50%;
-    transform: translateX(-50%);
-    border-radius: 28px;
     column-gap: 0.75rem;
 
     &__left-section {
@@ -910,9 +925,6 @@
   // Extra small mobile styles (max-width: 360px)
   @media screen and (max-width: 360px) {
     padding: 0.6rem 0.75rem;
-    min-height: 52px;
-    width: calc(100% - 1rem);
-    border-radius: 26px;
 
     &__logo-image {
       width: 42px;
@@ -920,9 +932,9 @@
     }
 
     &__menu-toggle {
-      width: 22px;
+      width: 37px;
       height: 16px;
-      min-width: 22px;
+      min-width: 37px;
       min-height: 16px;
     }
 
@@ -1031,14 +1043,15 @@
 // DARK MODE STYLES
 // ============================================
 [data-theme="dark"] {
-  .navbar {
-    // Very light dark glassmorphism effect
+  .navbar-shell__glass {
     background: rgba(26, 26, 26, 0.15);
     -webkit-backdrop-filter: blur(10px) saturate(150%);
     backdrop-filter: blur(10px) saturate(150%);
     box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1),
       0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  }
 
+  .navbar {
     &__menu-toggle {
       span {
         background-color: #e0e0e0;
@@ -1092,35 +1105,8 @@
       }
     }
 
-    // Tablet styles for dark mode
-    @media screen and (max-width: 1024px) {
-      // Maintain consistent light dark glassmorphism
-      background: rgba(26, 26, 26, 0.15);
-      -webkit-backdrop-filter: blur(10px) saturate(150%);
-      backdrop-filter: blur(10px) saturate(150%);
-      box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1),
-        0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-      width: 95%;
-      top: calc(1rem + 22px); // PWA: 22px lower
-      left: 50%;
-      transform: translateX(-50%);
-      border-radius: 50px;
-    }
-
     // Mobile styles for dark mode
     @media screen and (max-width: 768px) {
-      // Maintain consistent light dark glassmorphism
-      background: rgba(26, 26, 26, 0.15);
-      -webkit-backdrop-filter: blur(10px) saturate(150%);
-      backdrop-filter: blur(10px) saturate(150%);
-      box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1),
-        0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-      width: calc(100% - 2rem);
-      top: calc(0.75rem + 22px); // PWA: 22px lower
-      left: 50%;
-      transform: translateX(-50%);
-      border-radius: 35px;
-
       &__nav-list {
         // Light dark glassmorphism for mobile menu
         background: rgba(26, 26, 26, 0.98);
@@ -1176,20 +1162,6 @@
         }
       }
     }
-
-    // Small mobile styles for dark mode
-    @media screen and (max-width: 480px) {
-      // Maintain consistent light dark glassmorphism
-      background: rgba(26, 26, 26, 0.15);
-      -webkit-backdrop-filter: blur(10px) saturate(150%);
-      backdrop-filter: blur(10px) saturate(150%);
-      box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1),
-        0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-      width: calc(100% - 1.5rem);
-      top: calc(0.5rem + 22px); // PWA: 22px lower
-      left: 50%;
-      transform: translateX(-50%);
-      border-radius: 28px;
-    }
   }
 }
+

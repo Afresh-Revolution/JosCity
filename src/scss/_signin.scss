@@ -249,6 +249,35 @@
   }
 }
 
+.signin-forgot-password-button {
+  width: fit-content;
+  align-self: flex-end;
+  margin-top: 0.1rem;
+  background: transparent;
+  border: none;
+  color: #d9f9e0;
+  text-decoration: underline;
+  font-size: 0.88rem;
+  cursor: pointer;
+  font-family: $font-family;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: #ffffff;
+  }
+}
+
+.signin-info-message {
+  color: #d8ffe0;
+  font-size: 14px;
+  margin-top: 10px;
+  text-align: center;
+  padding: 10px;
+  background-color: rgba(56, 184, 90, 0.15);
+  border-radius: 8px;
+  border: 1px solid rgba(56, 184, 90, 0.35);
+}
+
 .signin-register-link {
   text-align: center;
   margin-top: 1rem;

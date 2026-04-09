@@ -6,6 +6,8 @@
   border-radius: 12px;
   box-shadow: 0 4px 20px var(--shadow-medium, rgba(0, 0, 0, 0.15));
   width: 320px;
+  min-width: 280px;
+  max-width: min(320px, calc(100vw - 24px)) !important;
   max-height: 400px;
   z-index: 10002;
   display: flex;
@@ -141,6 +143,15 @@
       transform: scale(0.95);
     }
   }
+
+  // Portaled / fixed — inline styles set left/bottom/width; reset absolute positioning from base
+  &--detached {
+    position: fixed !important;
+    top: auto !important;
+    right: auto !important;
+    left: auto;
+    bottom: auto;
+  }
 }
 
 // Responsive styles
@@ -194,20 +205,25 @@
       z-index: 10003;
 
       @media (max-width: 768px) {
-        width: calc(100% - 20px);
-        max-width: 320px;
+        width: min(320px, calc(100vw - 32px));
+        max-width: calc(100vw - 24px);
         right: 0;
+        left: auto;
       }
 
       @media (max-width: 480px) {
-        width: calc(100% - 16px);
-        right: 0;
-        max-height: 300px;
+        /* Center above composer so the grid isn’t clipped off the narrow panel edge */
+        right: auto;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(300px, calc(100vw - 20px));
+        max-width: calc(100vw - 20px);
+        max-height: min(300px, 45vh);
       }
 
       @media (max-height: 600px) {
         max-height: 250px;
-        
+
         .emoji-picker__content {
           max-height: 200px;
         }

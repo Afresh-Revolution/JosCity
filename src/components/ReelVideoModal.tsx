@@ -12,19 +12,15 @@ import {
 } from "lucide-react";
 import ReelOptionsMenu from "./ReelOptionsMenu";
 import ReelCommentModal from "./ReelCommentModal";
-
-interface VideoData {
-  id: number;
-  views: string;
-  title?: string;
-  videoUrl?: string;
-}
+import { reelsApi, ReelItem } from "../services/reelsApi";
+import { feedApi } from "../services/feedApi";
 
 interface ReelVideoModalProps {
   isOpen: boolean;
   onClose: () => void;
-  videos: VideoData[];
+  videos: ReelItem[];
   initialVideoIndex?: number;
+  onVideoUpdate?: (videoId: number, updates: Partial<ReelItem>) => void;
 }
 
 const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
@@ -32,129 +28,208 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
   onClose,
   videos,
   initialVideoIndex = 0,
+  onVideoUpdate,
 }) => {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(initialVideoIndex);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const videoRefs = useRef<{ [key: number]: HTMLVideoElement | null }>({});
   const containerRef = useRef<HTMLDivElement>(null);
+  const viewedVideoIdsRef = useRef<Set<number>>(new Set());
+  const manuallyPausedVideoIdsRef = useRef<Set<number>>(new Set());
+  const controlsTimeoutRef = useRef<number | null>(null);
   const [playingVideoId, setPlayingVideoId] = useState<number | null>(null);
-  const [likedVideos, setLikedVideos] = useState<Set<number>>(new Set());
-  const [likeCounts, setLikeCounts] = useState<{ [key: number]: number }>({});
-  const [commentCounts, setCommentCounts] = useState<{
-    [key: number]: number;
-  }>({});
+  const [videoPlaybackStates, setVideoPlaybackStates] = useState<
+    Record<number, boolean>
+  >({});
   const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
   const [selectedVideoForOptions, setSelectedVideoForOptions] = useState<
     number | null
   >(null);
-  const [savedVideos, setSavedVideos] = useState<Set<number>>(new Set());
-  const [interestedVideos, setInterestedVideos] = useState<Set<number>>(
-    new Set()
-  );
-  const [notInterestedVideos, setNotInterestedVideos] = useState<Set<number>>(
-    new Set()
-  );
   const [closedCaptionsEnabled, setClosedCaptionsEnabled] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [commentModalOpen, setCommentModalOpen] = useState(false);
   const [selectedVideoForComments, setSelectedVideoForComments] = useState<
     number | null
   >(null);
+  const [actionLoadingIds, setActionLoadingIds] = useState<number[]>([]);
 
   const currentVideo = videos[currentVideoIndex];
   const currentVideoRef = videoRefs.current[currentVideo?.id || -1];
 
-  // Load saved videos from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem("savedReels");
-    if (saved) {
-      try {
-        const savedIds = JSON.parse(saved);
-        setSavedVideos(new Set(savedIds));
-      } catch (e) {
-        console.error("Error loading saved reels:", e);
-      }
-    }
-
-    const interested = localStorage.getItem("interestedReels");
-    if (interested) {
-      try {
-        const interestedIds = JSON.parse(interested);
-        setInterestedVideos(new Set(interestedIds));
-      } catch (e) {
-        console.error("Error loading interested reels:", e);
-      }
-    }
-
-    const notInterested = localStorage.getItem("notInterestedReels");
-    if (notInterested) {
-      try {
-        const notInterestedIds = JSON.parse(notInterested);
-        setNotInterestedVideos(new Set(notInterestedIds));
-      } catch (e) {
-        console.error("Error loading not interested reels:", e);
-      }
+  const clearControlsTimeout = useCallback(() => {
+    if (controlsTimeoutRef.current != null) {
+      window.clearTimeout(controlsTimeoutRef.current);
+      controlsTimeoutRef.current = null;
     }
   }, []);
 
-  // Initialize video index when modal opens
+  const scheduleControlsHide = useCallback(() => {
+    clearControlsTimeout();
+    controlsTimeoutRef.current = window.setTimeout(() => {
+      setShowControls(false);
+    }, 3000);
+  }, [clearControlsTimeout]);
+
+  const getVideoById = useCallback(
+    (videoId: number) => videos.find((video) => video.id === videoId),
+    [videos]
+  );
+
+  const runWithVideoLock = useCallback(
+    async (videoId: number, action: () => Promise<void>) => {
+      if (actionLoadingIds.includes(videoId)) {
+        return;
+      }
+
+      setActionLoadingIds((previous) => [...previous, videoId]);
+      try {
+        await action();
+      } finally {
+        setActionLoadingIds((previous) =>
+          previous.filter((id) => id !== videoId)
+        );
+      }
+    },
+    [actionLoadingIds]
+  );
+
+  const recordView = useCallback(
+    async (videoId: number) => {
+      if (viewedVideoIdsRef.current.has(videoId)) {
+        return;
+      }
+
+      viewedVideoIdsRef.current.add(videoId);
+      try {
+        const response = await reelsApi.recordView(videoId);
+        onVideoUpdate?.(videoId, {
+          views_count: response.views_count,
+          views: response.views,
+        });
+      } catch (error) {
+        viewedVideoIdsRef.current.delete(videoId);
+        console.error("Error recording reel view:", error);
+      }
+    },
+    [onVideoUpdate]
+  );
+
+  const syncPlayingVideoId = useCallback((videoId: number, isPlaying: boolean) => {
+    setVideoPlaybackStates((previous) => ({
+      ...previous,
+      [videoId]: isPlaying,
+    }));
+
+    setPlayingVideoId((previous) => {
+      if (isPlaying) {
+        return videoId;
+      }
+
+      return previous === videoId ? null : previous;
+    });
+  }, []);
+
+  const pauseAllVideos = useCallback((exceptVideoId?: number) => {
+    Object.entries(videoRefs.current).forEach(([key, video]) => {
+      if (!video) {
+        return;
+      }
+
+      if (exceptVideoId != null && Number(key) === exceptVideoId) {
+        return;
+      }
+
+      video.pause();
+    });
+  }, []);
+
+  const playVideo = useCallback(
+    async (videoId: number, options?: { manual?: boolean }) => {
+      const video = videoRefs.current[videoId];
+      if (!video) {
+        return;
+      }
+
+      if (options?.manual) {
+        manuallyPausedVideoIdsRef.current.delete(videoId);
+      }
+
+      pauseAllVideos(videoId);
+
+      try {
+        await video.play();
+        syncPlayingVideoId(videoId, true);
+        setShowControls(true);
+        recordView(videoId);
+        scheduleControlsHide();
+      } catch (error) {
+        console.error("Error playing video:", error);
+        setShowControls(true);
+      }
+    },
+    [pauseAllVideos, recordView, scheduleControlsHide, syncPlayingVideoId]
+  );
+
+  const pauseVideo = useCallback(
+    (videoId: number, options?: { manual?: boolean }) => {
+      const video = videoRefs.current[videoId];
+      if (!video) {
+        return;
+      }
+
+      clearControlsTimeout();
+      if (options?.manual) {
+        manuallyPausedVideoIdsRef.current.add(videoId);
+      }
+
+      video.pause();
+      syncPlayingVideoId(videoId, false);
+      setShowControls(true);
+    },
+    [clearControlsTimeout, syncPlayingVideoId]
+  );
+
   useEffect(() => {
     if (isOpen) {
       setCurrentVideoIndex(initialVideoIndex);
-      setIsMuted(true);
+      setIsMuted(false);
       setShowControls(true);
-      // Initialize like and comment counts
-      const initialLikeCounts: { [key: number]: number } = {};
-      const initialCommentCounts: { [key: number]: number } = {};
-      videos.forEach((video) => {
-        // Generate random counts for demo
-        initialLikeCounts[video.id] = Math.floor(Math.random() * 1000) + 10;
-        initialCommentCounts[video.id] = Math.floor(Math.random() * 100) + 1;
-      });
-      setLikeCounts(initialLikeCounts);
-      setCommentCounts(initialCommentCounts);
+      setPlayingVideoId(null);
+      setVideoPlaybackStates({});
+      manuallyPausedVideoIdsRef.current.clear();
+      clearControlsTimeout();
     }
-  }, [isOpen, initialVideoIndex, videos]);
+  }, [clearControlsTimeout, initialVideoIndex, isOpen]);
 
-  // Play current video when it changes
   useEffect(() => {
-    if (isOpen && currentVideoRef && currentVideo) {
-      // Pause all videos first
-      Object.values(videoRefs.current).forEach((video) => {
-        if (video) {
-          video.pause();
-        }
-      });
+    return () => {
+      clearControlsTimeout();
+    };
+  }, [clearControlsTimeout]);
 
-      // Try to play current video
-      const playPromise = currentVideoRef.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            setPlayingVideoId(currentVideo.id);
-            setShowControls(true);
-            setTimeout(() => {
-              setShowControls(false);
-            }, 3000);
-          })
-          .catch((error) => {
-            // Auto-play failed, user interaction required
-            console.log("Auto-play prevented:", error);
-            setPlayingVideoId(null);
-            setShowControls(true); // Show controls so user can click play
-          });
-      }
+  useEffect(() => {
+    if (
+      isOpen &&
+      currentVideoRef &&
+      currentVideo &&
+      !manuallyPausedVideoIdsRef.current.has(currentVideo.id)
+    ) {
+      void playVideo(currentVideo.id);
     }
-  }, [isOpen, currentVideoIndex, currentVideoRef, currentVideo, videos]);
+  }, [
+    currentVideo,
+    currentVideoRef,
+    currentVideoIndex,
+    isOpen,
+    playVideo,
+  ]);
 
-  // Handle video end - scroll to next video
   const handleVideoEnd = useCallback(() => {
     if (currentVideoIndex < videos.length - 1) {
       const nextIndex = currentVideoIndex + 1;
       const nextVideo = videos[nextIndex];
 
-      // Scroll to next video
       const nextVideoElement = containerRef.current?.querySelector(
         `[data-video-id="${nextVideo.id}"]`
       );
@@ -163,7 +238,6 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
           behavior: "smooth",
           block: "center",
         });
-        // Update index after a short delay to ensure scroll completes
         setTimeout(() => {
           setCurrentVideoIndex(nextIndex);
         }, 100);
@@ -173,7 +247,6 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
     }
   }, [currentVideoIndex, videos]);
 
-  // Intersection Observer for auto-play when scrolling
   useEffect(() => {
     if (!isOpen || !containerRef.current) return;
 
@@ -186,31 +259,14 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
             );
             const video = videoRefs.current[videoId];
 
-            if (video && playingVideoId !== videoId) {
-              // Pause all videos
-              Object.values(videoRefs.current).forEach((v) => {
-                if (v) v.pause();
-              });
+            if (
+              video &&
+              playingVideoId !== videoId &&
+              !manuallyPausedVideoIdsRef.current.has(videoId)
+            ) {
+              void playVideo(videoId);
 
-              // Play the visible video
-              video
-                .play()
-                .then(() => {
-                  setPlayingVideoId(videoId);
-                  setShowControls(true);
-                  setTimeout(() => {
-                    setShowControls(false);
-                  }, 3000);
-                })
-                .catch((error) => {
-                  // Auto-play failed
-                  console.log("Auto-play prevented on scroll:", error);
-                  setPlayingVideoId(null);
-                  setShowControls(true); // Show controls so user can click play
-                });
-
-              // Update current video index
-              const index = videos.findIndex((v) => v.id === videoId);
+              const index = videos.findIndex((item) => item.id === videoId);
               if (index !== -1) {
                 setCurrentVideoIndex(index);
               }
@@ -225,7 +281,7 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
               playingVideoId === videoId &&
               entry.intersectionRatio < 0.5
             ) {
-              video.pause();
+              pauseVideo(videoId);
             }
           }
         });
@@ -233,57 +289,38 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
       { threshold: [0.5, 0.7] }
     );
 
-    // Observe all video items
     const videoItems = containerRef.current.querySelectorAll(
       ".reel-video-modal__video-item"
     );
-    videoItems.forEach((item) => {
-      observer.observe(item);
-    });
+    videoItems.forEach((item) => observer.observe(item));
 
     return () => {
       observer.disconnect();
     };
-  }, [isOpen, videos, playingVideoId]);
+  }, [isOpen, pauseVideo, playVideo, playingVideoId, videos]);
 
   const handlePlayPause = (videoId: number) => {
     const video = videoRefs.current[videoId];
-    if (video) {
-      if (video.paused) {
-        // Pause all videos
-        Object.values(videoRefs.current).forEach((v) => {
-          if (v) v.pause();
-        });
-        // Play the selected video
-        video
-          .play()
-          .then(() => {
-            setPlayingVideoId(videoId);
-            setShowControls(true);
-            setTimeout(() => {
-              setShowControls(false);
-            }, 3000);
-          })
-          .catch((error) => {
-            console.error("Error playing video:", error);
-            // Keep controls visible if play fails
-            setShowControls(true);
-          });
-      } else {
-        video.pause();
-        setPlayingVideoId(null);
-        setShowControls(true);
-        setTimeout(() => {
-          setShowControls(false);
-        }, 3000);
-      }
+    if (!video) {
+      return;
     }
+
+    const isCurrentlyPlaying =
+      !video.paused &&
+      !video.ended &&
+      Boolean(videoPlaybackStates[videoId]);
+
+    if (!isCurrentlyPlaying) {
+      void playVideo(videoId, { manual: true });
+      return;
+    }
+
+    pauseVideo(videoId, { manual: true });
   };
 
   const handleMuteToggle = () => {
     const newMutedState = !isMuted;
     setIsMuted(newMutedState);
-    // Apply mute state to all videos
     Object.values(videoRefs.current).forEach((video) => {
       if (video) {
         video.muted = newMutedState;
@@ -295,26 +332,18 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
     handlePlayPause(videoId);
   };
 
-  const handleLike = (videoId: number) => {
-    setLikedVideos((prev) => {
-      const newSet = new Set(prev);
-      const isLiked = newSet.has(videoId);
+  const handleLike = async (videoId: number) => {
+    const video = getVideoById(videoId);
+    if (!video) {
+      return;
+    }
 
-      if (isLiked) {
-        newSet.delete(videoId);
-        setLikeCounts((prev) => ({
-          ...prev,
-          [videoId]: Math.max(0, (prev[videoId] || 0) - 1),
-        }));
-      } else {
-        newSet.add(videoId);
-        setLikeCounts((prev) => ({
-          ...prev,
-          [videoId]: (prev[videoId] || 0) + 1,
-        }));
-      }
-
-      return newSet;
+    await runWithVideoLock(videoId, async () => {
+      const response = await reelsApi.toggleLike(videoId, video.user_reacted);
+      onVideoUpdate?.(videoId, {
+        user_reacted: response.liked,
+        reactions_count: response.reactions_count,
+      });
     });
   };
 
@@ -328,55 +357,50 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
     setSelectedVideoForComments(null);
   };
 
-  const handleSaveVideo = (videoId: number) => {
-    setSavedVideos((prev) => {
-      const newSet = new Set(prev);
-      const isSaved = newSet.has(videoId);
+  const handleSaveVideo = async (videoId: number) => {
+    const video = getVideoById(videoId);
+    if (!video) {
+      return;
+    }
 
-      if (isSaved) {
-        newSet.delete(videoId);
-      } else {
-        newSet.add(videoId);
-      }
-
-      // Save to localStorage
-      localStorage.setItem("savedReels", JSON.stringify(Array.from(newSet)));
-
-      return newSet;
+    await runWithVideoLock(videoId, async () => {
+      const response = await reelsApi.toggleSave(videoId, !video.user_saved);
+      onVideoUpdate?.(videoId, {
+        user_saved: response.saved,
+      });
     });
   };
 
   const handleRemix = (videoId: number) => {
-    const video = videos.find((v) => v.id === videoId);
+    const video = getVideoById(videoId);
     alert(
       `Remix feature coming soon! This will allow you to create a remix of "${
         video?.title || "this reel"
-      }"`
+      }".`
     );
   };
 
   const handleSequence = (videoId: number) => {
-    const video = videos.find((v) => v.id === videoId);
+    const video = getVideoById(videoId);
     alert(
       `Sequence feature coming soon! This will allow you to create a sequence with "${
         video?.title || "this reel"
-      }"`
+      }".`
     );
   };
 
   const handleToggleClosedCaptions = () => {
-    setClosedCaptionsEnabled((prev) => {
-      const newState = !prev;
-      // Apply closed captions to all videos
+    setClosedCaptionsEnabled((previous) => {
+      const nextState = !previous;
       Object.values(videoRefs.current).forEach((video) => {
         if (video && video.textTracks) {
-          for (let i = 0; i < video.textTracks.length; i++) {
-            const track = video.textTracks[i];
-            track.mode = newState ? "showing" : "hidden";
+          for (let index = 0; index < video.textTracks.length; index += 1) {
+            const track = video.textTracks[index];
+            track.mode = nextState ? "showing" : "hidden";
           }
         }
       });
-      return newState;
+      return nextState;
     });
   };
 
@@ -390,8 +414,8 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
         .then(() => {
           setIsFullscreen(true);
         })
-        .catch((err) => {
-          console.error("Error attempting to enable fullscreen:", err);
+        .catch((error) => {
+          console.error("Error attempting to enable fullscreen:", error);
           alert("Fullscreen mode is not supported by your browser");
         });
     } else {
@@ -400,86 +424,72 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
         .then(() => {
           setIsFullscreen(false);
         })
-        .catch((err) => {
-          console.error("Error attempting to exit fullscreen:", err);
+        .catch((error) => {
+          console.error("Error attempting to exit fullscreen:", error);
         });
     }
   };
 
-  const handleInterested = (videoId: number) => {
-    setInterestedVideos((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(videoId)) {
-        newSet.delete(videoId);
-      } else {
-        newSet.add(videoId);
-        // Remove from not interested if it's there
-        setNotInterestedVideos((prevNot) => {
-          const newNotSet = new Set(prevNot);
-          newNotSet.delete(videoId);
-          localStorage.setItem(
-            "notInterestedReels",
-            JSON.stringify(Array.from(newNotSet))
-          );
-          return newNotSet;
-        });
-      }
-      localStorage.setItem(
-        "interestedReels",
-        JSON.stringify(Array.from(newSet))
+  const handleInterested = async (videoId: number) => {
+    const video = getVideoById(videoId);
+    if (!video) {
+      return;
+    }
+
+    await runWithVideoLock(videoId, async () => {
+      const response = await reelsApi.setPreference(
+        videoId,
+        video.user_preference === "interested" ? null : "interested"
       );
-      return newSet;
+      onVideoUpdate?.(videoId, {
+        user_preference: response.preference,
+      });
     });
   };
 
-  const handleNotInterested = (videoId: number) => {
-    setNotInterestedVideos((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(videoId)) {
-        newSet.delete(videoId);
-      } else {
-        newSet.add(videoId);
-        // Remove from interested if it's there
-        setInterestedVideos((prevInt) => {
-          const newIntSet = new Set(prevInt);
-          newIntSet.delete(videoId);
-          localStorage.setItem(
-            "interestedReels",
-            JSON.stringify(Array.from(newIntSet))
-          );
-          return newIntSet;
-        });
-      }
-      localStorage.setItem(
-        "notInterestedReels",
-        JSON.stringify(Array.from(newSet))
+  const handleNotInterested = async (videoId: number) => {
+    const video = getVideoById(videoId);
+    if (!video) {
+      return;
+    }
+
+    await runWithVideoLock(videoId, async () => {
+      const response = await reelsApi.setPreference(
+        videoId,
+        video.user_preference === "not_interested" ? null : "not_interested"
       );
-      return newSet;
+      onVideoUpdate?.(videoId, {
+        user_preference: response.preference,
+      });
     });
   };
 
-  const handleReport = (videoId: number) => {
-    const video = videos.find((v) => v.id === videoId);
+  const handleReport = async (videoId: number) => {
+    const video = getVideoById(videoId);
     const confirmed = window.confirm(
-      `Are you sure you want to report "${
-        video?.title || "this reel"
-      }"?\n\nThis action cannot be undone.`
+      `Report "${video?.title || "this reel"}" for review?`
     );
-    if (confirmed) {
-      alert(
-        "Thank you for your report. We'll review this content and take appropriate action."
-      );
-      console.log("Reported video:", videoId);
+    if (!confirmed) {
+      return;
     }
+
+    const reason = window.prompt(
+      "Optional: tell us why you are reporting this reel.",
+      ""
+    );
+
+    await runWithVideoLock(videoId, async () => {
+      await reelsApi.reportReel(videoId, reason || undefined);
+      alert("Thanks. Your report has been submitted.");
+    });
   };
 
   const handleManagePreferences = () => {
     alert(
-      "Content preferences management coming soon! This will allow you to customize what content you see."
+      "Content preferences management is still coming soon. For now, you can mark reels as Interested or Not Interested."
     );
   };
 
-  // Listen for fullscreen changes
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -492,24 +502,40 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
   }, []);
 
   const handleShare = async (videoId: number) => {
-    const video = videos.find((v) => v.id === videoId);
-    const shareData = {
-      title: video?.title || "Check out this reel!",
-      text: `Watch this amazing reel: ${video?.title || "Reel Video"}`,
-      url: window.location.href,
-    };
+    const video = getVideoById(videoId);
+    if (!video) {
+      return;
+    }
+
+    if (video.user_shared) {
+      alert("This reel is already on your timeline.");
+      return;
+    }
 
     try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        // Fallback: Copy to clipboard
-        await navigator.clipboard.writeText(window.location.href);
-        alert("Link copied to clipboard!");
-      }
+      await runWithVideoLock(videoId, async () => {
+        const response = await feedApi.sharePost(videoId);
+
+        onVideoUpdate?.(videoId, {
+          shares_count: (video.shares_count || 0) + 1,
+          user_shared: true,
+        });
+
+        window.dispatchEvent(
+          new CustomEvent("feedPostShared", {
+            detail: response.data,
+          })
+        );
+
+        alert("Reel reshared to your timeline.");
+      });
     } catch (error) {
-      // User cancelled or error occurred
-      console.log("Share cancelled or failed:", error);
+      console.error("Error resharing reel:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to reshare this reel to your timeline."
+      );
     }
   };
 
@@ -523,18 +549,21 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
     setSelectedVideoForOptions(null);
   };
 
-  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Only close if clicking directly on the overlay, not when scrolling
-    if (e.target === e.currentTarget) {
+  const handleOverlayClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) {
       onClose();
     }
   };
 
   if (!isOpen || videos.length === 0) return null;
 
+  const selectedVideoForOptionsData = selectedVideoForOptions
+    ? getVideoById(selectedVideoForOptions)
+    : null;
+
   return (
     <div className="reel-video-modal-overlay" onClick={handleOverlayClick}>
-      <div className="reel-video-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="reel-video-modal" onClick={(event) => event.stopPropagation()}>
         <div className="reel-video-modal__header">
           <h3 className="reel-video-modal__title">Reels</h3>
           <button
@@ -548,10 +577,8 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
 
         <div className="reel-video-modal__feed" ref={containerRef}>
           {videos.map((video, index) => {
-            const videoUrl =
-              video.videoUrl ||
-              "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
-            const isPlaying = playingVideoId === video.id;
+            const videoUrl = video.video_url || video.videoUrl;
+            const isPlaying = Boolean(videoPlaybackStates[video.id]);
 
             return (
               <div
@@ -561,82 +588,96 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
               >
                 <div className="reel-video-modal__video-container">
                   <video
-                    ref={(el) => {
-                      videoRefs.current[video.id] = el;
+                    ref={(element) => {
+                      videoRefs.current[video.id] = element;
                     }}
-                    src={videoUrl}
+                    src={videoUrl || undefined}
                     className="reel-video-modal__video"
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    poster={video.thumbnail_url || video.thumbnailUrl || undefined}
+                    onClick={(event) => {
+                      event.stopPropagation();
                       handleVideoClick(video.id);
                     }}
                     onEnded={() => {
-                      // Only auto-scroll if this is the currently playing video
-                      if (
-                        playingVideoId === video.id &&
-                        index < videos.length - 1
-                      ) {
+                      if (playingVideoId === video.id && index < videos.length - 1) {
                         handleVideoEnd();
                       }
                     }}
+                    onPlay={() => syncPlayingVideoId(video.id, true)}
+                    onPause={() => syncPlayingVideoId(video.id, false)}
                     muted={isMuted}
                     playsInline
-                    loop={false} // Don't loop, scroll to next instead
+                    loop={false}
                   />
 
-                  {/* Action Buttons (Like, Comment, Share) */}
                   <div className="reel-video-modal__actions">
                     <button
                       className={`reel-video-modal__action-btn ${
-                        likedVideos.has(video.id)
+                        video.user_reacted
                           ? "reel-video-modal__action-btn--liked"
                           : ""
                       }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleLike(video.id);
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleLike(video.id);
                       }}
                       aria-label="Like"
+                      disabled={actionLoadingIds.includes(video.id)}
                     >
                       <Heart
                         size={28}
-                        fill={likedVideos.has(video.id) ? "#e91e63" : "none"}
-                        color={likedVideos.has(video.id) ? "#e91e63" : "white"}
+                        fill={video.user_reacted ? "#e91e63" : "none"}
+                        color={video.user_reacted ? "#e91e63" : "white"}
                       />
                       <span className="reel-video-modal__action-count">
-                        {likeCounts[video.id] || 0}
+                        {video.reactions_count || 0}
                       </span>
                     </button>
 
                     <button
                       className="reel-video-modal__action-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
+                      onClick={(event) => {
+                        event.stopPropagation();
                         handleComment(video.id);
                       }}
                       aria-label="Comment"
                     >
                       <MessageSquare size={28} color="white" />
                       <span className="reel-video-modal__action-count">
-                        {commentCounts[video.id] || 0}
+                        {video.comments_count || 0}
+                      </span>
+                    </button>
+
+                    <button
+                      className={`reel-video-modal__action-btn ${
+                        video.user_shared
+                          ? "reel-video-modal__action-btn--shared"
+                          : ""
+                      }`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleShare(video.id);
+                      }}
+                      aria-label={
+                        video.user_shared
+                          ? "Shared to timeline"
+                          : "Reshare to timeline"
+                      }
+                      disabled={actionLoadingIds.includes(video.id)}
+                    >
+                      <Share2
+                        size={28}
+                        color={video.user_shared ? "#4caf50" : "white"}
+                      />
+                      <span className="reel-video-modal__action-count">
+                        {video.shares_count || 0}
                       </span>
                     </button>
 
                     <button
                       className="reel-video-modal__action-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleShare(video.id);
-                      }}
-                      aria-label="Share"
-                    >
-                      <Share2 size={28} color="white" />
-                    </button>
-
-                    <button
-                      className="reel-video-modal__action-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
+                      onClick={(event) => {
+                        event.stopPropagation();
                         handleOpenOptions(video.id);
                       }}
                       aria-label="More options"
@@ -646,13 +687,12 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
                     </button>
                   </div>
 
-                  {/* Bottom Controls (Play, Mute, Views) */}
                   {showControls && (
                     <div className="reel-video-modal__controls">
                       <button
                         className="reel-video-modal__control-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
+                        onClick={(event) => {
+                          event.stopPropagation();
                           handlePlayPause(video.id);
                         }}
                         aria-label={isPlaying ? "Pause" : "Play"}
@@ -661,20 +701,17 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
                       </button>
                       <button
                         className="reel-video-modal__control-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
+                        onClick={(event) => {
+                          event.stopPropagation();
                           handleMuteToggle();
                         }}
                         aria-label={isMuted ? "Unmute" : "Mute"}
                       >
-                        {isMuted ? (
-                          <VolumeX size={24} />
-                        ) : (
-                          <Volume2 size={24} />
-                        )}
+                        {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
                       </button>
                       <span className="reel-video-modal__views">
-                        {video.views} views
+                        {video.views}{" "}
+                        {Number(video.views_count || 0) === 1 ? "view" : "views"}
                       </span>
                     </div>
                   )}
@@ -685,31 +722,20 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
         </div>
       </div>
 
-      {/* Options Menu */}
       <ReelOptionsMenu
         isOpen={optionsMenuOpen}
         onClose={handleCloseOptions}
         videoId={selectedVideoForOptions || 0}
-        isSaved={
-          selectedVideoForOptions
-            ? savedVideos.has(selectedVideoForOptions)
-            : false
-        }
-        isInterested={
-          selectedVideoForOptions
-            ? interestedVideos.has(selectedVideoForOptions)
-            : false
-        }
+        isSaved={Boolean(selectedVideoForOptionsData?.user_saved)}
+        isInterested={selectedVideoForOptionsData?.user_preference === "interested"}
         isNotInterested={
-          selectedVideoForOptions
-            ? notInterestedVideos.has(selectedVideoForOptions)
-            : false
+          selectedVideoForOptionsData?.user_preference === "not_interested"
         }
         closedCaptionsEnabled={closedCaptionsEnabled}
         isFullscreen={isFullscreen}
         onSave={() => {
           if (selectedVideoForOptions) {
-            handleSaveVideo(selectedVideoForOptions);
+            void handleSaveVideo(selectedVideoForOptions);
           }
         }}
         onRemix={() => {
@@ -726,39 +752,37 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
         onToggleFullscreen={handleToggleFullscreen}
         onInterested={() => {
           if (selectedVideoForOptions) {
-            handleInterested(selectedVideoForOptions);
+            void handleInterested(selectedVideoForOptions);
           }
         }}
         onNotInterested={() => {
           if (selectedVideoForOptions) {
-            handleNotInterested(selectedVideoForOptions);
+            void handleNotInterested(selectedVideoForOptions);
           }
         }}
         onReport={() => {
           if (selectedVideoForOptions) {
-            handleReport(selectedVideoForOptions);
+            void handleReport(selectedVideoForOptions);
           }
         }}
         onManagePreferences={handleManagePreferences}
       />
 
-      {/* Comment Modal */}
       <ReelCommentModal
         isOpen={commentModalOpen}
         onClose={handleCloseCommentModal}
         videoId={selectedVideoForComments || 0}
         videoTitle={
           selectedVideoForComments
-            ? videos.find((v) => v.id === selectedVideoForComments)?.title
+            ? videos.find((video) => video.id === selectedVideoForComments)?.title
             : undefined
         }
         onCommentAdded={() => {
           if (selectedVideoForComments) {
-            setCommentCounts((prev) => ({
-              ...prev,
-              [selectedVideoForComments]:
-                (prev[selectedVideoForComments] || 0) + 1,
-            }));
+            const selectedVideo = getVideoById(selectedVideoForComments);
+            onVideoUpdate?.(selectedVideoForComments, {
+              comments_count: (selectedVideo?.comments_count || 0) + 1,
+            });
           }
         }}
       />

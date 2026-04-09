@@ -4,8 +4,8 @@
 // Navbar: desktop top 1rem+22px height 80px; tablet 70px; mobile 0.75rem+22px min-height 60px
 .navbar-theme-toggle {
   position: fixed;
-  // Vertically center with navbar: navbar_center - toggle_height/2 (navbar 80px → center at 40px)
-  top: calc(1rem + 22px + 40px - 22px); // 1rem + 22px + 18px
+  // Vertically center with navbar (match .navbar top offset 1rem + 32px, height 80px)
+  top: calc(1rem + 32px + 40px - 22px);
   right: 0.75rem;
   z-index: 9999;
   width: 44px;
@@ -33,9 +33,9 @@
     height: 22px;
   }
 
-  // Tablet: navbar height 70px, top 1rem+22px → center at 35px
+  // Tablet: navbar height 70px, top 1rem+32px → center at 35px
   @media (max-width: 992px) {
-    top: calc(1rem + 22px + 35px - 20px);
+    top: calc(1rem + 32px + 35px - 20px);
     right: 0.6rem;
     width: 40px;
     height: 40px;
@@ -45,9 +45,9 @@
     }
   }
 
-  // Mobile: navbar min-height 60px, top 0.75rem+22px → center at 30px
+  // Mobile: navbar min-height 60px, top 0.75rem+32px → center at 30px
   @media (max-width: 768px) {
-    top: calc(0.75rem + 22px + 30px - 18px);
+    top: calc(0.75rem + 32px + 30px - 18px);
     right: 0.5rem;
     width: 36px;
     height: 36px;
@@ -57,9 +57,9 @@
     }
   }
 
-  // Small phones
+  // Small phones (navbar top 0.5rem+32px, min-height 56px; toggle 32px tall)
   @media (max-width: 480px) {
-    top: calc(0.75rem + 22px + 30px - 16px);
+    top: calc(0.5rem + 32px + 28px - 16px);
     right: 0.4rem;
     width: 32px;
     height: 32px;

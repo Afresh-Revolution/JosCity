@@ -3,15 +3,83 @@ import { X, Image as ImageIcon, Video, Mic } from "lucide-react";
 import Avatar from "../../components/Avatar";
 import { compressImage } from "../../utils/imageCompression";
 
+export type Offer = { cost: string; location: string; contact: string };
+
+export const emptyOffer = (): Offer => ({ cost: "", location: "", contact: "" });
+
+export function offerPayload(
+  o: Offer
+): { cost: string; location: string; contact: string } | null {
+  const cost = o.cost.trim();
+  const location = o.location.trim();
+  const contact = o.contact.trim();
+  if (!cost && !location && !contact) return null;
+  return { cost, location, contact };
+}
+
+export function BusinessOfferRow({
+  title,
+  value,
+  onChange,
+}: {
+  title: string;
+  value: Offer;
+  onChange: (next: Offer) => void;
+}) {
+  return (
+    <div className="business-offer-fields">
+      <div className="business-offer-fields__title">{title}</div>
+      <div className="business-offer-fields__inputs">
+        <input
+          type="text"
+          inputMode="decimal"
+          placeholder="Price"
+          value={value.cost}
+          onChange={(e) => onChange({ ...value, cost: e.target.value })}
+          aria-label={`${title} price`}
+        />
+        <input
+          type="text"
+          placeholder="Location"
+          value={value.location}
+          onChange={(e) => onChange({ ...value, location: e.target.value })}
+          aria-label={`${title} location`}
+        />
+        <input
+          type="tel"
+          placeholder="Contact number"
+          value={value.contact}
+          onChange={(e) => onChange({ ...value, contact: e.target.value })}
+          aria-label={`${title} contact`}
+        />
+      </div>
+    </div>
+  );
+}
+
+export type CreatePostListingPayload = {
+  text?: { cost: string; location: string; contact: string };
+  byMediaIndex?: Array<{
+    cost: string;
+    location: string;
+    contact: string;
+  } | null>;
+};
+
 interface CreatePostModalProps {
   isOpen: boolean;
   onClose: () => void;
   userName: string;
   userAvatar?: string;
+  /** Business accounts: optional price/location/contact per caption and per media */
+  businessListingFields?: boolean;
+  /** Shown when businessListingFields (e.g. main feed: business-only visibility) */
+  businessFeedNotice?: string;
   onPost?: (
     caption: string,
     images: File[] | null,
-    videos: File[] | null
+    videos: File[] | null,
+    listingDetails?: CreatePostListingPayload | null
   ) => void | Promise<void>;
 }
 
@@ -20,6 +88,8 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
   onClose,
   userName,
   userAvatar,
+  businessListingFields = false,
+  businessFeedNotice,
   onPost,
 }) => {
   const [caption, setCaption] = useState("");
@@ -27,6 +97,9 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [selectedVideos, setSelectedVideos] = useState<string[]>([]); // For preview
   const [imageFiles, setImageFiles] = useState<File[]>([]); // Actual files for upload
   const [videoFiles, setVideoFiles] = useState<File[]>([]); // Actual files for upload
+  const [textOffer, setTextOffer] = useState<Offer>(() => emptyOffer());
+  const [imageOffers, setImageOffers] = useState<Offer[]>([]);
+  const [videoOffers, setVideoOffers] = useState<Offer[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
@@ -134,6 +207,10 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
       if (newImages.length > 0 && newImageFiles.length > 0) {
         setSelectedImages((prev) => [...prev, ...newImages]);
         setImageFiles((prev) => [...prev, ...newImageFiles]);
+        setImageOffers((prev) => [
+          ...prev,
+          ...newImageFiles.map(() => emptyOffer()),
+        ]);
       }
     };
 
@@ -204,6 +281,10 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
         if (processedCount === validFiles.length) {
           setSelectedVideos((prev) => [...prev, ...newVideos]);
           setVideoFiles((prev) => [...prev, ...newVideoFiles]);
+          setVideoOffers((prev) => [
+            ...prev,
+            ...newVideoFiles.map(() => emptyOffer()),
+          ]);
         }
       };
       reader.onerror = () => {
@@ -212,6 +293,10 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
         if (processedCount === validFiles.length && newVideos.length > 0) {
           setSelectedVideos((prev) => [...prev, ...newVideos]);
           setVideoFiles((prev) => [...prev, ...newVideoFiles]);
+          setVideoOffers((prev) => [
+            ...prev,
+            ...newVideoFiles.map(() => emptyOffer()),
+          ]);
         }
       };
       reader.readAsDataURL(file);
@@ -241,10 +326,25 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
     // Call the onPost callback if provided
     if (onPost) {
       try {
+        let listingDetails: CreatePostListingPayload | null = null;
+        if (businessListingFields) {
+          const textP = offerPayload(textOffer);
+          const byMediaIndex = [
+            ...imageOffers.map(offerPayload),
+            ...videoOffers.map(offerPayload),
+          ];
+          const hasMedia = byMediaIndex.some((x) => x !== null);
+          if (textP || hasMedia) {
+            listingDetails = {};
+            if (textP) listingDetails.text = textP;
+            if (hasMedia) listingDetails.byMediaIndex = byMediaIndex;
+          }
+        }
         await onPost(
           caption.trim(), // Send text (can be empty if only media)
           imageFiles.length > 0 ? imageFiles : null,
-          videoFiles.length > 0 ? videoFiles : null
+          videoFiles.length > 0 ? videoFiles : null,
+          listingDetails
         );
       } catch (error) {
         console.error("Error in onPost callback:", error);
@@ -259,6 +359,9 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
     setSelectedVideos([]);
     setImageFiles([]);
     setVideoFiles([]);
+    setTextOffer(emptyOffer());
+    setImageOffers([]);
+    setVideoOffers([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -274,6 +377,9 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
     setSelectedVideos([]);
     setImageFiles([]);
     setVideoFiles([]);
+    setTextOffer(emptyOffer());
+    setImageOffers([]);
+    setVideoOffers([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -286,11 +392,13 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const removeImage = (index: number) => {
     setSelectedImages((prev) => prev.filter((_, i) => i !== index));
     setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImageOffers((prev) => prev.filter((_, i) => i !== index));
   };
 
   const removeVideo = (index: number) => {
     setSelectedVideos((prev) => prev.filter((_, i) => i !== index));
     setVideoFiles((prev) => prev.filter((_, i) => i !== index));
+    setVideoOffers((prev) => prev.filter((_, i) => i !== index));
   };
 
   if (!isOpen) return null;
@@ -316,6 +424,10 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
             <span className="newsfeed-modal__user-name">{userName}</span>
           </div>
 
+          {businessListingFields && businessFeedNotice && (
+            <p className="business-feed-notice">{businessFeedNotice}</p>
+          )}
+
           <div className="newsfeed-modal__caption-section">
             <textarea
               className="newsfeed-modal__caption"
@@ -325,6 +437,14 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
               rows={4}
             />
           </div>
+
+          {businessListingFields && (
+            <BusinessOfferRow
+              title="Listing for caption / description (optional)"
+              value={textOffer}
+              onChange={setTextOffer}
+            />
+          )}
 
           {selectedImages.length > 0 && (
             <div className="newsfeed-modal__media-preview">
@@ -348,6 +468,20 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     >
                       <X size={16} />
                     </button>
+                    {businessListingFields && (
+                      <BusinessOfferRow
+                        title={`Image ${index + 1} (optional)`}
+                        value={imageOffers[index] ?? emptyOffer()}
+                        onChange={(next) =>
+                          setImageOffers((prev) => {
+                            const copy = [...prev];
+                            while (copy.length <= index) copy.push(emptyOffer());
+                            copy[index] = next;
+                            return copy;
+                          })
+                        }
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -381,6 +515,20 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     >
                       <X size={16} />
                     </button>
+                    {businessListingFields && (
+                      <BusinessOfferRow
+                        title={`Video ${index + 1} (optional)`}
+                        value={videoOffers[index] ?? emptyOffer()}
+                        onChange={(next) =>
+                          setVideoOffers((prev) => {
+                            const copy = [...prev];
+                            while (copy.length <= index) copy.push(emptyOffer());
+                            copy[index] = next;
+                            return copy;
+                          })
+                        }
+                      />
+                    )}
                   </div>
                 ))}
               </div>

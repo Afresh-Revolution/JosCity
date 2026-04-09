@@ -1,20 +1,21 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { UserPlus, Check, X } from "lucide-react";
+import { UserPlus, Check, Clock, X } from "lucide-react";
 import Avatar from "../../components/Avatar";
 import {
   calculateDistance,
   getUserLocation,
   getUserRange,
 } from "../../utils/locationUtils";
-import { addFriend, getFriendsList } from "../../utils/friendUtils";
 import { getUserAccountType } from "../../utils/userUtils";
-import { userApi } from "../../services/userApi";
+import { userApi, type User } from "../../services/userApi";
+import { friendApi } from "../../services/friendApi";
 
 interface Friend {
   id: number;
   name: string;
   avatar: string;
   mutualFriends: number;
+  distanceKm?: number;
   location?: {
     latitude: number;
     longitude: number;
@@ -28,59 +29,114 @@ interface SuggestedFriendsProps {
   onFriendAdded?: (friendId: number, friendName: string) => void;
 }
 
+// Map API User to local Friend (same as Add Friends modal)
+function userToFriend(user: User, mutualFriends = 0): Friend {
+  const name =
+    user.user_firstname && user.user_lastname
+      ? `${user.user_firstname} ${user.user_lastname}`
+      : user.user_email || `User ${user.user_id}`;
+  return {
+    id: user.user_id,
+    name,
+    avatar: user.user_picture || "",
+    mutualFriends,
+    distanceKm: user.distance,
+    location: user.user_location,
+    isApproved: true,
+    isLoggedIn: true,
+  };
+}
+
 const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
   friends: propFriends,
-  onFriendAdded,
+  onFriendAdded: _onFriendAdded,
 }) => {
-  const [addedFriends, setAddedFriends] = useState<number[]>([]);
+  const [friendStatuses, setFriendStatuses] = useState<
+    Record<number, "none" | "sent" | "pending" | "friends">
+  >({});
+  /** receiver_user_id → friend_requests.request_id for outgoing pending */
+  const [sentRequestIdsByReceiver, setSentRequestIdsByReceiver] = useState<
+    Record<number, number>
+  >({});
   const [fetchedBusinesses, setFetchedBusinesses] = useState<Friend[]>([]);
+  const [fetchedNearbyFriends, setFetchedNearbyFriends] = useState<Friend[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSeeAllModalOpen, setIsSeeAllModalOpen] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const userLocation = getUserLocation();
   const userRange = getUserRange();
   const accountType = getUserAccountType().toLowerCase();
   const isBusinessAccount = accountType === "business";
 
-  // Load existing friends on mount
+  // Current user id from localStorage (same as Add Friends modal)
   useEffect(() => {
-    setAddedFriends(getFriendsList());
+    try {
+      const userData = localStorage.getItem("user");
+      if (userData) {
+        const user = JSON.parse(userData);
+        setCurrentUserId(user.user_id ?? null);
+      }
+    } catch {
+      setCurrentUserId(null);
+    }
   }, []);
 
-  // Fetch business accounts when account type is business
+  // Load real friendship/request statuses
   useEffect(() => {
+    const loadStatuses = async () => {
+      try {
+        const [friendsRes, requestsRes] = await Promise.all([
+          friendApi.getFriends().catch(() => ({ success: false as const, data: [] })),
+          friendApi
+            .getPendingRequests()
+            .catch(() => ({ success: false as const, data: { sent: [], received: [] } })),
+        ]);
+
+        const statuses: Record<number, "none" | "sent" | "pending" | "friends"> = {};
+        const sentMap: Record<number, number> = {};
+        if (friendsRes.success) {
+          friendsRes.data.forEach((friend) => {
+            statuses[friend.user_id] = "friends";
+          });
+        }
+        if (requestsRes.success) {
+          requestsRes.data.sent.forEach(
+            (request: { receiver_id: number; request_id: number }) => {
+              statuses[request.receiver_id] = "sent";
+              sentMap[request.receiver_id] = request.request_id;
+            }
+          );
+          requestsRes.data.received.forEach((request) => {
+            if (!statuses[request.sender_id]) statuses[request.sender_id] = "pending";
+          });
+        }
+
+        setFriendStatuses(statuses);
+        setSentRequestIdsByReceiver(sentMap);
+      } catch {
+        // ignore status bootstrap errors
+      }
+    };
+
+    void loadStatuses();
+  }, []);
+
+  // Fetch nearby users: business accounts when business, else nearby users (same endpoint as Add Friends)
+  useEffect(() => {
+    const rangeKm = userRange || 500;
+
     if (isBusinessAccount) {
       const fetchBusinessAccounts = async () => {
         setIsLoading(true);
         try {
-          const userRangeKm = userRange || 500; // Default to 500km if not set
-          const response = await userApi.getNearbyUsers(userRangeKm);
-          
+          const response = await userApi.getNearbyUsers({ rangeKm });
           if (response.success && response.data) {
-            // Filter to only business accounts and transform to Friend format
             const businessAccounts: Friend[] = response.data
-              .filter((user: any) => {
-                // Check if account_type is business
-                const userAccountType = (user.account_type || "").toLowerCase();
-                return userAccountType === "business";
-              })
-              .map((user: any) => ({
-                id: user.user_id,
-                name: user.user_firstname && user.user_lastname
-                  ? `${user.user_firstname} ${user.user_lastname}`
-                  : user.display_name || user.user_email || "Unknown",
-                avatar: user.user_picture || "",
-                mutualFriends: 0, // Can be calculated if needed
-                location: user.user_location || (user.latitude && user.longitude
-                  ? {
-                      latitude: parseFloat(user.latitude),
-                      longitude: parseFloat(user.longitude),
-                    }
-                  : undefined),
-                isApproved: true, // Assuming API only returns approved users
-                isLoggedIn: true, // Assuming API only returns active users
-              }));
-            
+              .filter((u: User) => (u.account_type || "").toLowerCase() === "business")
+              .map((u: User) => userToFriend(u));
             setFetchedBusinesses(businessAccounts);
+          } else {
+            setFetchedBusinesses([]);
           }
         } catch (error) {
           console.error("Error fetching business accounts:", error);
@@ -89,61 +145,116 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
           setIsLoading(false);
         }
       };
-
       fetchBusinessAccounts();
+      return;
     }
-  }, [isBusinessAccount, userRange]);
 
-  // Use fetched businesses if business account, otherwise use prop friends
-  const friends = isBusinessAccount ? fetchedBusinesses : propFriends;
+    // Personal account: same endpoint as Add Friends modal – nearby users
+    const fetchNearby = async () => {
+      setIsLoading(true);
+      try {
+        const [nearbyRes, friendsRes, requestsRes] = await Promise.all([
+          userApi.getNearbyUsers({ rangeKm }),
+          friendApi.getFriends().catch(() => ({ success: false as const, data: [] })),
+          friendApi.getPendingRequests().catch(() => ({ success: false as const, data: { sent: [], received: [] } })),
+        ]);
 
-  // Filter friends based on criteria
+        if (!nearbyRes.success || !nearbyRes.data) {
+          setFetchedNearbyFriends([]);
+          return;
+        }
+
+        const friendIds = new Set<number>();
+        if (friendsRes.success && Array.isArray(friendsRes.data)) {
+          friendsRes.data.forEach((f: { user_id: number }) => friendIds.add(f.user_id));
+        }
+        const sentIds = new Set<number>();
+        if (requestsRes.success && requestsRes.data?.sent) {
+          requestsRes.data.sent.forEach((r: { receiver_id: number }) => sentIds.add(r.receiver_id));
+        }
+
+        const excludeIds = new Set([currentUserId].filter(Boolean));
+        friendIds.forEach((id) => excludeIds.add(id));
+        sentIds.forEach((id) => excludeIds.add(id));
+
+        const list: Friend[] = nearbyRes.data
+          .filter((u: User) => u.user_id !== currentUserId && !excludeIds.has(u.user_id))
+          .map((u: User) => userToFriend(u));
+
+        setFetchedNearbyFriends(list);
+      } catch (error) {
+        console.error("Error fetching nearby friends:", error);
+        setFetchedNearbyFriends([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchNearby();
+  }, [isBusinessAccount, userRange, currentUserId]);
+
+  // Use fetched list: businesses for business account, nearby for personal (same endpoint as Add Friends)
+  const friends =
+    isBusinessAccount ? fetchedBusinesses : (fetchedNearbyFriends.length > 0 ? fetchedNearbyFriends : propFriends);
+
+  // Filter friends: when using API nearby list (personal) show all; else apply location/range
   const filteredFriends = useMemo(() => {
-    if (isBusinessAccount && isLoading) {
-      return []; // Don't show anything while loading
+    if (isLoading) {
+      return [];
     }
-
-    let filtered: Friend[] = [];
-
+    const usingNearbyApi = !isBusinessAccount && fetchedNearbyFriends.length > 0;
+    if (usingNearbyApi) {
+      return friends; // Backend already applied range; show all returned
+    }
     if (!userLocation) {
-      // If user location not set, show all approved and logged in users
-      filtered = friends.filter(
-        (friend) => friend.isApproved && friend.isLoggedIn
-      );
-    } else {
-      filtered = friends.filter((friend) => {
-        // Must be approved and logged in
-        if (!friend.isApproved || !friend.isLoggedIn) {
-          return false;
-        }
-
-        // Must have location data
-        if (!friend.location) {
-          return false;
-        }
-
-        // Must be within range
-        const distance = calculateDistance(userLocation, friend.location);
-        return distance <= userRange;
-      });
+      return friends.filter((f) => f.isApproved && f.isLoggedIn);
     }
-
-    return filtered;
-  }, [friends, userLocation, userRange, isBusinessAccount, isLoading]);
+    return friends.filter((f) => {
+      if (!f.isApproved || !f.isLoggedIn) return false;
+      if (!f.location) return false;
+      return calculateDistance(userLocation, f.location) <= (userRange || 500);
+    });
+  }, [friends, userLocation, userRange, isBusinessAccount, isLoading, fetchedNearbyFriends.length]);
 
   // Limit to 4 friends for main display
   const displayedFriends = useMemo(() => {
     return filteredFriends.slice(0, 4);
   }, [filteredFriends]);
 
-  const handleAddFriend = (friend: Friend) => {
-    // Add to friends list
-    addFriend(friend.id);
-    setAddedFriends((prev) => [...prev, friend.id]);
+  const handleAddFriend = async (friend: Friend) => {
+    try {
+      const res = await friendApi.sendFriendRequest(friend.id);
+      if (res.success && res.data?.request_id != null) {
+        setFriendStatuses((prev) => ({ ...prev, [friend.id]: "sent" }));
+        setSentRequestIdsByReceiver((prev) => ({
+          ...prev,
+          [friend.id]: res.data.request_id,
+        }));
+      } else if (res.success) {
+        setFriendStatuses((prev) => ({ ...prev, [friend.id]: "sent" }));
+      } else {
+        alert("Could not send friend request. Please try again.");
+      }
+    } catch {
+      alert("Failed to send friend request. Please try again.");
+    }
+  };
 
-    // Notify parent component
-    if (onFriendAdded) {
-      onFriendAdded(friend.id, friend.name);
+  const handleCancelSentRequest = async (friend: Friend) => {
+    const rid = sentRequestIdsByReceiver[friend.id];
+    if (rid == null) return;
+    try {
+      const res = await friendApi.cancelFriendRequest(rid);
+      if (res.success) {
+        setFriendStatuses((prev) => ({ ...prev, [friend.id]: "none" }));
+        setSentRequestIdsByReceiver((prev) => {
+          const next = { ...prev };
+          delete next[friend.id];
+          return next;
+        });
+      }
+    } catch {
+      alert("Could not cancel friend request. Please try again.");
     }
   };
 
@@ -178,7 +289,8 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
           </div>
         ) : (
           displayedFriends.map((friend) => {
-            const isAlreadyFriend = addedFriends.includes(friend.id);
+            const status = friendStatuses[friend.id] || "none";
+            const isActionDisabled = status !== "none" && status !== "sent";
             return (
               <div
                 key={friend.id}
@@ -194,29 +306,55 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
                   <p className="newsfeed-suggested-friends__name">
                     {friend.name}
                   </p>
-                  {friend.mutualFriends > 0 && (
+                  {friend.mutualFriends > 0 ? (
                     <p className="newsfeed-suggested-friends__mutual">
                       {friend.mutualFriends} Mutual friend
                       {friend.mutualFriends !== 1 ? "s" : ""}
                     </p>
-                  )}
+                  ) : friend.distanceKm != null ? (
+                    <p className="newsfeed-suggested-friends__mutual">
+                      {Math.round(friend.distanceKm)} km away
+                    </p>
+                  ) : null}
                 </div>
-                <button
-                  className={`newsfeed-suggested-friends__add-btn ${
-                    isAlreadyFriend
-                      ? "newsfeed-suggested-friends__add-btn--added"
-                      : ""
-                  }`}
-                  onClick={() => !isAlreadyFriend && handleAddFriend(friend)}
-                  disabled={isAlreadyFriend}
-                  title={isAlreadyFriend ? "Already added" : "Add friend"}
-                >
-                  {isAlreadyFriend ? (
-                    <Check size={18} />
-                  ) : (
-                    <UserPlus size={18} />
-                  )}
-                </button>
+                {status === "sent" && sentRequestIdsByReceiver[friend.id] != null ? (
+                  <button
+                    type="button"
+                    className="newsfeed-suggested-friends__add-btn newsfeed-suggested-friends__add-btn--cancel"
+                    onClick={() => void handleCancelSentRequest(friend)}
+                    title="Cancel friend request"
+                    aria-label="Cancel friend request"
+                  >
+                    <X size={18} />
+                  </button>
+                ) : (
+                  <button
+                    className={`newsfeed-suggested-friends__add-btn ${
+                      isActionDisabled
+                        ? "newsfeed-suggested-friends__add-btn--added"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      !isActionDisabled && void handleAddFriend(friend)
+                    }
+                    disabled={isActionDisabled}
+                    title={
+                      status === "friends"
+                        ? "Already friends"
+                        : status === "pending"
+                          ? "Incoming request pending"
+                          : "Add friend"
+                    }
+                  >
+                    {status === "friends" ? (
+                      <Check size={18} />
+                    ) : status === "pending" ? (
+                      <Clock size={18} />
+                    ) : (
+                      <UserPlus size={18} />
+                    )}
+                  </button>
+                )}
               </div>
             );
           })
@@ -257,7 +395,8 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
                 </div>
               ) : (
                 filteredFriends.map((friend) => {
-                  const isAlreadyFriend = addedFriends.includes(friend.id);
+                  const status = friendStatuses[friend.id] || "none";
+                  const isActionDisabled = status !== "none" && status !== "sent";
                   return (
                     <div
                       key={friend.id}
@@ -273,31 +412,56 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
                         <p className="newsfeed-suggested-friends__name">
                           {friend.name}
                         </p>
-                        {friend.mutualFriends > 0 && (
+                        {friend.mutualFriends > 0 ? (
                           <p className="newsfeed-suggested-friends__mutual">
                             {friend.mutualFriends} Mutual friend
                             {friend.mutualFriends !== 1 ? "s" : ""}
                           </p>
-                        )}
+                        ) : friend.distanceKm != null ? (
+                          <p className="newsfeed-suggested-friends__mutual">
+                            {Math.round(friend.distanceKm)} km away
+                          </p>
+                        ) : null}
                       </div>
-                      <button
-                        className={`newsfeed-suggested-friends__add-btn ${
-                          isAlreadyFriend
-                            ? "newsfeed-suggested-friends__add-btn--added"
-                            : ""
-                        }`}
-                        onClick={() =>
-                          !isAlreadyFriend && handleAddFriend(friend)
-                        }
-                        disabled={isAlreadyFriend}
-                        title={isAlreadyFriend ? "Already added" : "Add friend"}
-                      >
-                        {isAlreadyFriend ? (
-                          <Check size={18} />
-                        ) : (
-                          <UserPlus size={18} />
-                        )}
-                      </button>
+                      {status === "sent" &&
+                      sentRequestIdsByReceiver[friend.id] != null ? (
+                        <button
+                          type="button"
+                          className="newsfeed-suggested-friends__add-btn newsfeed-suggested-friends__add-btn--cancel"
+                          onClick={() => void handleCancelSentRequest(friend)}
+                          title="Cancel friend request"
+                          aria-label="Cancel friend request"
+                        >
+                          <X size={18} />
+                        </button>
+                      ) : (
+                        <button
+                          className={`newsfeed-suggested-friends__add-btn ${
+                            isActionDisabled
+                              ? "newsfeed-suggested-friends__add-btn--added"
+                              : ""
+                          }`}
+                          onClick={() =>
+                            !isActionDisabled && void handleAddFriend(friend)
+                          }
+                          disabled={isActionDisabled}
+                          title={
+                            status === "friends"
+                              ? "Already friends"
+                              : status === "pending"
+                                ? "Incoming request pending"
+                                : "Add friend"
+                          }
+                        >
+                          {status === "friends" ? (
+                            <Check size={18} />
+                          ) : status === "pending" ? (
+                            <Clock size={18} />
+                          ) : (
+                            <UserPlus size={18} />
+                          )}
+                        </button>
+                      )}
                     </div>
                   );
                 })

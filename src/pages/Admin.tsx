@@ -33,7 +33,6 @@ import {
   CheckCircle,
   XCircle,
   BarChart3,
-  Mail,
   Megaphone,
   Package,
   Smartphone,
@@ -61,6 +60,7 @@ import AdminUsers from "./AdminUsers";
 import AdminPosts from "./AdminPosts";
 import AdminPages from "./AdminPages";
 import AdminGroups from "./AdminGroups";
+import AdminForums from "./AdminForums";
 import AdminEvents from "./AdminEvents";
 import AdminReports from "./AdminReports";
 import AdminVerification from "./AdminVerification";
@@ -72,6 +72,8 @@ import AdminPoints from "./AdminPoints";
 import AdminMarket from "./AdminMarket";
 import AdminFunding from "./AdminFunding";
 import AdminMonetization from "./AdminMonetization";
+import AdminNotifications from "./AdminNotifications";
+import AdminNews from "./AdminNews";
 import { getDashboard, refreshAdminToken } from "../services/adminApi";
 import { fetchPendingRegistrations } from "../utils/fetchWithTimeout";
 
@@ -100,6 +102,7 @@ const Admin: React.FC = () => {
     | "posts"
     | "pages"
     | "groups"
+    | "forums"
     | "events"
     | "reports"
     | "verification"
@@ -111,6 +114,8 @@ const Admin: React.FC = () => {
     | "market"
     | "funding"
     | "monetization"
+    | "notifications"
+    | "news"
   >("dashboard");
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [pendingCount, setPendingCount] = useState<number>(0);
@@ -252,7 +257,6 @@ const Admin: React.FC = () => {
               </button>
               <div className="admin-header__logo">
                 <img src={primaryLogo} alt="JOSCity Logo" />
-                <span>JOSCity</span>
               </div>
             </div>
             <div className="admin-header__actions">
@@ -318,7 +322,7 @@ const Admin: React.FC = () => {
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
-                    color: "#666",
+                    color: "var(--text-tertiary)",
                   }}>
                   <LogOut size={18} />
                 </button>
@@ -490,6 +494,19 @@ const Admin: React.FC = () => {
                     <button
                       onClick={(e) => {
                         e.preventDefault();
+                        setActiveView("news");
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`admin-modules-container__item ${
+                        activeView === "news" ? "admin-modules-container__item--active" : ""
+                      }`}>
+                      <Newspaper size={18} />
+                      <span>News</span>
+                      <ChevronRight size={16} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
                         setActiveView("posts");
                         setIsMobileMenuOpen(false);
                       }}
@@ -524,6 +541,19 @@ const Admin: React.FC = () => {
                       }`}>
                       <Users size={18} />
                       <span>Groups</span>
+                      <ChevronRight size={16} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setActiveView("forums");
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`admin-modules-container__item ${
+                        activeView === "forums" ? "admin-modules-container__item--active" : ""
+                      }`}>
+                      <MessageSquare size={18} />
+                      <span>Forums</span>
                       <ChevronRight size={16} />
                     </button>
                     <button
@@ -895,24 +925,18 @@ const Admin: React.FC = () => {
                     Reach
                   </div>
                   <div className="admin-sidebar-section-container__list">
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
+                    <button
+                      type="button"
+                      className={`admin-sidebar-section-container__item ${
+                        activeView === "notifications" ? "admin-sidebar-section-container__item--active" : ""
+                      }`}
+                      onClick={() => {
+                        setActiveView("notifications");
+                        setIsMobileMenuOpen(false);
+                      }}>
                       <Megaphone size={18} />
                       <span>Announcements</span>
-                    </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <Bell size={18} />
-                      <span>Mass Notifications</span>
-                    </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <Mail size={18} />
-                      <span>Newsletter</span>
-                    </a>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1030,12 +1054,12 @@ const Admin: React.FC = () => {
                 <div className="spinner" style={{
                   width: "40px",
                   height: "40px",
-                  border: "4px solid #f3f3f3",
-                  borderTop: "4px solid #1a5d3a",
+                  border: "4px solid var(--border-color)",
+                  borderTop: "4px solid var(--color-primary)",
                   borderRadius: "50%",
                   animation: "spin 1s linear infinite"
                 }}></div>
-                <p style={{ fontSize: "1.1rem", color: "#666" }}>Loading dashboard data...</p>
+                <p style={{ fontSize: "1.1rem", color: "var(--text-tertiary)" }}>Loading dashboard data...</p>
                 <style>{`
                   @keyframes spin {
                     0% { transform: rotate(0deg); }
@@ -1057,12 +1081,12 @@ const Admin: React.FC = () => {
                 padding: "2rem"
               }}>
                 <h2 style={{ fontSize: "1.5rem", color: "#d32f2f", margin: 0 }}>Error Loading Dashboard</h2>
-                <p style={{ fontSize: "1rem", color: "#666", textAlign: "center" }}>{error}</p>
+                <p style={{ fontSize: "1rem", color: "var(--text-tertiary)", textAlign: "center" }}>{error}</p>
                 <button 
                   onClick={() => window.location.reload()}
                   style={{
                     padding: "0.75rem 1.5rem",
-                    backgroundColor: "#1a5d3a",
+                    backgroundColor: "var(--color-primary)",
                     color: "white",
                     border: "none",
                     borderRadius: "8px",
@@ -1089,6 +1113,8 @@ const Admin: React.FC = () => {
               <AdminPages />
             ) : activeView === "groups" ? (
               <AdminGroups />
+            ) : activeView === "forums" ? (
+              <AdminForums />
             ) : activeView === "events" ? (
               <AdminEvents />
             ) : activeView === "reports" ? (
@@ -1111,6 +1137,10 @@ const Admin: React.FC = () => {
               <AdminFunding />
             ) : activeView === "monetization" ? (
               <AdminMonetization />
+            ) : activeView === "notifications" ? (
+              <AdminNotifications />
+            ) : activeView === "news" ? (
+              <AdminNews />
             ) : (
               <div className="admin-dashboard">
                 <div className="admin-dashboard__search">

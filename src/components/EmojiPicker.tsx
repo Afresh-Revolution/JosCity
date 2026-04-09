@@ -1,4 +1,5 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useLayoutEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 interface EmojiPickerProps {
@@ -6,6 +7,12 @@ interface EmojiPickerProps {
   onClose: () => void;
   onEmojiSelect: (emoji: string) => void;
   position?: "top" | "bottom";
+  /**
+   * Render the picker in document.body and position with fixed coordinates above the anchor.
+   * Use in narrow flex rows (e.g. forum composer) so width is not clamped to the emoji button column.
+   */
+  anchorRef?: React.RefObject<HTMLElement | null>;
+  detachToBody?: boolean;
 }
 
 const EmojiPicker: React.FC<EmojiPickerProps> = ({
@@ -13,8 +20,11 @@ const EmojiPicker: React.FC<EmojiPickerProps> = ({
   onClose,
   onEmojiSelect,
   position = "bottom",
+  anchorRef,
+  detachToBody = false,
 }) => {
   const pickerRef = useRef<HTMLDivElement>(null);
+  const [fixedStyle, setFixedStyle] = useState<React.CSSProperties>({});
 
   // Common emojis organized by category
   const emojiCategories = {
@@ -133,11 +143,47 @@ const EmojiPicker: React.FC<EmojiPickerProps> = ({
     ],
   };
 
+  useLayoutEffect(() => {
+    if (!isOpen || !detachToBody || !anchorRef?.current) {
+      setFixedStyle({});
+      return;
+    }
+
+    const updatePosition = () => {
+      const el = anchorRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const pickerWidth = Math.min(320, window.innerWidth - 16);
+      let left = rect.right - pickerWidth;
+      left = Math.max(8, Math.min(left, window.innerWidth - pickerWidth - 8));
+      const gap = 8;
+      const bottom = window.innerHeight - rect.top + gap;
+      setFixedStyle({
+        position: "fixed",
+        left,
+        bottom,
+        width: pickerWidth,
+        maxWidth: pickerWidth,
+        minWidth: Math.min(280, pickerWidth),
+        zIndex: 10050,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [isOpen, detachToBody, anchorRef]);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
-        onClose();
-      }
+      const target = event.target as Node;
+      if (pickerRef.current?.contains(target)) return;
+      if (anchorRef?.current?.contains(target)) return;
+      onClose();
     };
 
     if (isOpen) {
@@ -147,14 +193,19 @@ const EmojiPicker: React.FC<EmojiPickerProps> = ({
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, anchorRef]);
 
   if (!isOpen) return null;
 
-  return (
+  const pickerClassName = `emoji-picker ${position === "top" ? "emoji-picker--top" : "emoji-picker--bottom"} ${
+    detachToBody ? "emoji-picker--detached" : ""
+  }`;
+
+  const pickerInner = (
     <div
       ref={pickerRef}
-      className={`emoji-picker ${position === "top" ? "emoji-picker--top" : "emoji-picker--bottom"}`}
+      className={pickerClassName}
+      style={detachToBody ? fixedStyle : undefined}
     >
       <div className="emoji-picker__header">
         <h3>Emoji</h3>
@@ -186,6 +237,12 @@ const EmojiPicker: React.FC<EmojiPickerProps> = ({
       </div>
     </div>
   );
+
+  if (detachToBody && typeof document !== "undefined") {
+    return createPortal(pickerInner, document.body);
+  }
+
+  return pickerInner;
 };
 
 export default EmojiPicker;

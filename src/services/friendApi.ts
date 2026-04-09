@@ -1,4 +1,4 @@
-import API_BASE_URL from "../api/config";
+import { apiUrl } from "../api/config";
 
 export interface FriendRequest {
   request_id: number;
@@ -43,7 +43,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  const response = await fetch(apiUrl(endpoint), {
     ...options,
     headers,
     signal: AbortSignal.timeout(30000),
@@ -90,6 +90,15 @@ export const friendApi = {
   }> => {
     return apiRequest(`/friends/request/${requestId}/reject`, {
       method: "POST",
+    });
+  },
+
+  cancelFriendRequest: async (requestId: number): Promise<{
+    success: boolean;
+    message: string;
+  }> => {
+    return apiRequest(`/friends/request/${requestId}`, {
+      method: "DELETE",
     });
   },
 

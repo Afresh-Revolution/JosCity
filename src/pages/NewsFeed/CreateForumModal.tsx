@@ -22,6 +22,7 @@ interface CreateForumModalProps {
     name: string;
     description: string;
     category: string;
+    visibility: "public" | "private";
     backgroundColor?: string;
     backgroundImage?: string;
     backgroundOpacity?: number;
@@ -65,6 +66,7 @@ const CreateForumModal: React.FC<CreateForumModalProps> = ({
   const [backgroundOpacity, setBackgroundOpacity] = useState(
     editingForum?.backgroundOpacity ?? 0.5
   );
+  const [visibility, setVisibility] = useState<"public" | "private">("public");
   const [error, setError] = useState("");
   const backgroundImageInputRef = useRef<HTMLInputElement>(null);
 
@@ -129,6 +131,7 @@ const CreateForumModal: React.FC<CreateForumModalProps> = ({
         name: forumName.trim(),
         description: description.trim(),
         category: selectedCategory,
+        visibility,
         backgroundColor: backgroundColor.trim() || undefined,
         backgroundImage: backgroundImage.trim() || undefined,
         backgroundOpacity: backgroundImage.trim()
@@ -287,6 +290,54 @@ const CreateForumModal: React.FC<CreateForumModalProps> = ({
                 ))}
               </select>
             </div>
+
+            {!editingForum && (
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  Who can find &amp; join this forum? *
+                </label>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                    fontSize: "14px",
+                    color: "var(--text-secondary)",
+                  }}
+                >
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: "10px", cursor: "pointer" }}>
+                    <input
+                      type="radio"
+                      name="forum-visibility"
+                      checked={visibility === "public"}
+                      onChange={() => setVisibility("public")}
+                    />
+                    <span>
+                      <strong style={{ color: "var(--text-primary)" }}>Public</strong> — listed for everyone; anyone can join.
+                    </span>
+                  </label>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: "10px", cursor: "pointer" }}>
+                    <input
+                      type="radio"
+                      name="forum-visibility"
+                      checked={visibility === "private"}
+                      onChange={() => setVisibility("private")}
+                    />
+                    <span>
+                      <strong style={{ color: "var(--text-primary)" }}>Private</strong> — not listed; join via invite link or admin invite only.
+                    </span>
+                  </label>
+                </div>
+              </div>
+            )}
 
             <div>
               <label

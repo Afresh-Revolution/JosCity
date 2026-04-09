@@ -1,4 +1,4 @@
-import API_BASE_URL from "../api/config";
+import { apiUrl } from "../api/config";
 
 // Types for feed operations
 export type ReactionType =
@@ -9,6 +9,10 @@ export type ReactionType =
   | "wow"
   | "sad"
   | "angry";
+
+const POST_REACTION_IDS: Partial<Record<ReactionType, number>> = {
+  like: 1,
+};
 
 export interface Story {
   story_id: number;
@@ -39,12 +43,29 @@ export interface Reaction {
   };
 }
 
+export interface PostReactionStat {
+  reaction_id: number;
+  reaction_class: string;
+  reaction_text: string;
+  reaction_image?: string | null;
+  count: number | string;
+}
+
+export interface UserPostReaction {
+  reaction_id: number;
+  reaction_class: string;
+  reaction_text: string;
+  reaction_image?: string | null;
+}
+
 export interface Comment {
   comment_id: number;
+  id?: number;
   post_id: number;
   user_id: number;
   parent_comment_id?: number;
   text?: string;
+  comment?: string;
   image?: string;
   created_at: string;
   updated_at?: string;
@@ -52,6 +73,12 @@ export interface Comment {
     user_id: number;
     display_name: string;
     profile_image_url?: string;
+  };
+  author?: {
+    id: number;
+    name: string;
+    picture?: string;
+    verified?: boolean;
   };
   replies?: Comment[];
   time_ago?: string;
@@ -62,11 +89,30 @@ export interface Share {
   post_id: number;
   user_id: number;
   created_at: string;
+  time_ago?: string;
+  shares_count?: number;
+  already_shared?: boolean;
   user?: {
     user_id: number;
     display_name: string;
     profile_image_url?: string;
   };
+}
+
+export interface ScheduledPostApiRow {
+  id: number;
+  user_id: number;
+  text: string | null;
+  media_urls: string[];
+  media_types: string[];
+  scheduled_at: string;
+  status: string;
+  published_post_id: number | null;
+  created_at: string;
+  updated_at: string;
+  show_in_main_feed?: boolean;
+  show_in_business_feed?: boolean;
+  listing_details?: Record<string, unknown> | null;
 }
 
 // Generic API request helper
@@ -87,7 +133,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    response = await fetch(apiUrl(endpoint), {
       ...options,
       headers,
       signal: AbortSignal.timeout(30000), // 30 second timeout
@@ -105,10 +151,10 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
       error.message?.includes("ECONNREFUSED")
     ) {
       throw new Error(
-        "Unable to connect to server. Please ensure the backend is running on port 3000."
+        "We could not connect right now. Please check your internet and try again."
       );
     }
-    throw new Error(`Network error: ${error.message || "Connection failed"}`);
+    throw new Error("Connection issue detected. Please try again.");
   }
 
   // Check if response is ok before trying to parse
@@ -141,20 +187,20 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
   const getErrorMessage = (value: unknown): string => {
     if (typeof value === "string") return value;
     if (typeof value === "boolean")
-      return value ? "An error occurred" : "Request failed";
+      return value ? "Something went wrong." : "We could not complete your request.";
     if (value && typeof value === "object") {
       const errorObj = value as { message?: unknown; error?: unknown };
       if (errorObj.message) return String(errorObj.message);
       if (errorObj.error) return String(errorObj.error);
       return JSON.stringify(value);
     }
-    return String(value || "Request failed");
+    return String(value || "We could not complete your request.");
   };
 
   if (!response.ok) {
     // Log detailed error information for debugging
     console.error(`API Error ${response.status} (${response.statusText})`, {
-      endpoint: `${API_BASE_URL}${endpoint}`,
+      endpoint: apiUrl(endpoint),
       status: response.status,
       statusText: response.statusText,
       responseData: data,
@@ -162,7 +208,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     });
 
     // Provide user-friendly error messages based on status codes
-    let defaultMessage = `API Error: ${response.statusText}`;
+    let defaultMessage = "Something went wrong while loading this page.";
     if (response.status === 500) {
       defaultMessage =
         "Server error. Please try again later or contact support if the problem persists.";
@@ -175,7 +221,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     } else if (response.status >= 500) {
       defaultMessage = "Server error. Please try again later.";
     } else if (response.status >= 400) {
-      defaultMessage = "Request failed. Please check your input and try again.";
+      defaultMessage = "We could not complete that request. Please try again.";
     }
 
     const errorMessage =
@@ -190,7 +236,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     const errorMessage =
       getErrorMessage(data.error) ||
       getErrorMessage(data.message) ||
-      "Request failed";
+      "We could not complete that request.";
     throw new Error(errorMessage);
   }
 
@@ -229,7 +275,7 @@ export const feedApi = {
       const file = data.mediaFile instanceof Blob ? new File([data.mediaFile], "media", { type: data.mediaFile.type }) : data.mediaFile;
       formData.append("media", file);
       console.log("Creating story via POST /api/stories (FormData)", { type: data.type });
-      const response = await fetch(`${API_BASE_URL}/stories`, {
+      const response = await fetch(apiUrl("/stories"), {
         method: "POST",
         headers,
         body: formData,
@@ -364,17 +410,42 @@ export const feedApi = {
   reactToPost: async (
     postId: number,
     reaction: ReactionType
-  ): Promise<{ success: boolean; data: Reaction; message: string }> => {
+  ): Promise<{
+    success: boolean;
+    data: {
+      reactions: PostReactionStat[];
+      user_reaction: UserPostReaction | null;
+    };
+    message: string;
+  }> => {
+    const reactionId = POST_REACTION_IDS[reaction];
+
+    if (!reactionId) {
+      throw new Error(
+        `Unsupported post reaction "${reaction}" for the current backend.`
+      );
+    }
+
     return apiRequest(`/posts/${postId}/react`, {
       method: "POST",
-      body: JSON.stringify({ reaction }),
+      body: JSON.stringify({
+        reaction_id: reactionId,
+        reaction,
+      }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any; // Type assertion needed - API response structure varies
   },
 
   removeReaction: async (
     postId: number
-  ): Promise<{ success: boolean; message: string }> => {
+  ): Promise<{
+    success: boolean;
+    data: {
+      reactions: PostReactionStat[];
+      user_reaction: null;
+    };
+    message: string;
+  }> => {
     return apiRequest(`/posts/${postId}/react`, {
       method: "DELETE",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -462,7 +533,11 @@ export const feedApi = {
   // ========== Shares ==========
   sharePost: async (
     postId: number
-  ): Promise<{ success: boolean; data: Share; message: string }> => {
+  ): Promise<{
+    success: boolean;
+    data: Share | Record<string, unknown>;
+    message: string;
+  }> => {
     return apiRequest(`/posts/${postId}/share`, {
       method: "POST",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -481,6 +556,8 @@ export const feedApi = {
     page?: number;
     limit?: number;
     type?: string;
+    /** main = home feed; business = business section (includes personal + business posts) */
+    feedChannel?: "main" | "business";
   }): Promise<{
     success: boolean;
     data: unknown[];
@@ -489,20 +566,163 @@ export const feedApi = {
     const page = params?.page ?? 1;
     const limit = params?.limit ?? 10;
     const type = params?.type ?? "all";
+    const feedChannel = params?.feedChannel ?? "main";
     const query = new URLSearchParams({
       page: String(page),
       limit: String(limit),
       type,
+      feedChannel,
     }).toString();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return apiRequest(`/feed/feeds?${query}`) as any;
   },
 
+  getSavedPosts: async (params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    success: boolean;
+    data: unknown[];
+    pagination?: { page: number; limit: number; hasMore: boolean };
+  }> => {
+    const page = params?.page ?? 1;
+    const limit = params?.limit ?? 30;
+    const query = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    }).toString();
+    return apiRequest(`/feed/saved-posts?${query}`) as Promise<{
+      success: boolean;
+      data: unknown[];
+      pagination?: { page: number; limit: number; hasMore: boolean };
+    }>;
+  },
+
+  savePost: async (
+    postId: number
+  ): Promise<{ success: boolean; saved?: boolean }> => {
+    return apiRequest(`/feed/posts/${postId}/save`, {
+      method: "POST",
+    }) as Promise<{ success: boolean; saved?: boolean }>;
+  },
+
+  unsavePost: async (
+    postId: number
+  ): Promise<{ success: boolean; saved?: boolean }> => {
+    return apiRequest(`/feed/posts/${postId}/save`, {
+      method: "DELETE",
+    }) as Promise<{ success: boolean; saved?: boolean }>;
+  },
+
+  /** Trending hashtags (top N by post count). Never throws: on error returns empty data so UI can use fallback. */
+  getTrendingHashtags: async (limit: number = 3): Promise<{
+    success: boolean;
+    data: Array<{ hashtag: string; posts: number }>;
+  }> => {
+    const query = new URLSearchParams({ limit: String(limit) }).toString();
+    const empty = { success: true as const, data: [] as Array<{ hashtag: string; posts: number }> };
+    try {
+      const json = (await apiRequest(`/feed/trending-hashtags?${query}`)) as {
+        data?: Array<Record<string, unknown>>;
+      };
+      const raw = Array.isArray(json?.data) ? json.data : [];
+      const data = raw.map((item) => {
+        const hashtag =
+          typeof item.hashtag === "string"
+            ? item.hashtag
+            : typeof item.label === "string"
+              ? item.label
+              : typeof item.name === "string"
+                ? `#${item.name}`
+                : "";
+        const posts = Number(
+          item.posts ?? item.posts_count ?? item.count ?? 0
+        );
+        return { hashtag, posts };
+      });
+      return { success: true, data };
+    } catch {
+      try {
+        const json = (await apiRequest(`/users/trending-hashtags?${query}`)) as {
+          data?: Array<Record<string, unknown>>;
+        };
+        const raw = Array.isArray(json?.data) ? json.data : [];
+        const data = raw.map((item) => {
+          const hashtag =
+            typeof item.hashtag === "string"
+              ? item.hashtag
+              : typeof item.name === "string"
+                ? `#${item.name}`
+                : "";
+          const posts = Number(
+            item.posts ?? item.posts_count ?? item.count ?? 0
+          );
+          return { hashtag, posts };
+        });
+        return { success: true, data };
+      } catch {
+        return empty;
+      }
+    }
+  },
+
+  /** Feed posts filtered by hashtag. Never throws: on error returns empty data. */
+  getFeedsByHashtag: async (
+    hashtag: string,
+    params?: { page?: number; limit?: number }
+  ): Promise<{
+    success: boolean;
+    data: unknown[];
+    pagination?: { page: number; limit: number; hasMore: boolean };
+  }> => {
+    const tag = hashtag.replace(/^#+/, "").trim();
+    const limit = params?.limit ?? 20;
+    const empty = {
+      success: true as const,
+      data: [] as unknown[],
+      pagination: { page: params?.page ?? 1, limit, hasMore: false },
+    };
+    if (!tag) return empty;
+    const query = new URLSearchParams({
+      page: String(params?.page ?? 1),
+      limit: String(limit),
+    }).toString();
+    try {
+      const json = (await apiRequest(
+        `/feed/by-hashtag/${encodeURIComponent(tag)}?${query}`
+      )) as {
+        data?: unknown[];
+        pagination?: { page: number; limit: number; hasMore: boolean };
+      };
+      const data = Array.isArray(json?.data) ? json.data : [];
+      const pagination = json.pagination ?? empty.pagination;
+      return { success: true, data, pagination };
+    } catch {
+      return empty;
+    }
+  },
+
   // ========== Posts ==========
+  viewPost: async (
+    postId: number
+  ): Promise<{ success: boolean; views?: number; message: string }> => {
+    return apiRequest(`/feed/posts/${postId}/view`, {
+      method: "POST",
+    }) as any;
+  },
+
   createPost: async (data: {
     caption?: string;
     images?: File[];
     videos?: File[];
+    listingDetails?: {
+      text?: { cost?: string; location?: string; contact?: string };
+      byMediaIndex?: Array<{
+        cost?: string;
+        location?: string;
+        contact?: string;
+      } | null>;
+    } | null;
   }): Promise<{
     success: boolean;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -540,12 +760,30 @@ export const feedApi = {
     if (data.videos && data.videos.length > 0) {
       data.videos.forEach((file) => formData.append("videos", file));
     }
+    if (data.listingDetails) {
+      const hasText = Object.values(data.listingDetails.text || {}).some(
+        (v) => typeof v === "string" && v.trim()
+      );
+      const hasMedia = (data.listingDetails.byMediaIndex || []).some((row) =>
+        row
+          ? Object.values(row).some(
+              (v) => typeof v === "string" && v.trim()
+            )
+          : false
+      );
+      if (hasText || hasMedia) {
+        formData.append(
+          "listing_details",
+          JSON.stringify(data.listingDetails)
+        );
+      }
+    }
 
     const body = formData;
 
     let response: Response;
     try {
-      response = await fetch(`${API_BASE_URL}/feed/posts`, {
+      response = await fetch(apiUrl("/feed/posts"), {
         method: "POST",
         headers,
         body,
@@ -564,10 +802,10 @@ export const feedApi = {
         error.message?.includes("ECONNREFUSED")
       ) {
         throw new Error(
-          "Unable to connect to server. Please ensure the backend is running on port 3000."
+          "We could not connect right now. Please check your internet and try again."
         );
       }
-      throw new Error(`Network error: ${error.message || "Connection failed"}`);
+      throw new Error("Connection issue detected. Please try again.");
     }
 
     // Check if response is ok before trying to parse
@@ -606,20 +844,20 @@ export const feedApi = {
     const getErrorMessage = (value: unknown): string => {
       if (typeof value === "string") return value;
       if (typeof value === "boolean")
-        return value ? "An error occurred" : "Request failed";
+        return value ? "Something went wrong." : "We could not complete your request.";
       if (value && typeof value === "object") {
         const errorObj = value as { message?: unknown; error?: unknown };
         if (errorObj.message) return String(errorObj.message);
         if (errorObj.error) return String(errorObj.error);
         return JSON.stringify(value);
       }
-      return String(value || "Request failed");
+      return String(value || "We could not complete your request.");
     };
 
     if (!response.ok) {
       // Log detailed error information for debugging
       console.error(`API Error ${response.status} (${response.statusText})`, {
-        endpoint: `${API_BASE_URL}/feed/posts`,
+        endpoint: apiUrl("/feed/posts"),
         status: response.status,
         statusText: response.statusText,
         responseData: responseData,
@@ -627,7 +865,7 @@ export const feedApi = {
       });
 
       // Provide user-friendly error messages based on status codes
-      let defaultMessage = `API Error: ${response.statusText}`;
+      let defaultMessage = "Something went wrong while saving your post.";
       if (response.status === 500) {
         defaultMessage =
           "Server error. Please try again later or contact support if the problem persists.";
@@ -640,8 +878,7 @@ export const feedApi = {
       } else if (response.status >= 500) {
         defaultMessage = "Server error. Please try again later.";
       } else if (response.status >= 400) {
-        defaultMessage =
-          "Request failed. Please check your input and try again.";
+        defaultMessage = "We could not save your post. Please try again.";
       }
 
       const errorMessage =
@@ -656,7 +893,7 @@ export const feedApi = {
       const errorMessage =
         getErrorMessage(responseData.error) ||
         getErrorMessage(responseData.message) ||
-        "Request failed";
+        "We could not save your post.";
       throw new Error(errorMessage);
     }
 
@@ -677,6 +914,160 @@ export const feedApi = {
     };
   },
 
+  listScheduledPosts: async (
+    status: "pending" | "published" | "failed" | "cancelled" | "all" = "pending"
+  ): Promise<{ success: boolean; data: ScheduledPostApiRow[] }> => {
+    const q =
+      status === "pending"
+        ? "?status=pending"
+        : `?status=${encodeURIComponent(status)}`;
+    return apiRequest(`/feed/scheduled-posts${q}`) as Promise<{
+      success: boolean;
+      data: ScheduledPostApiRow[];
+    }>;
+  },
+
+  createScheduledPost: async (data: {
+    caption?: string;
+    images?: File[];
+    videos?: File[];
+    scheduledAt: string;
+    listingDetails?: {
+      text?: { cost?: string; location?: string; contact?: string };
+      byMediaIndex?: Array<{
+        cost?: string;
+        location?: string;
+        contact?: string;
+      } | null>;
+    } | null;
+  }): Promise<{
+    success: boolean;
+    data: ScheduledPostApiRow;
+    message: string;
+  }> => {
+    const hasFiles =
+      (data.images && data.images.length > 0) ||
+      (data.videos && data.videos.length > 0);
+
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("authToken");
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const formData = new FormData();
+    formData.append("text", data.caption ?? "");
+    formData.append("scheduled_at", data.scheduledAt);
+    if (data.images && data.images.length > 0) {
+      data.images.forEach((file) => formData.append("photos", file));
+    }
+    if (data.videos && data.videos.length > 0) {
+      data.videos.forEach((file) => formData.append("videos", file));
+    }
+    if (data.listingDetails) {
+      const hasText = Object.values(data.listingDetails.text || {}).some(
+        (v) => typeof v === "string" && v.trim()
+      );
+      const hasMedia = (data.listingDetails.byMediaIndex || []).some((row) =>
+        row
+          ? Object.values(row).some(
+              (v) => typeof v === "string" && v.trim()
+            )
+          : false
+      );
+      if (hasText || hasMedia) {
+        formData.append(
+          "listing_details",
+          JSON.stringify(data.listingDetails)
+        );
+      }
+    }
+
+    const response = await fetch(apiUrl("/feed/scheduled-posts"), {
+      method: "POST",
+      headers,
+      body: formData,
+      signal: AbortSignal.timeout(hasFiles ? 45000 : 20000),
+    });
+
+    const contentType = response.headers.get("content-type");
+    const text = await response.text().catch(() => "");
+
+    interface ApiResponse {
+      success?: boolean;
+      data?: ScheduledPostApiRow;
+      error?: unknown;
+      message?: unknown;
+    }
+
+    let responseData: ApiResponse;
+    if (
+      contentType &&
+      contentType.includes("application/json") &&
+      text.trim()
+    ) {
+      try {
+        responseData = JSON.parse(text) as ApiResponse;
+      } catch {
+        responseData = { error: "Invalid response format" };
+      }
+    } else if (text.trim()) {
+      responseData = { error: text.substring(0, 200) || response.statusText };
+    } else {
+      responseData = { error: response.statusText || "Empty response" };
+    }
+
+    const getErrorMessage = (value: unknown): string => {
+      if (typeof value === "string") return value;
+      if (value && typeof value === "object") {
+        const errorObj = value as { message?: unknown; error?: unknown };
+        if (errorObj.message) return String(errorObj.message);
+        if (errorObj.error) return String(errorObj.error);
+        return JSON.stringify(value);
+      }
+      return String(value || "We could not complete your request.");
+    };
+
+    if (!response.ok) {
+      const errorMessage =
+        getErrorMessage(responseData.error) ||
+        getErrorMessage(responseData.message) ||
+        "We could not schedule your post.";
+      throw new Error(errorMessage);
+    }
+
+    if (responseData.success === false) {
+      throw new Error(
+        getErrorMessage(responseData.error) ||
+          getErrorMessage(responseData.message) ||
+          "We could not schedule your post."
+      );
+    }
+
+    const row = responseData.data;
+    if (!row) {
+      throw new Error("Invalid response from server.");
+    }
+
+    return {
+      success: true,
+      data: row,
+      message:
+        (typeof responseData.message === "string"
+          ? responseData.message
+          : "Post scheduled") as string,
+    };
+  },
+
+  deleteScheduledPost: async (
+    id: number
+  ): Promise<{ success: boolean; message: string }> => {
+    return apiRequest(`/feed/scheduled-posts/${id}`, {
+      method: "DELETE",
+    }) as Promise<{ success: boolean; message: string }>;
+  },
+
   // ========== Notifications ==========
   getNotifications: async (): Promise<{
     success: boolean;
@@ -684,10 +1075,17 @@ export const feedApi = {
       id: number;
       from_user_id?: number;
       action: string;
+      title?: string;
+      message?: string;
+      notification_type?: "normal" | "info" | "success" | "warning" | "danger";
       node_type?: string;
       node_id?: number;
       time: string;
       is_read?: boolean;
+      is_global?: boolean;
+      created_by_admin?: boolean;
+      expires_at?: string | null;
+      show_on_landing?: boolean;
       from_user?: { display_name?: string; profile_image_url?: string };
     }>;
   }> => {
@@ -697,10 +1095,17 @@ export const feedApi = {
         id: number;
         from_user_id?: number;
         action: string;
+        title?: string;
+        message?: string;
+        notification_type?: "normal" | "info" | "success" | "warning" | "danger";
         node_type?: string;
         node_id?: number;
         time: string;
         is_read?: boolean;
+        is_global?: boolean;
+        created_by_admin?: boolean;
+        expires_at?: string | null;
+        show_on_landing?: boolean;
         from_user?: { display_name?: string; profile_image_url?: string };
       }>;
     }>;
@@ -717,6 +1122,24 @@ export const feedApi = {
   markAllNotificationsRead: async (): Promise<{ success: boolean }> => {
     return apiRequest("/notifications/read-all", {
       method: "PATCH",
+    }) as Promise<{ success: boolean }>;
+  },
+
+  /** Delete every notification row for the current user (to_user_id = self). */
+  deleteAllNotifications: async (): Promise<{
+    success: boolean;
+    deleted?: number;
+  }> => {
+    return apiRequest("/notifications/all", {
+      method: "DELETE",
+    }) as Promise<{ success: boolean; deleted?: number }>;
+  },
+
+  deleteNotificationById: async (
+    notificationId: number
+  ): Promise<{ success: boolean }> => {
+    return apiRequest(`/notifications/${notificationId}`, {
+      method: "DELETE",
     }) as Promise<{ success: boolean }>;
   },
 
@@ -764,6 +1187,14 @@ export const feedApi = {
   ): Promise<{ success: boolean; message: string }> => {
     return apiRequest(`/friends/request/${requestId}/reject`, {
       method: "POST",
+    }) as any;
+  },
+
+  cancelFriendRequest: async (
+    requestId: number
+  ): Promise<{ success: boolean; message: string }> => {
+    return apiRequest(`/friends/request/${requestId}`, {
+      method: "DELETE",
     }) as any;
   },
 

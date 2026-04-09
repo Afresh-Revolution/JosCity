@@ -5,22 +5,22 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "build:main-css": "sass src/main.scss src/main.css",
     "build": "node scripts/copy-pwa-icons.cjs && tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
   "dependencies": {
+    "axios": "^1.14.0",
     "firebase": "^12.5.0",
     "framer-motion": "^12.23.26",
     "lucide-react": "^0.553.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^7.9.6"
+    "react-router-dom": "^7.9.6",
+    "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
-    "vite-plugin-pwa": "^0.21.1",
-    "workbox-precaching": "^7.0.0",
-    "workbox-core": "^7.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.3",
@@ -32,6 +32,9 @@
     "eslint-plugin-react-refresh": "^0.4.7",
     "sass-embedded": "^1.93.3",
     "typescript": "^5.5.3",
-    "vite": "^5.3.1"
+    "vite": "^5.3.1",
+    "vite-plugin-pwa": "^0.21.2",
+    "workbox-core": "^7.0.0",
+    "workbox-precaching": "^7.0.0"
   }
 }

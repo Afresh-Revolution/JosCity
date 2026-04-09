@@ -12,6 +12,7 @@ import {
   Clock,
   Users,
   Calendar,
+  Video,
 } from "lucide-react";
 import LazyImage from "../../components/LazyImage";
 import Avatar from "../../components/Avatar";
@@ -26,40 +27,49 @@ interface NewsFeedHeaderProps {
   onToggleRightSidebar?: () => void;
   onCreatePost?: () => void;
   onCreateStory?: () => void;
+  onCreateReel?: () => void;
   onAddFriend?: () => void;
   onOpenChat?: () => void;
   onOpenNotifications?: () => void;
   onProfileClick?: () => void;
   unreadNotificationsCount?: number;
-  mainContentRef?: React.RefObject<HTMLElement>;
+  unreadMessagesCount?: number;
+  mainContentRef?: React.RefObject<HTMLElement | null>;
   /** Alternate prop names used by some pages */
   showCreateMenu?: boolean;
+  /** When false, hides the Add Friend (UserPlus) control */
+  showAddFriend?: boolean;
   showRightSidebarToggle?: boolean;
   onNotificationClick?: () => void;
   onCreateClick?: () => void;
   onMessageClick?: () => void;
   onAddFriendClick?: () => void;
+  /** Extra controls before the profile button (e.g. People filters) */
+  extraActions?: React.ReactNode;
 }
 
 const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
   isLeftSidebarOpen,
   onToggleLeftSidebar,
-  isRightSidebarOpen: _isRightSidebarOpen = false,
   onToggleRightSidebar,
   onCreatePost,
   onCreateStory,
+  onCreateReel,
   onAddFriend,
   onOpenChat,
   onOpenNotifications,
   onProfileClick,
   unreadNotificationsCount = 0,
+  unreadMessagesCount = 0,
   mainContentRef,
   showCreateMenu = true,
+  showAddFriend = true,
   showRightSidebarToggle = true,
   onNotificationClick,
   onCreateClick,
   onMessageClick,
   onAddFriendClick,
+  extraActions,
 }) => {
   const handleOpenNotifications = onOpenNotifications ?? onNotificationClick ?? (() => {});
   const handleOpenChat = onOpenChat ?? onMessageClick ?? (() => {});
@@ -151,6 +161,18 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
     (onCreateStory ?? onCreateClick)?.();
   };
 
+  const handleCreateReel = () => {
+    setIsCreateMenuOpen(false);
+    if (onCreateReel) {
+      onCreateReel();
+      return;
+    }
+
+    navigate("/reels", {
+      state: { openCreateReel: true },
+    });
+  };
+
   const handleCreateGroup = () => {
     setIsCreateMenuOpen(false);
     navigate("/forums");
@@ -181,7 +203,6 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
             onClick={() => navigate("/")}
           >
             <LazyImage src={primaryLogo} alt="JOSCity Logo" />
-            <span>JosCity</span>
           </div>
         </div>
         <div className="newsfeed-header__actions">
@@ -226,6 +247,13 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
                 </button>
                 <button
                   className="newsfeed-header__create-item"
+                  onClick={handleCreateReel}
+                >
+                  <Video size={18} />
+                  <span>Create Reel</span>
+                </button>
+                <button
+                  className="newsfeed-header__create-item"
                   onClick={handleCreateGroup}
                 >
                   <Users size={18} />
@@ -242,19 +270,27 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
             )}
           </div>
           )}
+          {showAddFriend && (
+            <button
+              type="button"
+              className="newsfeed-header__icon-btn"
+              title="Add Friend"
+              onClick={handleAddFriend}
+            >
+              <UserPlus size={20} />
+            </button>
+          )}
           <button
-            className="newsfeed-header__icon-btn"
-            title="Add Friend"
-            onClick={handleAddFriend}
-          >
-            <UserPlus size={20} />
-          </button>
-          <button
-            className="newsfeed-header__icon-btn"
+            className="newsfeed-header__icon-btn newsfeed-header__icon-btn--messages"
             title="Messages"
             onClick={handleOpenChat}
           >
             <MessageCircle size={20} />
+            {unreadMessagesCount > 0 && (
+              <span className="newsfeed-header__badge">
+                {unreadMessagesCount > 9 ? "9+" : unreadMessagesCount}
+              </span>
+            )}
           </button>
           <button
             className="newsfeed-header__icon-btn newsfeed-header__icon-btn--notifications"
@@ -270,6 +306,7 @@ const NewsFeedHeader: React.FC<NewsFeedHeaderProps> = ({
               </span>
             )}
           </button>
+          {extraActions}
           <button
             className="newsfeed-header__join-btn"
             onClick={onProfileClick ?? (() => {})}

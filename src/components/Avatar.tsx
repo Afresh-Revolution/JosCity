@@ -23,6 +23,7 @@ interface AvatarProps {
   } | null;
 }
 
+
 /**
  * Reusable Avatar component that displays user's profile picture or initials
  * 
@@ -37,6 +38,8 @@ interface AvatarProps {
  * @param fontSize - Font size for initials
  * @param userData - User data object (for current user, uses getUserInitials)
  */
+
+
 const Avatar: React.FC<AvatarProps> = ({
   src,
   alt = "User Avatar",
@@ -51,6 +54,15 @@ const Avatar: React.FC<AvatarProps> = ({
 }) => {
   const [imageError, setImageError] = useState(false);
   
+
+  // <Avatar
+  //                       src={comment.userAvatar}
+  //                       name={comment.userName}
+  //                       size={32}
+  //                       className="newsfeed-post__comment-avatar"
+  //                     />
+
+
   // If src is not provided, try to get current user's avatar if name matches
   const avatarSrc = useMemo(() => {
     if (src && src.trim() !== "" && src !== "/placeholder-avatar.png") {

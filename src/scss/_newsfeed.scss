@@ -1,34 +1,5 @@
 @use "./variables" as *;
 
-// Top app bar: 7% under 80px, then 10px shorter; drawers align to PWA strip + bar
-$newsfeed-header-bar-height: calc(80px * 0.93 - 10px);
-$newsfeed-pwa-strip-top: 37px;
-// Extra offset on small screens so the bar clears PWA / status chrome
-$newsfeed-pwa-strip-top-sm: calc(#{$newsfeed-pwa-strip-top} + 15px);
-$newsfeed-header-offset-below-pwa: calc(
-  #{$newsfeed-pwa-strip-top} + 80px * 0.93 - 10px
-);
-$newsfeed-header-offset-below-pwa-sm: calc(
-  #{$newsfeed-pwa-strip-top-sm} + 80px * 0.93 - 10px
-);
-$newsfeed-header-drawer-height: calc(
-  100vh - #{$newsfeed-pwa-strip-top} - 80px * 0.93 + 10px
-);
-$newsfeed-header-drawer-height-sm: calc(
-  100vh - #{$newsfeed-pwa-strip-top-sm} - 80px * 0.93 + 10px
-);
-
-// Padding below fixed PWA strip + newsfeed header (+ gap so search isn’t tight)
-$newsfeed-container-below-header: calc(
-  #{$newsfeed-pwa-strip-top} + 80px * 0.93 - 10px + 16px
-);
-$newsfeed-container-below-header-sm: calc(
-  #{$newsfeed-pwa-strip-top-sm} + 80px * 0.93 - 10px + 16px
-);
-$newsfeed-container-below-header-xs: calc(
-  #{$newsfeed-pwa-strip-top-sm} + 80px * 0.93 - 10px + 28px
-);
-
 .newsfeed-page {
   min-height: 100vh;
   background-color: var(--bg-secondary);
@@ -50,6 +21,7 @@ $newsfeed-container-below-header-xs: calc(
 
   // Prevent any child from causing overflow on mobile
   @media (max-width: 768px) {
+
     img,
     video,
     iframe,
@@ -75,530 +47,6 @@ $newsfeed-container-below-header-xs: calc(
 }
 
 // Top Header
-.newsfeed-header {
-  background: #1a5d3a;
-  background-color: #1a5d3a;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  min-height: $newsfeed-header-bar-height;
-  height: $newsfeed-header-bar-height;
-  padding: 0;
-  position: fixed;
-  top: $newsfeed-pwa-strip-top;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  width: 100%;
-  max-width: none;
-  box-sizing: border-box;
-  transition: box-shadow 0.3s ease;
-
-  @media (max-width: 768px) {
-    top: $newsfeed-pwa-strip-top-sm;
-  }
-
-  &__container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-    width: 100%;
-    box-sizing: border-box;
-    min-height: $newsfeed-header-bar-height;
-    height: 100%;
-
-    @media (max-width: 1200px) {
-      padding: 0 16px;
-      gap: 16px;
-      min-height: $newsfeed-header-bar-height;
-    }
-
-    @media (max-width: 768px) {
-      padding: 0 12px;
-      gap: 12px;
-      min-height: $newsfeed-header-bar-height;
-    }
-
-    @media (max-width: 480px) {
-      padding: 0 10px;
-      gap: 8px;
-      min-height: $newsfeed-header-bar-height;
-    }
-  }
-
-  &__left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 0;
-    flex: 1;
-
-    @media (max-width: 768px) {
-      gap: 10px;
-    }
-
-    @media (max-width: 480px) {
-      gap: 8px;
-    }
-  }
-
-  &__menu-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: none;
-    border: none;
-    color: white;
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 8px;
-    transition: background-color 0.2s;
-    flex-shrink: 0;
-
-    &:hover {
-      background-color: rgba(255, 255, 255, 0.1);
-    }
-
-    &:active {
-      background-color: rgba(255, 255, 255, 0.2);
-    }
-
-    svg {
-      flex-shrink: 0;
-      color: white;
-      width: 24px;
-      height: 24px;
-    }
-
-    @media (max-width: 768px) {
-      padding: 6px;
-    }
-
-    @media (max-width: 480px) {
-      padding: 6px;
-
-      svg {
-        width: 22px;
-        height: 22px;
-      }
-    }
-  }
-
-  &__logo {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 22px;
-    font-weight: 700;
-    color: white;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    padding: 4px 8px;
-    border-radius: 8px;
-    text-decoration: none;
-    -webkit-user-select: none;
-    user-select: none;
-
-    &:hover {
-      opacity: 0.9;
-    }
-
-    &:active {
-      opacity: 0.8;
-    }
-
-    // Style the LazyImage wrapper
-    .lazy-image-wrapper {
-      width: 44px;
-      height: 44px;
-      flex-shrink: 0;
-      border-radius: 8px;
-      overflow: hidden;
-      background-color: transparent !important;
-      transition: all 0.3s ease;
-
-      // Override LazyImage default background
-      &[style*="background-color"] {
-        background-color: transparent !important;
-      }
-
-      // Remove placeholder background
-      .lazy-image-placeholder {
-        background: transparent !important;
-      }
-    }
-
-    // Style the image inside LazyImage
-    img,
-    .lazy-image {
-      width: 100% !important;
-      height: 100% !important;
-      object-fit: contain;
-      display: block;
-      background-color: transparent !important;
-    }
-
-    span {
-      color: white;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      white-space: nowrap;
-      text-shadow: none;
-      transition: color 0.3s ease;
-    }
-
-    &:hover span {
-      color: rgba(255, 255, 255, 0.8);
-    }
-
-    @media (max-width: 768px) {
-      gap: 10px;
-      font-size: 18px;
-      padding: 4px 6px;
-
-      .lazy-image-wrapper {
-        width: 38px;
-        height: 38px;
-      }
-    }
-
-    @media (max-width: 600px) {
-      span {
-        display: none;
-      }
-    }
-
-    @media (max-width: 480px) {
-      gap: 8px;
-      padding: 4px;
-
-      .lazy-image-wrapper {
-        width: 32px;
-        height: 32px;
-      }
-    }
-  }
-
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
-    overflow: visible !important;
-
-    @media (max-width: 1200px) {
-      gap: 10px;
-    }
-
-    @media (max-width: 768px) {
-      gap: 6px;
-    }
-
-    @media (max-width: 480px) {
-      gap: 4px;
-    }
-  }
-
-  &__sidebar-toggle {
-    display: none;
-    background: none;
-    border: none;
-    color: white;
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 50%;
-    transition: background-color 0.2s;
-    flex-shrink: 0;
-
-    &:hover {
-      background-color: rgba(255, 255, 255, 0.1);
-    }
-
-    &:active {
-      background-color: rgba(255, 255, 255, 0.2);
-    }
-
-    svg {
-      flex-shrink: 0;
-      color: white;
-      width: 20px;
-      height: 20px;
-    }
-
-    @media (max-width: 992px) {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    @media (max-width: 768px) {
-      padding: 6px;
-    }
-
-    @media (max-width: 480px) {
-      padding: 6px;
-
-      svg {
-        width: 20px;
-        height: 20px;
-      }
-    }
-  }
-
-  &__icon-btn {
-    background: none;
-    border: none;
-    color: white;
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.2s;
-    position: relative;
-    flex-shrink: 0;
-
-    &:hover {
-      background-color: rgba(255, 255, 255, 0.1);
-    }
-
-    svg {
-      color: white;
-      flex-shrink: 0;
-    }
-
-    &--notifications {
-      position: relative;
-      overflow: visible;
-    }
-
-    @media (max-width: 768px) {
-      padding: 6px;
-    }
-
-    @media (max-width: 480px) {
-      padding: 6px;
-    }
-  }
-
-  &__create-wrapper {
-    position: relative;
-    z-index: 1002;
-    overflow: visible !important;
-  }
-
-  &__create-dropdown {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    min-width: 200px;
-    z-index: 1003 !important;
-    overflow: visible;
-    animation: fadeInDown 0.2s ease-out;
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-
-    @keyframes fadeInDown {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @media (max-width: 768px) {
-      right: auto;
-      left: 0;
-      min-width: 180px;
-    }
-  }
-
-  &__create-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 100%;
-    padding: 12px 16px;
-    background: none;
-    border: none;
-    text-align: left;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    color: #000;
-    font-size: 14px;
-    font-weight: 500;
-
-    &:hover {
-      background-color: rgba(0, 0, 0, 0.05);
-    }
-
-    &:active {
-      background-color: rgba(0, 0, 0, 0.1);
-    }
-
-    svg {
-      color: #000;
-      flex-shrink: 0;
-    }
-
-    span {
-      color: #000;
-    }
-
-    &:first-child {
-      border-top-left-radius: 8px;
-      border-top-right-radius: 8px;
-    }
-
-    &:last-child {
-      border-bottom-left-radius: 8px;
-      border-bottom-right-radius: 8px;
-    }
-  }
-
-  &__badge {
-    position: absolute;
-    top: -4px;
-    right: -4px;
-    background-color: #ff4444;
-    color: white;
-    border-radius: 10px;
-    min-width: 18px;
-    height: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 0 5px;
-    border: 2px solid #1a5d3a;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    z-index: 10;
-    line-height: 1;
-    white-space: nowrap;
-    pointer-events: none;
-    box-sizing: border-box;
-
-    // For single digit numbers, the min-width ensures it stays relatively circular
-    // For "9+" or double digits, padding makes it wider as needed
-
-    @media (max-width: 768px) {
-      top: -3px;
-      right: -3px;
-      min-width: 16px;
-      height: 16px;
-      font-size: 9px;
-      border-width: 1.5px;
-      border-radius: 8px;
-      padding: 0 4px;
-    }
-
-    @media (max-width: 480px) {
-      top: -2px;
-      right: -2px;
-      min-width: 14px;
-      height: 14px;
-      font-size: 8px;
-      border-width: 1.5px;
-      border-radius: 7px;
-      padding: 0 3px;
-    }
-  }
-
-  &__join-btn {
-    padding: 8px 16px;
-    background: transparent;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: background-color 0.3s;
-    flex-shrink: 0;
-    white-space: nowrap;
-
-    &:hover {
-      background-color: rgba(255, 255, 255, 0.1);
-    }
-
-    span {
-      color: white;
-    }
-
-    @media (max-width: 768px) {
-      padding: 6px 12px;
-      font-size: 12px;
-      gap: 6px;
-    }
-
-    @media (max-width: 480px) {
-      padding: 4px 8px;
-      font-size: 11px;
-      gap: 4px;
-    }
-  }
-
-  &__join-text {
-    color: white;
-    font-size: 14px;
-    font-weight: 600;
-    white-space: nowrap;
-    transition: color 0.3s ease;
-
-    @media (max-width: 768px) {
-      font-size: 12px;
-    }
-
-    @media (max-width: 480px) {
-      display: none;
-    }
-  }
-
-  &__join-avatar {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    object-fit: cover;
-    flex-shrink: 0;
-
-    @media (max-width: 768px) {
-      width: 22px;
-      height: 22px;
-    }
-
-    @media (max-width: 480px) {
-      width: 20px;
-      height: 20px;
-    }
-  }
-
-  &__join-avatar {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    object-fit: cover;
-  }
-}
-
-// Light theme: make all buttons and divs in newsfeed-header__actions black
 // .newsfeed-header {
 //   // Very light glassmorphism effect with subtle green tint
 //   background: rgba(13, 74, 31, 0.15);
@@ -1146,6 +594,7 @@ $newsfeed-container-below-header-xs: calc(
 
 // Header actions: icons and text white for contrast on header
 .newsfeed-header__actions {
+
   button,
   div {
     color: #fff;
@@ -1158,28 +607,6 @@ $newsfeed-container-below-header-xs: calc(
       color: #fff;
     }
   }
-}
-
-// Same bar everywhere NewsFeedHeader (or .newsfeed-header) is used — full width, solid green
-.newsfeed-page .newsfeed-header,
-.reels-page .newsfeed-header,
-.courses-page .newsfeed-header,
-.offers-page .newsfeed-header,
-.movies-page .newsfeed-header,
-.marketplace-page .newsfeed-header,
-.jobs-page .newsfeed-header,
-.forums-page .newsfeed-header,
-.news-page .newsfeed-header,
-.people-page .newsfeed-header,
-.events-page .newsfeed-header {
-  background: #1a5d3a;
-  background-color: #1a5d3a;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  left: 0;
-  right: 0;
-  width: 100%;
-  max-width: none;
 }
 
 // Mobile Overlay
@@ -1204,6 +631,7 @@ $newsfeed-container-below-header-xs: calc(
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -1213,6 +641,7 @@ $newsfeed-container-below-header-xs: calc(
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -1223,6 +652,7 @@ $newsfeed-container-below-header-xs: calc(
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1234,6 +664,7 @@ $newsfeed-container-below-header-xs: calc(
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1247,11 +678,13 @@ $newsfeed-container-below-header-xs: calc(
 }
 
 // When header is hidden on scroll, reduce top padding to remove empty white space
-.newsfeed-header--hidden + .newsfeed-container {
+.newsfeed-header--hidden+.newsfeed-container {
   padding-top: 24px; // 15px base + minimal gap
+
   @media (max-width: 1200px) {
     padding-top: 20px;
   }
+
   @media (max-width: 768px) {
     padding-top: 16px;
   }
@@ -1261,7 +694,7 @@ $newsfeed-container-below-header-xs: calc(
   max-width: 1260px;
   margin: 0 auto;
   padding: 20px 24px;
-  padding-top: 119px; // PWA: under fixed strip + newsfeed header (shortened bar)
+  padding-top: 129px; // PWA: always under navbar (22px offset + header height)
   display: grid !important;
   grid-template-columns: 280px minmax(0, 1fr) 300px; // 3-column layout: sidebar, main, aside
   gap: 24px; // Consistent gap
@@ -1270,10 +703,8 @@ $newsfeed-container-below-header-xs: calc(
   max-width: 100vw;
   box-sizing: border-box;
   height: 100vh; // Full viewport height
-  grid-template-rows: minmax(
-    0,
-    1fr
-  ); // Constrain row height to container height
+  grid-template-rows: minmax(0,
+      1fr); // Constrain row height to container height
   overflow: hidden; // Prevent page scrolling
   opacity: 1 !important;
 
@@ -1284,64 +715,51 @@ $newsfeed-container-below-header-xs: calc(
 
     gap: 20px;
     padding: 16px 20px;
-    padding-top: 109px; // PWA: under navbar
+    padding-top: 119px; // PWA: under navbar
   }
 
   @media (max-width: 992px) {
     grid-template-columns: 1fr; // Single column on tablets
     padding: 16px;
-    padding-top: $newsfeed-container-below-header;
+    padding-top: 102px; // PWA: under navbar
     gap: 16px;
     max-width: 100vw;
-    justify-items: center; // center grid items (main column) in one-column mode
   }
 
   @media (max-width: 768px) {
     padding: 12px;
-    padding-top: $newsfeed-container-below-header-sm;
+    padding-top: 98px; // PWA: under navbar
     gap: 12px;
     max-width: 100vw;
   }
 
   @media (max-width: 480px) {
     padding: 8px;
-    padding-top: $newsfeed-container-below-header-xs; // extra room on small phones
+    padding-top: 94px; // PWA: under navbar
     gap: 10px;
     max-width: 100vw;
   }
 
   // Modifier: No aside - Standard 2-column side-by-side layout (sidebar and main)
   &--no-aside {
-    // Tighter under navbar than default 3-column layout (-115px)
-    margin-top: 0;
-    padding-top: calc(119px - 115px);
     grid-template-columns: 260px minmax(0, 1fr); // 2-column layout: sidebar, main (realistic sidebar width)
     gap: 24px; // Consistent gap between sidebar and main
 
     @media (max-width: 1200px) {
-      margin-top: 0;
-      padding-top: calc(109px - 115px);
       grid-template-columns: 240px minmax(0, 1fr); // 2-column layout on medium screens
       gap: 20px;
     }
 
     @media (max-width: 992px) {
-      margin-top: 0;
-      padding-top: max(8px, calc(#{$newsfeed-container-below-header} - 115px));
       grid-template-columns: 1fr; // Single column on tablets
       gap: 16px;
-      justify-items: center;
     }
 
     @media (max-width: 768px) {
-      margin-top: 0;
-      padding-top: max(8px, calc(#{$newsfeed-container-below-header-sm} - 115px));
       gap: 12px;
     }
 
     @media (max-width: 480px) {
-      margin-top: 0;
-      padding-top: max(8px, calc(#{$newsfeed-container-below-header-xs} - 115px));
       gap: 10px;
     }
 
@@ -1360,14 +778,7 @@ $newsfeed-container-below-header-xs: calc(
     .newsfeed-main {
       grid-column: 2; // Second column
       width: 100%;
-      max-width: min(680px, 100%);
-      margin-left: auto;
-      margin-right: auto;
-      justify-self: center;
-
-      @media (max-width: 992px) {
-        grid-column: 1 / -1;
-      }
+      max-width: none; // Allow main content to take remaining space
     }
   }
 }
@@ -1414,7 +825,7 @@ $newsfeed-container-below-header-xs: calc(
 
   @media (max-width: 992px) {
     position: fixed;
-    top: $newsfeed-header-offset-below-pwa;
+    top: 64px;
     left: 0;
     bottom: 0;
     width: 280px;
@@ -1431,10 +842,6 @@ $newsfeed-container-below-header-xs: calc(
     padding: 16px;
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
     background-color: var(--card-bg);
-
-    @media (max-width: 768px) {
-      top: $newsfeed-header-offset-below-pwa-sm;
-    }
   }
 
   &--open {
@@ -1561,32 +968,34 @@ $newsfeed-container-below-header-xs: calc(
   gap: 16px;
   width: 100%;
   min-width: 0; // Allow shrinking below content size
-  max-width: min(680px, 100%);
-  margin: 6px auto 0; // centered in the grid track
-  justify-self: center;
+  max-width: 680px; // Standard max-width for feed content
+  margin: 0; // Remove auto margin to align with grid
+  // align-self: start; // Removed to allow stretching
   box-sizing: border-box;
   overflow-x: hidden;
   overflow-y: auto; // Enable independent vertical scrolling
   scrollbar-width: thin;
-  height: 82vh; // Full height of container]
+  height: 100%; // Full height of container
   min-height: 0; // Allow shrinking
   visibility: visible !important;
   opacity: 1 !important;
 
-  // Single-column grid: avoid implicit column 2 (was causing left-hug layout)
-  @media (max-width: 992px) {
-    grid-column: 1 / -1;
-    height: 100%;
+  @media (max-width: 1200px) {
+    max-width: 100%;
   }
 
   @media (max-width: 768px) {
     gap: 12px;
-    padding-top: 25px;
+    width: 100%;
+    max-width: 100vw;
+    height: 100%; // Full height on mobile
   }
 
   @media (max-width: 480px) {
     gap: 10px;
-    padding-top: 36px; // more space under fixed header on small phones
+    width: 100%;
+    max-width: 100vw;
+    height: 100%; // Full height on mobile
   }
 }
 
@@ -1611,14 +1020,13 @@ $newsfeed-container-below-header-xs: calc(
   @media (max-width: 768px) {
     padding: 12px;
     width: 100%;
-    max-width: 100%;
+    max-width: 100vw;
   }
 
   @media (max-width: 480px) {
     padding: 10px;
     width: 100%;
-    max-width: 100%;
-    margin-top: 6px; // backup gap so search clears header on tiny screens
+    max-width: 100vw;
   }
 
   &__input-wrapper {
@@ -1903,50 +1311,6 @@ $newsfeed-container-below-header-xs: calc(
     z-index: 0; // Below add-icon so add icon stays visible
   }
 
-  &__story-preview {
-    position: absolute;
-    inset: 0; // fill all available space in avatar-wrapper
-    width: 100%;
-    height: 100%;
-    z-index: 0;
-
-    .newsfeed-stories__preview-image,
-    .newsfeed-stories__preview-video {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    .newsfeed-stories__preview-text {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, #0d4a1f, #1a7a38);
-      padding: 8px;
-      box-sizing: border-box;
-
-      p {
-        color: #fff;
-        font-size: 11px;
-        text-align: center;
-        overflow: hidden;
-        display: -webkit-box;
-        -webkit-line-clamp: 4;
-        line-clamp: 4;
-        -webkit-box-orient: vertical;
-        margin: 0;
-        word-break: break-word;
-      }
-    }
-  }
-
   &__new-indicator {
     position: absolute;
     top: -2px;
@@ -1967,7 +1331,7 @@ $newsfeed-container-below-header-xs: calc(
     display: block;
   }
 
-  // Initials in avatar wrapper â€“ shown when no story preview (until posts are made)
+  // Initials in avatar wrapper – shown when no story preview (until posts are made)
   &__avatar--initials {
     position: absolute;
     top: 8px;
@@ -1996,10 +1360,7 @@ $newsfeed-container-below-header-xs: calc(
     }
 
     // When no story preview, initials fill the whole wrapper
-    .newsfeed-stories__avatar-wrapper:not(
-        :has(.newsfeed-stories__story-preview)
-      )
-      & {
+    .newsfeed-stories__avatar-wrapper:not( :has(.newsfeed-stories__story-preview)) & {
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
@@ -2032,6 +1393,7 @@ $newsfeed-container-below-header-xs: calc(
       left: 6px;
       font-size: 14px;
     }
+
     &__avatar-wrapper:not(:has(&__story-preview)) &__avatar--initials {
       font-size: 28px;
     }
@@ -2045,6 +1407,7 @@ $newsfeed-container-below-header-xs: calc(
       left: 4px;
       font-size: 12px;
     }
+
     &__avatar-wrapper:not(:has(&__story-preview)) &__avatar--initials {
       font-size: 24px;
     }
@@ -2116,6 +1479,7 @@ $newsfeed-container-below-header-xs: calc(
       opacity: 0;
       transform: translateY(20px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -2127,6 +1491,7 @@ $newsfeed-container-below-header-xs: calc(
       opacity: 0;
       transform: translateY(20px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -2459,36 +1824,9 @@ $newsfeed-container-below-header-xs: calc(
     width: 48px;
     height: 48px;
     border-radius: 50%;
+    -o-object-fit: cover;
+    object-fit: cover;
     flex-shrink: 0;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: var($footer-color, #e8e8e8);
-
-    .newsfeed-add-friend-modal__avatar-img {
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-
-      img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-    }
-
-    &-initials {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--text-primary);
-      line-height: 1;
-      user-select: none;
-
-      @media (max-width: 480px) {
-        font-size: 16px;
-      }
-    }
 
     @media (max-width: 480px) {
       width: 40px;
@@ -2562,21 +1900,6 @@ $newsfeed-container-below-header-xs: calc(
         height: 16px;
       }
     }
-
-    &--cancel {
-      color: #c62828;
-      border-color: rgba(198, 40, 40, 0.45);
-      background-color: rgba(198, 40, 40, 0.08);
-
-      svg {
-        color: #c62828;
-      }
-
-      &:hover {
-        background-color: rgba(198, 40, 40, 0.15);
-        border-color: rgba(198, 40, 40, 0.55);
-      }
-    }
   }
 
   &__empty {
@@ -2622,33 +1945,24 @@ $newsfeed-container-below-header-xs: calc(
   align-items: center;
   justify-content: center;
   padding: 20px;
-  box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    padding: 10px;
+    align-items: flex-end;
+  }
+
+  @media (max-height: 600px) {
+    padding: 10px;
+    align-items: flex-end;
+  }
+
+  padding: 20px;
   -webkit-animation: fadeIn 0.3s ease-out;
   animation: fadeIn 0.3s ease-out;
 
   @media (max-width: 768px) {
     padding: 0;
     align-items: stretch;
-    /* Full visible viewport on phones / PWA; top/height/width can be set via JS (visualViewport) when keyboard opens */
-    width: 100%;
-    height: 100vh;
-    height: 100dvh;
-    max-height: 100vh;
-    max-height: 100dvh;
-    min-height: 100vh;
-    min-height: 100dvh;
-    min-height: -webkit-fill-available;
-    overscroll-behavior: contain;
-    touch-action: pan-y;
-  }
-
-  @media (max-width: 768px) and (max-height: 600px) {
-    align-items: stretch;
-  }
-
-  @media (min-width: 769px) and (max-height: 600px) {
-    padding: 10px;
-    align-items: flex-end;
   }
 }
 
@@ -2663,7 +1977,7 @@ $newsfeed-container-below-header-xs: calc(
   min-height: 500px;
   position: relative;
   z-index: 1001;
-  overflow: visible; // Allow emoji picker to extend above the composer without clipping
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   -webkit-animation: slideUp 0.3s ease-out;
@@ -2671,30 +1985,25 @@ $newsfeed-container-below-header-xs: calc(
 
   @media (max-width: 768px) {
     max-width: 100%;
-    width: 100%;
-    flex: 1;
-    min-height: 0;
-    height: 100%;
-    max-height: 100%;
+    height: 100vh;
+    max-height: 100vh;
+    min-height: 100vh;
     border-radius: 0;
-    /* Respect iOS / PWA safe areas so the composer isn’t under the home indicator */
-    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  /* Short *desktop* windows only — do not apply on phones or max-height caps override 100dvh full screen */
-  @media (max-height: 800px) and (min-width: 769px) {
+  @media (max-height: 800px) {
     height: 85vh;
     max-height: 600px;
     min-height: 400px;
   }
 
-  @media (max-height: 600px) and (min-width: 769px) {
+  @media (max-height: 600px) {
     height: 90vh;
     max-height: 500px;
     min-height: 350px;
   }
 
-  @media (max-height: 500px) and (min-width: 769px) {
+  @media (max-height: 500px) {
     height: 95vh;
     max-height: 450px;
     min-height: 300px;
@@ -2715,18 +2024,8 @@ $newsfeed-container-below-header-xs: calc(
       color: var(--text-primary);
     }
 
-    @media (max-width: 768px) {
-      padding-top: calc(16px + env(safe-area-inset-top, 0px));
-      padding-bottom: 16px;
-      padding-left: calc(20px + env(safe-area-inset-left, 0px));
-      padding-right: calc(20px + env(safe-area-inset-right, 0px));
-    }
-
     @media (max-width: 480px) {
-      padding-top: calc(12px + env(safe-area-inset-top, 0px));
-      padding-bottom: 12px;
-      padding-left: calc(16px + env(safe-area-inset-left, 0px));
-      padding-right: calc(16px + env(safe-area-inset-right, 0px));
+      padding: 12px 16px;
 
       h3 {
         font-size: 18px;
@@ -2755,8 +2054,7 @@ $newsfeed-container-below-header-xs: calc(
   &__container {
     display: flex;
     flex: 1;
-    min-height: 0;
-    overflow: visible;
+    overflow: hidden;
   }
 
   // Conversations List (Left Side)
@@ -2834,35 +2132,6 @@ $newsfeed-container-below-header-xs: calc(
     flex: 1;
     overflow-y: auto;
     padding: 4px 0;
-  }
-
-  &__section-title {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    padding: 12px 16px 6px;
-    margin: 0;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: linear-gradient(
-      to bottom,
-      var(--card-bg) 70%,
-      transparent
-    );
-
-    @media (max-width: 480px) {
-      padding: 10px 12px 4px;
-      font-size: 10px;
-    }
-  }
-
-  &__conversation-message--hint {
-    font-style: italic;
-    color: var(--text-tertiary);
-    opacity: 0.95;
   }
 
   &__conversation-item {
@@ -2991,23 +2260,12 @@ $newsfeed-container-below-header-xs: calc(
     font-size: 14px;
   }
 
-  &__status-banner {
-    padding: 10px 14px;
-    margin: 12px 12px 0;
-    border-radius: 10px;
-    background-color: rgba(211, 47, 47, 0.08);
-    color: #b71c1c;
-    font-size: 13px;
-    line-height: 1.4;
-  }
-
   // Chat Window (Right Side)
   &__chat-window {
     flex: 1;
     display: flex;
     flex-direction: column;
-    min-height: 0;
-    overflow: visible; // Don’t clip emoji picker above the composer
+    overflow: hidden;
     position: relative;
 
     @media (max-width: 768px) {
@@ -3017,6 +2275,11 @@ $newsfeed-container-below-header-xs: calc(
         display: flex;
       }
     }
+  }
+
+  &__input-area {
+    position: relative;
+    overflow: visible; // Allow emoji picker to appear above
   }
 
   &__chat-header {
@@ -3063,29 +2326,6 @@ $newsfeed-container-below-header-xs: calc(
 
     @media (max-height: 600px) {
       gap: 8px;
-    }
-  }
-
-  &__back-btn {
-    display: none;
-    background: none;
-    border: none;
-    color: var(--text-tertiary);
-    padding: 6px;
-    border-radius: 50%;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    cursor: pointer;
-    transition: background-color 0.2s;
-
-    &:hover {
-      background-color: var(--bg-tertiary);
-      color: var(--text-primary);
-    }
-
-    @media (max-width: 768px) {
-      display: inline-flex;
     }
   }
 
@@ -3332,8 +2572,6 @@ $newsfeed-container-below-header-xs: calc(
 
   &__messages {
     flex: 1;
-    min-height: 0;
-    overflow-x: hidden;
     overflow-y: auto;
     padding: 16px 20px;
     display: flex;
@@ -3415,14 +2653,14 @@ $newsfeed-container-below-header-xs: calc(
     }
 
     // Group consecutive messages from same sender
-    &--sent + &--sent,
-    &--received + &--received {
+    &--sent+&--sent,
+    &--received+&--received {
       margin-top: 2px;
     }
 
     // Add spacing between different senders
-    &--sent + &--received,
-    &--received + &--sent {
+    &--sent+&--received,
+    &--received+&--sent {
       margin-top: 12px;
     }
   }
@@ -3483,23 +2721,6 @@ $newsfeed-container-below-header-xs: calc(
     &--sent {
       color: rgba(255, 255, 255, 0.6);
     }
-  }
-
-  &__empty-state {
-    margin: auto;
-    color: var(--text-muted);
-    font-size: 14px;
-    text-align: center;
-  }
-
-  &__typing-indicator {
-    align-self: flex-start;
-    margin-top: 10px;
-    padding: 8px 12px;
-    border-radius: 12px;
-    background-color: rgba(13, 74, 31, 0.08);
-    color: var(--text-muted);
-    font-size: 13px;
   }
 
   &__message-attachment {
@@ -3586,7 +2807,6 @@ $newsfeed-container-below-header-xs: calc(
     align-items: center;
     gap: 8px;
     width: 100%;
-    min-width: 0;
 
     @media (max-width: 480px) {
       gap: 6px;
@@ -3647,14 +2867,10 @@ $newsfeed-container-below-header-xs: calc(
     position: relative;
     z-index: 1001;
     flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
   &__input {
     flex: 1;
-    min-width: 0;
     padding: 10px 16px;
     border: 1px solid var(--border-color);
     border-radius: 24px;
@@ -3707,9 +2923,6 @@ $newsfeed-container-below-header-xs: calc(
     border-radius: 50%;
     transition: all 0.2s;
     flex-shrink: 0;
-    min-width: 40px;
-    min-height: 40px;
-    box-sizing: border-box;
 
     &:hover {
       background-color: var(--bg-tertiary);
@@ -3719,12 +2932,6 @@ $newsfeed-container-below-header-xs: calc(
     &:disabled {
       opacity: 0.5;
       cursor: not-allowed;
-    }
-
-    @media (max-width: 480px) {
-      min-width: 44px;
-      min-height: 44px;
-      padding: 10px;
     }
   }
 
@@ -3740,9 +2947,6 @@ $newsfeed-container-below-header-xs: calc(
     border-radius: 50%;
     transition: all 0.2s;
     flex-shrink: 0;
-    min-width: 44px;
-    min-height: 44px;
-    box-sizing: border-box;
 
     &:hover:not(:disabled) {
       background-color: #0f5a25;
@@ -3760,9 +2964,7 @@ $newsfeed-container-below-header-xs: calc(
     }
 
     @media (max-width: 480px) {
-      min-width: 44px;
-      min-height: 44px;
-      padding: 10px;
+      padding: 8px;
     }
   }
 }
@@ -4007,54 +3209,6 @@ $newsfeed-container-below-header-xs: calc(
     margin-top: 2px;
   }
 
-  &__friend-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 10px;
-    position: relative;
-    z-index: 2;
-    pointer-events: auto;
-  }
-
-  &__friend-action-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border: 1px solid var(--border-color);
-    background: var(--card-bg);
-    color: var(--text-primary);
-    cursor: pointer;
-    transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.15s;
-
-    &:hover {
-      transform: scale(1.05);
-    }
-
-    &--accept {
-      color: #2e7d32;
-      border-color: rgba(46, 125, 50, 0.35);
-      background: rgba(46, 125, 50, 0.08);
-
-      &:hover {
-        background: rgba(46, 125, 50, 0.18);
-      }
-    }
-
-    &--reject {
-      color: #c62828;
-      border-color: rgba(198, 40, 40, 0.35);
-      background: rgba(198, 40, 40, 0.06);
-
-      &:hover {
-        background: rgba(198, 40, 40, 0.14);
-      }
-    }
-  }
-
   &__unread-dot {
     width: 8px;
     height: 8px;
@@ -4271,11 +3425,9 @@ $newsfeed-container-below-header-xs: calc(
 
 // Good Morning Card
 .newsfeed-goodmorning-card {
-  background: linear-gradient(
-    135deg,
-    var(--bg-tertiary) 0%,
-    var(--card-bg) 100%
-  );
+  background: linear-gradient(135deg,
+      var(--bg-tertiary) 0%,
+      var(--card-bg) 100%);
   border-radius: 12px;
   padding: 14px 16px;
   display: flex;
@@ -4787,38 +3939,21 @@ $newsfeed-container-below-header-xs: calc(
     max-width: 100% !important;
     height: 100% !important;
     max-height: 600px !important;
+    -o-object-fit: contain !important;
+    object-fit: contain !important;
     display: block;
     box-sizing: border-box;
-    background-color: var(--bg-tertiary);
-
-    .lazy-image {
-      width: 100% !important;
-      height: 100% !important;
-      max-height: 600px !important;
-      -o-object-fit: contain !important;
-      object-fit: contain !important;
-      display: block;
-      box-sizing: border-box;
-    }
 
     @media (max-width: 768px) {
       max-width: 100vw !important;
       max-height: 500px !important;
       width: 100% !important;
-
-      .lazy-image {
-        max-height: 500px !important;
-      }
     }
 
     @media (max-width: 480px) {
       max-width: 100vw !important;
       max-height: 400px !important;
       width: 100% !important;
-
-      .lazy-image {
-        max-height: 400px !important;
-      }
     }
   }
 
@@ -4827,37 +3962,22 @@ $newsfeed-container-below-header-xs: calc(
     width: 100% !important;
     height: 100% !important;
     max-height: 400px !important;
+    -o-object-fit: contain !important;
+    object-fit: contain !important;
     display: block;
-
-    .lazy-image {
-      width: 100% !important;
-      height: 100% !important;
-      max-height: 400px !important;
-      -o-object-fit: contain !important;
-      object-fit: contain !important;
-      display: block;
-    }
 
     @media (max-width: 768px) {
       max-height: 300px !important;
-
-      .lazy-image {
-        max-height: 300px !important;
-      }
     }
 
     @media (max-width: 480px) {
       max-height: 250px !important;
-
-      .lazy-image {
-        max-height: 250px !important;
-      }
     }
   }
 
   // Ensure images in wrapper also use contain
-  &__image-wrapper &__image .lazy-image,
-  &__images-wrapper &__image .lazy-image {
+  &__image-wrapper &__image,
+  &__images-wrapper &__image {
     -o-object-fit: contain !important;
     object-fit: contain !important;
   }
@@ -4920,82 +4040,6 @@ $newsfeed-container-below-header-xs: calc(
         line-height: 1.4;
       }
     }
-  }
-
-  &__shared-card {
-    margin: 0 16px 16px;
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    overflow: hidden;
-    background-color: var(--bg-secondary);
-
-    @media (max-width: 768px) {
-      margin: 0 12px 12px;
-    }
-
-    @media (max-width: 480px) {
-      margin: 0 10px 10px;
-    }
-
-    &--unavailable {
-      padding: 14px 16px;
-
-      p {
-        margin: 0;
-        font-size: 13px;
-        color: var(--text-tertiary);
-      }
-    }
-  }
-
-  &__shared-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 14px 0;
-  }
-
-  &__shared-avatar {
-    flex-shrink: 0;
-  }
-
-  &__shared-details {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  &__shared-name {
-    margin: 0;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  &__shared-time {
-    font-size: 11px;
-    color: var(--text-muted);
-  }
-
-  &__shared-caption {
-    padding: 10px 14px 12px;
-
-    p {
-      margin: 0;
-      font-size: 13px;
-      line-height: 1.5;
-      color: var(--text-primary);
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-    }
-  }
-
-  &__shared-media {
-    border-top: 1px solid var(--border-color);
-    display: grid;
-    gap: 1px;
-    background: var(--border-color);
   }
 
   &__see-more {
@@ -5622,6 +4666,7 @@ $newsfeed-container-below-header-xs: calc(
   // Big screen: move aside content down; border wraps content only (via ::before)
   @media (min-width: 993px) {
     padding-top: 70px;
+
     // Border/background box starts here so it matches the aside content
     &::before {
       content: "";
@@ -5643,7 +4688,7 @@ $newsfeed-container-below-header-xs: calc(
     right: 0;
     bottom: 0;
     width: 320px;
-    max-width: 85vw; 
+    max-width: 85vw;
     z-index: 1100;
     transform: translateX(100%);
     opacity: 0;
@@ -6216,18 +5261,6 @@ $newsfeed-container-below-header-xs: calc(
         border-color: #0d4a1f;
         cursor: default;
       }
-
-      &--cancel {
-        color: #c62828;
-        border-color: rgba(198, 40, 40, 0.45);
-        background-color: rgba(198, 40, 40, 0.08);
-
-        &:hover {
-          background-color: rgba(198, 40, 40, 0.18);
-          color: #b71c1c;
-          border-color: rgba(198, 40, 40, 0.6);
-        }
-      }
     }
 
     &__empty {
@@ -6372,7 +5405,7 @@ $newsfeed-container-below-header-xs: calc(
 
     .newsfeed-sidebar {
       position: fixed;
-      top: $newsfeed-header-offset-below-pwa;
+      top: 64px;
       left: 0;
       bottom: 0;
       width: 260px;
@@ -6384,7 +5417,7 @@ $newsfeed-container-below-header-xs: calc(
       border-top-right-radius: 12px;
       border-bottom-right-radius: 12px;
       overflow-y: auto;
-      height: $newsfeed-header-drawer-height;
+      height: calc(100vh - 64px);
       padding: 16px;
       box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
       background-color: var(--card-bg);
@@ -6398,7 +5431,7 @@ $newsfeed-container-below-header-xs: calc(
 
     .newsfeed-aside {
       position: fixed;
-      top: $newsfeed-header-offset-below-pwa;
+      top: 100px; // Below navbar
       right: 0;
       bottom: 0;
       width: 300px;
@@ -6411,7 +5444,7 @@ $newsfeed-container-below-header-xs: calc(
       border-top-left-radius: 12px;
       border-bottom-left-radius: 12px;
       overflow-y: auto;
-      height: $newsfeed-header-drawer-height;
+      height: calc(100vh - 100px);
       padding: 20px;
       box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
 
@@ -6499,11 +5532,8 @@ $newsfeed-container-below-header-xs: calc(
     .newsfeed-main {
       gap: 12px;
       width: 100%;
-      max-width: min(680px, 100%);
+      max-width: 100vw;
       overflow-x: hidden;
-      padding-top: 25px;
-      margin-left: auto;
-      margin-right: auto;
     }
 
     .newsfeed-search-section {
@@ -6557,7 +5587,6 @@ $newsfeed-container-below-header-xs: calc(
       &__add-icon {
         width: 24px;
         height: 24px;
-        top: 76px; // 90px wrapper - 14px = 76px (centered at bottom)
       }
     }
 
@@ -6721,17 +5750,15 @@ $newsfeed-container-below-header-xs: calc(
 
   @media (max-width: 480px) {
     .newsfeed-header {
-      padding: 0;
-      min-height: $newsfeed-header-bar-height;
-      height: $newsfeed-header-bar-height;
+      padding: 6px 0;
+      min-height: 52px;
       width: 100%;
       max-width: 100vw;
       overflow-x: hidden;
 
       &__container {
-        padding: 0 10px;
-        min-height: $newsfeed-header-bar-height;
-        height: 100%;
+        padding: 6px 10px;
+        min-height: 52px;
         gap: 6px;
         width: 100%;
         max-width: 100vw;
@@ -6811,10 +5838,12 @@ $newsfeed-container-below-header-xs: calc(
           height: 18px;
         }
       }
+
       &--hidden {
         transform: translateY(-100%);
         transition: transform 0.3s ease-in-out;
       }
+
       &--visible {
         transform: translateY(0);
         transition: transform 0.3s ease-in-out;
@@ -6825,10 +5854,8 @@ $newsfeed-container-below-header-xs: calc(
   .newsfeed-main {
     gap: 10px;
     width: 100%;
-    max-width: min(680px, 100%);
+    max-width: 100vw;
     overflow-x: hidden;
-    margin-left: auto;
-    margin-right: auto;
   }
 
   .newsfeed-search-section {
@@ -6869,12 +5896,6 @@ $newsfeed-container-below-header-xs: calc(
     &__name {
       max-width: 80px;
       font-size: 10px;
-    }
-
-    &__add-icon {
-      top: 66px; // 80px wrapper - 14px = 66px
-      width: 22px;
-      height: 22px;
     }
   }
 
@@ -7140,8 +6161,8 @@ $newsfeed-container-below-header-xs: calc(
     img {
       width: 100%;
       height: 100%;
-      -o-object-fit: contain;
-      object-fit: contain;
+      -o-object-fit: cover;
+      object-fit: cover;
       display: block;
     }
 
@@ -7563,7 +6584,7 @@ $newsfeed-container-below-header-xs: calc(
 
   .newsfeed-aside {
     background-color: var(--card-bg);
-    color: var(--text-primary);
+    color: white;
     // Border moved to ::before on desktop so it starts with content (see base .newsfeed-aside)
     border: none;
 
@@ -7573,6 +6594,7 @@ $newsfeed-container-below-header-xs: calc(
         background-color: var(--card-bg);
       }
     }
+
     @media (max-width: 992px) {
       border: 1px solid var(--border-color);
     }
@@ -7582,43 +6604,20 @@ $newsfeed-container-below-header-xs: calc(
       opacity: 0.9;
     }
 
-    // Force readable text color for mobile opened aside in dark theme.
-    &.newsfeed-aside--open,
-    &.newsfeed-aside--open * {
-      color: #fff !important;
-    }
-  }
+    .newsfeed-suggested-friends {
+      background-color: var(--card-bg);
+      color: white;
 
-  .newsfeed-suggested-friends {
-    background-color: var(--card-bg);
-    color: var(--text-primary);
+      &__title {
+        color: white;
+      }
 
-    &__title {
-      color: var(--text-primary);
-    }
+      &__name {
+        color: white;
+      }
 
-    &__see-all {
-      color: var(--text-primary);
-    }
-
-    &__info {
-      color: whitesmoke !important;
-    }
-
-    &__name {
-      color: whitesmoke !important;
-    }
-
-    &__mutual {
-      color: whitesmoke !important;
-    }
-
-    &__add-btn {
-      color: var(--text-primary);
-      border-color: var(--border-color);
-      
-      &:hover {
-        background-color: var(--bg-tertiary);
+      &__mutual {
+        color: rgba(255, 255, 255, 0.7);
       }
     }
   }
@@ -7690,11 +6689,9 @@ $newsfeed-container-below-header-xs: calc(
   }
 
   .newsfeed-goodmorning-card {
-    background: linear-gradient(
-      135deg,
-      var(--bg-tertiary) 0%,
-      var(--card-bg) 100%
-    );
+    background: linear-gradient(135deg,
+        var(--bg-tertiary) 0%,
+        var(--card-bg) 100%);
     box-shadow: 0 2px 8px var(--shadow-light);
 
     &__content p {
@@ -7914,15 +6911,19 @@ $newsfeed-container-below-header-xs: calc(
     &::-webkit-input-placeholder {
       color: var(--text-primary);
     }
+
     &::-moz-placeholder {
       color: var(--text-primary);
     }
+
     &:-ms-input-placeholder {
       color: var(--text-primary);
     }
+
     &::-ms-input-placeholder {
       color: var(--text-primary);
     }
+
     &::placeholder {
       color: var(--text-primary);
     }
@@ -8638,7 +7639,7 @@ $newsfeed-container-below-header-xs: calc(
     border: 2px solid white;
     flex-shrink: 0;
 
-    // Initials variant â€“ hidden (removed from UI)
+    // Initials variant – hidden (removed from UI)
     &--initials {
       display: none !important;
       width: 0 !important;
@@ -8902,9 +7903,8 @@ $newsfeed-container-below-header-xs: calc(
     &__message {
       &--received {
         .newsfeed-chat-panel__message-content {
-          background-color: var(--bg-tertiary);
+          background-color: var(--card-bg);
           color: var(--text-primary);
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
         }
 
         .newsfeed-chat-panel__message-time {
@@ -8916,7 +7916,6 @@ $newsfeed-container-below-header-xs: calc(
         .newsfeed-chat-panel__message-content {
           background-color: #0d4a1f;
           color: white;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
         }
 
         .newsfeed-chat-panel__message-time {
@@ -8927,7 +7926,7 @@ $newsfeed-container-below-header-xs: calc(
           color: rgba(255, 255, 255, 0.8);
 
           &--read {
-            color: #66ff88;
+            color: #4caf50;
           }
         }
       }
@@ -8985,6 +7984,7 @@ $newsfeed-container-below-header-xs: calc(
   justify-content: center;
   min-height: 60vh;
   padding: 2rem;
+
   &__card {
     background: var(--card-bg);
     border-radius: 16px;
@@ -8993,16 +7993,19 @@ $newsfeed-container-below-header-xs: calc(
     text-align: center;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   }
+
   &__title {
     font-size: 1.5rem;
     margin: 0 0 1rem;
     color: var(--text-primary);
   }
+
   &__message {
     color: var(--text-muted);
     margin: 0 0 1.5rem;
     line-height: 1.5;
   }
+
   &__back {
     background: var(--color-primary);
     color: #fff;
@@ -9011,92 +8014,9 @@ $newsfeed-container-below-header-xs: calc(
     border-radius: 8px;
     cursor: pointer;
     font-size: 0.95rem;
+
     &:hover {
       opacity: 0.9;
     }
-  }
-}
-
-// Global Dark Theme Overrides for Suggested Friends/Businesses
-[data-theme="dark"] .newsfeed-suggested-friends__info,
-[data-theme="dark"] .newsfeed-suggested-friends__info *,
-[data-theme="dark"] .newsfeed-suggested-friends__name,
-[data-theme="dark"] .newsfeed-suggested-friends__mutual {
-  color: whitesmoke !important;
-}
-
-// Business listing fields (create post modal — optional price / location / contact)
-.business-offer-fields {
-  margin-top: 10px;
-  padding: 10px 12px;
-  background: var(--bg-tertiary, #f3f4f6);
-  border-radius: 8px;
-  border: 1px solid var(--border-color, #e5e7eb);
-  box-sizing: border-box;
-  width: 100%;
-
-  &__title {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-secondary, #555);
-    margin-bottom: 8px;
-  }
-
-  &__inputs {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-
-    @media (max-width: 520px) {
-      grid-template-columns: 1fr;
-    }
-
-    input {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 8px 10px;
-      border: 1px solid var(--border-color, #ddd);
-      border-radius: 6px;
-      font-size: 13px;
-      background: var(--card-bg, #fff);
-      color: var(--text-primary, #111);
-
-      &:nth-child(3) {
-        grid-column: 1 / -1;
-      }
-    }
-  }
-}
-
-.business-feed-notice {
-  font-size: 13px;
-  color: var(--text-secondary, #555);
-  background: rgba(13, 74, 31, 0.08);
-  border: 1px solid rgba(13, 74, 31, 0.2);
-  padding: 10px 12px;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  line-height: 1.4;
-}
-
-.newsfeed-post__listing {
-  margin-top: 10px;
-  padding: 10px 12px;
-  background: var(--bg-tertiary, #f8f9fa);
-  border-radius: 8px;
-  font-size: 13px;
-  border: 1px solid var(--border-color, #e0e0e0);
-
-  &-row {
-    margin-top: 6px;
-    &:first-child {
-      margin-top: 0;
-    }
-  }
-
-  &-label {
-    font-weight: 600;
-    color: var(--text-secondary, #444);
-    margin-right: 6px;
   }
 }

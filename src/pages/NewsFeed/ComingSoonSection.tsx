@@ -31,6 +31,10 @@ const ComingSoonSection: React.FC = () => {
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const sectionName = SECTION_NAMES[section] || section || "This section";
+  const comingSoonMessage =
+    section === "offers" || section === "movies"
+      ? "coming in version 2.0"
+      : `${sectionName} is under development. We're bringing you an amazing experience - please check back soon!`;
 
   return (
     <div className="newsfeed-page">
@@ -64,10 +68,7 @@ const ComingSoonSection: React.FC = () => {
           <div className="coming-soon-section">
             <div className="coming-soon-section__card">
               <h1 className="coming-soon-section__title">Coming Soon</h1>
-              <p className="coming-soon-section__message">
-                {sectionName} is under development. We're bringing you an
-                amazing experience — please check back soon!
-              </p>
+              <p className="coming-soon-section__message">{comingSoonMessage}</p>
               <button
                 type="button"
                 className="coming-soon-section__back"

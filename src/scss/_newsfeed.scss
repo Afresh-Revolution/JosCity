@@ -21,6 +21,7 @@
 
   // Prevent any child from causing overflow on mobile
   @media (max-width: 768px) {
+
     img,
     video,
     iframe,
@@ -593,6 +594,7 @@
 
 // Header actions: icons and text white for contrast on header
 .newsfeed-header__actions {
+
   button,
   div {
     color: #fff;
@@ -629,6 +631,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -638,6 +641,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -648,6 +652,7 @@
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -659,6 +664,7 @@
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -672,11 +678,13 @@
 }
 
 // When header is hidden on scroll, reduce top padding to remove empty white space
-.newsfeed-header--hidden + .newsfeed-container {
+.newsfeed-header--hidden+.newsfeed-container {
   padding-top: 24px; // 15px base + minimal gap
+
   @media (max-width: 1200px) {
     padding-top: 20px;
   }
+
   @media (max-width: 768px) {
     padding-top: 16px;
   }
@@ -695,10 +703,8 @@
   max-width: 100vw;
   box-sizing: border-box;
   height: 100vh; // Full viewport height
-  grid-template-rows: minmax(
-    0,
-    1fr
-  ); // Constrain row height to container height
+  grid-template-rows: minmax(0,
+      1fr); // Constrain row height to container height
   overflow: hidden; // Prevent page scrolling
   opacity: 1 !important;
 
@@ -1354,10 +1360,7 @@
     }
 
     // When no story preview, initials fill the whole wrapper
-    .newsfeed-stories__avatar-wrapper:not(
-        :has(.newsfeed-stories__story-preview)
-      )
-      & {
+    .newsfeed-stories__avatar-wrapper:not( :has(.newsfeed-stories__story-preview)) & {
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
@@ -1390,6 +1393,7 @@
       left: 6px;
       font-size: 14px;
     }
+
     &__avatar-wrapper:not(:has(&__story-preview)) &__avatar--initials {
       font-size: 28px;
     }
@@ -1403,6 +1407,7 @@
       left: 4px;
       font-size: 12px;
     }
+
     &__avatar-wrapper:not(:has(&__story-preview)) &__avatar--initials {
       font-size: 24px;
     }
@@ -1474,6 +1479,7 @@
       opacity: 0;
       transform: translateY(20px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -1485,6 +1491,7 @@
       opacity: 0;
       transform: translateY(20px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -1948,6 +1955,7 @@
     padding: 10px;
     align-items: flex-end;
   }
+
   padding: 20px;
   -webkit-animation: fadeIn 0.3s ease-out;
   animation: fadeIn 0.3s ease-out;
@@ -2645,14 +2653,14 @@
     }
 
     // Group consecutive messages from same sender
-    &--sent + &--sent,
-    &--received + &--received {
+    &--sent+&--sent,
+    &--received+&--received {
       margin-top: 2px;
     }
 
     // Add spacing between different senders
-    &--sent + &--received,
-    &--received + &--sent {
+    &--sent+&--received,
+    &--received+&--sent {
       margin-top: 12px;
     }
   }
@@ -3417,11 +3425,9 @@
 
 // Good Morning Card
 .newsfeed-goodmorning-card {
-  background: linear-gradient(
-    135deg,
-    var(--bg-tertiary) 0%,
-    var(--card-bg) 100%
-  );
+  background: linear-gradient(135deg,
+      var(--bg-tertiary) 0%,
+      var(--card-bg) 100%);
   border-radius: 12px;
   padding: 14px 16px;
   display: flex;
@@ -4660,6 +4666,7 @@
   // Big screen: move aside content down; border wraps content only (via ::before)
   @media (min-width: 993px) {
     padding-top: 70px;
+
     // Border/background box starts here so it matches the aside content
     &::before {
       content: "";
@@ -4681,7 +4688,7 @@
     right: 0;
     bottom: 0;
     width: 320px;
-    max-width: 85vw; 
+    max-width: 85vw;
     z-index: 1100;
     transform: translateX(100%);
     opacity: 0;
@@ -5831,10 +5838,12 @@
           height: 18px;
         }
       }
+
       &--hidden {
         transform: translateY(-100%);
         transition: transform 0.3s ease-in-out;
       }
+
       &--visible {
         transform: translateY(0);
         transition: transform 0.3s ease-in-out;
@@ -6575,7 +6584,7 @@
 
   .newsfeed-aside {
     background-color: var(--card-bg);
-    color: var(--text-primary);
+    color: white;
     // Border moved to ::before on desktop so it starts with content (see base .newsfeed-aside)
     border: none;
 
@@ -6585,6 +6594,7 @@
         background-color: var(--card-bg);
       }
     }
+
     @media (max-width: 992px) {
       border: 1px solid var(--border-color);
     }
@@ -6596,18 +6606,18 @@
 
     .newsfeed-suggested-friends {
       background-color: var(--card-bg);
-      color: var(--text-primary);
+      color: white;
 
       &__title {
-        color: var(--text-primary);
+        color: white;
       }
 
       &__name {
-        color: var(--text-primary);
+        color: white;
       }
 
       &__mutual {
-        color: var(--text-tertiary);
+        color: rgba(255, 255, 255, 0.7);
       }
     }
   }
@@ -6679,11 +6689,9 @@
   }
 
   .newsfeed-goodmorning-card {
-    background: linear-gradient(
-      135deg,
-      var(--bg-tertiary) 0%,
-      var(--card-bg) 100%
-    );
+    background: linear-gradient(135deg,
+        var(--bg-tertiary) 0%,
+        var(--card-bg) 100%);
     box-shadow: 0 2px 8px var(--shadow-light);
 
     &__content p {
@@ -6903,15 +6911,19 @@
     &::-webkit-input-placeholder {
       color: var(--text-primary);
     }
+
     &::-moz-placeholder {
       color: var(--text-primary);
     }
+
     &:-ms-input-placeholder {
       color: var(--text-primary);
     }
+
     &::-ms-input-placeholder {
       color: var(--text-primary);
     }
+
     &::placeholder {
       color: var(--text-primary);
     }
@@ -7972,6 +7984,7 @@
   justify-content: center;
   min-height: 60vh;
   padding: 2rem;
+
   &__card {
     background: var(--card-bg);
     border-radius: 16px;
@@ -7980,16 +7993,19 @@
     text-align: center;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   }
+
   &__title {
     font-size: 1.5rem;
     margin: 0 0 1rem;
     color: var(--text-primary);
   }
+
   &__message {
     color: var(--text-muted);
     margin: 0 0 1.5rem;
     line-height: 1.5;
   }
+
   &__back {
     background: var(--color-primary);
     color: #fff;
@@ -7998,6 +8014,7 @@
     border-radius: 8px;
     cursor: pointer;
     font-size: 0.95rem;
+
     &:hover {
       opacity: 0.9;
     }

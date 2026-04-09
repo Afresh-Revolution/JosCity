@@ -1,14 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  SquarePlus,
-  MessageCircle,
-  Bell,
   Search,
-  Menu,
   X,
-  FileText,
-  Clock,
   Users,
   Building2,
   Send,
@@ -26,19 +20,20 @@ import {
   User,
   Calendar,
   Hash,
+  Bell,
 } from "lucide-react";
-import primaryLogo from "../../image/primary-logo.png";
 import LazyImage from "../../components/LazyImage";
 import Avatar from "../../components/Avatar";
 import EmojiPicker from "../../components/EmojiPicker";
 import ProfileModal from "../../components/ProfileModal";
 import FindFriendsModal from "../../components/FindFriendsModal";
 import NewsFeedSidebar from "./NewsFeedSidebar";
+import NewsFeedHeader from "./NewsFeedHeader";
 import PostCard from "./PostCard";
 import SuggestedBusinesses from "./SuggestedBusinesses";
 import {
+  getUserInitials,
   getProfileUsername,
-  getUserName,
 } from "../../utils/userUtils";
 import { addFriend } from "../../utils/friendUtils";
 import { friendApi } from "../../services/friendApi";
@@ -104,13 +99,13 @@ interface ChatConversation {
 interface Notification {
   id: number;
   type:
-    | "like"
-    | "comment"
-    | "friend_request"
-    | "mention"
-    | "share"
-    | "event"
-    | "message";
+  | "like"
+  | "comment"
+  | "friend_request"
+  | "mention"
+  | "share"
+  | "event"
+  | "message";
   userId: number;
   userName: string;
   userAvatar: string;
@@ -127,10 +122,8 @@ const Business: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
-  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [businessPosts, setBusinessPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const createMenuRef = useRef<HTMLDivElement>(null);
 
   // Chat/Messages state
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
@@ -273,29 +266,6 @@ const Business: React.FC = () => {
     );
   });
 
-  // Close create menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        createMenuRef.current &&
-        !createMenuRef.current.contains(event.target as Node)
-      ) {
-        setIsCreateMenuOpen(false);
-      }
-    };
-
-    if (isCreateMenuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isCreateMenuOpen]);
-
-  const handleCreateClick = () => {
-    setIsCreateMenuOpen(!isCreateMenuOpen);
-  };
 
   const handleProfileClick = () => {
     const username = getProfileUsername();
@@ -440,17 +410,17 @@ const Business: React.FC = () => {
   const isMyPost = (postOwnerName: string): boolean => {
     const user = getUserData();
     if (!user) return false;
-    
+
     // Check various name formats
     const currentDisplayName = user.display_name || user.name || "";
     const currentFullName = user.user_firstname && user.user_lastname
       ? `${user.user_firstname} ${user.user_lastname}`.trim()
       : "";
     const currentBusinessName = (user as { business_name?: string }).business_name || "";
-    
+
     // Normalize names for comparison (case-insensitive, trim whitespace)
     const normalize = (str: string) => str.toLowerCase().trim();
-    
+
     return (
       normalize(postOwnerName) === normalize(currentDisplayName) ||
       normalize(postOwnerName) === normalize(currentFullName) ||
@@ -462,10 +432,10 @@ const Business: React.FC = () => {
   useEffect(() => {
     const handlePostLike = async (event: CustomEvent) => {
       const { postId, postOwnerName, likerId, likerName, likerAvatar } = event.detail;
-      
+
       // Don't notify if user liked their own post
       if (likerId === currentUserId) return;
-      
+
       // Only notify if:
       // 1. It's the current user's post
       // 2. The liker is following the current user (is in friends list)
@@ -514,10 +484,10 @@ const Business: React.FC = () => {
   useEffect(() => {
     const handlePostComment = async (event: CustomEvent) => {
       const { postId, postOwnerName, commenterId, commenterName, commenterAvatar, commentText } = event.detail;
-      
+
       // Don't notify if user commented on their own post
       if (commenterId === currentUserId) return;
-      
+
       // Only notify if:
       // 1. It's the current user's post
       // 2. The commenter is following the current user (is in friends list)
@@ -525,8 +495,8 @@ const Business: React.FC = () => {
         const messageText = commentText && commentText.length > 50
           ? `commented: "${commentText.substring(0, 50)}..."`
           : commentText
-          ? `commented: "${commentText}"`
-          : "commented on your post";
+            ? `commented: "${commentText}"`
+            : "commented on your post";
 
         const newNotification: Notification = {
           id: Date.now(),
@@ -575,7 +545,7 @@ const Business: React.FC = () => {
   useEffect(() => {
     const handleFriendAddedEvent = (event: CustomEvent) => {
       const { friendId, friendName, friendAvatar } = event.detail;
-      
+
       // Add to friends list
       setFriendsList((prev) => {
         if (!prev.includes(friendId)) {
@@ -661,11 +631,11 @@ const Business: React.FC = () => {
                 ? lastMessage.attachment.type === "image"
                   ? "sent you a photo"
                   : lastMessage.attachment.type === "video"
-                  ? "sent you a video"
-                  : "sent you a file"
+                    ? "sent you a video"
+                    : "sent you a file"
                 : lastMessage.text
-                ? lastMessage.text
-                : "sent you a message";
+                  ? lastMessage.text
+                  : "sent you a message";
 
               const newNotification: Notification = {
                 id: Date.now(),
@@ -707,7 +677,7 @@ const Business: React.FC = () => {
   const handleFriendAdded = (friendId: number, friendName: string) => {
     // Add friend to friends list
     addFriend(friendId);
-    
+
     // Update friends list state
     setFriendsList((prev) => {
       if (!prev.includes(friendId)) {
@@ -770,8 +740,8 @@ const Business: React.FC = () => {
             ? messageAttachment.type === "image"
               ? "📷 Photo"
               : messageAttachment.type === "video"
-              ? "🎥 Video"
-              : `📎 ${messageAttachment.fileName || "File"}`
+                ? "🎥 Video"
+                : `📎 ${messageAttachment.fileName || "File"}`
             : newMessage.text;
           return {
             ...chat,
@@ -859,97 +829,17 @@ const Business: React.FC = () => {
   return (
     <div className="newsfeed-page">
       {/* Top Navigation Bar */}
-      <header className="newsfeed-header">
-        <div className="newsfeed-header__container">
-          <div className="newsfeed-header__left">
-            <button
-              className="newsfeed-header__menu-toggle"
-              onClick={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
-              aria-label="Toggle menu"
-            >
-              {isLeftSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-            <div
-              className="newsfeed-header__logo"
-              onClick={() => navigate("/")}
-            >
-              <LazyImage src={primaryLogo} alt="JOSCity Logo" />
-              <span>JosCity</span>
-            </div>
-          </div>
-          <div className="newsfeed-header__actions">
-            <div
-              className="newsfeed-header__create-wrapper"
-              ref={createMenuRef}
-            >
-              <button
-                className="newsfeed-header__icon-btn"
-                title="Create"
-                onClick={handleCreateClick}
-              >
-                <SquarePlus size={20} />
-              </button>
-              {isCreateMenuOpen && (
-                <div className="newsfeed-header__create-dropdown">
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  >
-                    <FileText size={18} />
-                    <span>Create Post</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  >
-                    <Clock size={18} />
-                    <span>Create Story</span>
-                  </button>
-                  <button
-                    className="newsfeed-header__create-item"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  >
-                    <Users size={18} />
-                    <span>Create Group</span>
-                  </button>
-                </div>
-              )}
-            </div>
-            <button
-              className="newsfeed-header__icon-btn"
-              title="Messages"
-              onClick={() => setIsChatPanelOpen(true)}
-            >
-              <MessageCircle size={20} />
-            </button>
-            <button
-              className="newsfeed-header__icon-btn newsfeed-header__icon-btn--notifications"
-              title="Notifications"
-              onClick={() => setIsNotificationPanelOpen(true)}
-            >
-              <Bell size={20} />
-              {unreadNotificationsCount > 0 && (
-                <span className="newsfeed-header__notification-badge">
-                  {unreadNotificationsCount}
-                </span>
-              )}
-            </button>
-            <button
-              className="newsfeed-header__join-btn"
-              onClick={handleProfileClick}
-            >
-              <div className="newsfeed-header__join-initials">
-                <Avatar
-                  name={getUserName()}
-                  size={32}
-                  className="newsfeed-header__join-avatar"
-                />
-              </div>
-              <span className="newsfeed-header__join-text">Profile</span>
-            </button>
-          </div>
-        </div>
-      </header>
+      <NewsFeedHeader
+        isLeftSidebarOpen={isLeftSidebarOpen}
+        onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
+        onToggleRightSidebar={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+        onProfileClick={handleProfileClick}
+        onOpenChat={() => setIsChatPanelOpen(true)}
+        onOpenNotifications={() => setIsNotificationPanelOpen(true)}
+        onAddFriend={() => setIsAddFriendModalOpen(true)}
+        unreadNotificationsCount={unreadNotificationsCount}
+        showRightSidebarToggle={true}
+      />
 
       {/* Mobile Overlay */}
       {(isLeftSidebarOpen || isRightSidebarOpen) && (
@@ -1022,8 +912,8 @@ const Business: React.FC = () => {
                     {searchQuery
                       ? "No business posts match your search."
                       : businessPosts.length === 0
-                      ? "No business posts available yet. Posts from business accounts will appear here."
-                      : "No business posts match your search."}
+                        ? "No business posts available yet. Posts from business accounts will appear here."
+                        : "No business posts match your search."}
                   </p>
                 </div>
               </div>
@@ -1039,9 +929,8 @@ const Business: React.FC = () => {
 
         {/* Right Sidebar */}
         <aside
-          className={`newsfeed-aside ${
-            isRightSidebarOpen ? "newsfeed-aside--open" : ""
-          }`}
+          className={`newsfeed-aside ${isRightSidebarOpen ? "newsfeed-aside--open" : ""
+            }`}
         >
           <div className="newsfeed-aside__header">
             <h3>Trending & Businesses</h3>
@@ -1057,49 +946,49 @@ const Business: React.FC = () => {
             businesses={[]}
             onBusinessAdded={handleFriendAdded}
           />
-          
+
           {/* Footer inside Aside */}
           <footer className="newsfeed-footer">
-        <p>© 2026 JOSCity</p>
-        <div className="newsfeed-footer__links">
-          <a
-            href="/about"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/about", { state: { fromNewsfeed: true } });
-            }}
-          >
-            About
-          </a>
-          <a
-            href="/terms-of-service"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/terms-of-service", { state: { fromNewsfeed: true } });
-            }}
-          >
-            Terms
-          </a>
-          <a
-            href="/privacy-policy"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/privacy-policy", { state: { fromNewsfeed: true } });
-            }}
-          >
-            Privacy
-          </a>
-          <a
-            href="/contact"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/contact", { state: { fromNewsfeed: true } });
-            }}
-          >
-            Contact Us
-          </a>
-        </div>
-      </footer>
+            <p>© 2026 JOSCity</p>
+            <div className="newsfeed-footer__links">
+              <a
+                href="/about"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/about", { state: { fromNewsfeed: true } });
+                }}
+              >
+                About
+              </a>
+              <a
+                href="/terms-of-service"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/terms-of-service", { state: { fromNewsfeed: true } });
+                }}
+              >
+                Terms
+              </a>
+              <a
+                href="/privacy-policy"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/privacy-policy", { state: { fromNewsfeed: true } });
+                }}
+              >
+                Privacy
+              </a>
+              <a
+                href="/contact"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/contact", { state: { fromNewsfeed: true } });
+                }}
+              >
+                Contact Us
+              </a>
+            </div>
+          </footer>
         </aside>
       </div>
 
@@ -1134,11 +1023,10 @@ const Business: React.FC = () => {
             <div className="newsfeed-chat-panel__container">
               {/* Conversations List */}
               <div
-                className={`newsfeed-chat-panel__conversations ${
-                  selectedChatId
-                    ? "newsfeed-chat-panel__conversations--hidden"
-                    : ""
-                }`}
+                className={`newsfeed-chat-panel__conversations ${selectedChatId
+                  ? "newsfeed-chat-panel__conversations--hidden"
+                  : ""
+                  }`}
               >
                 <div className="newsfeed-chat-panel__search-wrapper">
                   <Search
@@ -1158,11 +1046,10 @@ const Business: React.FC = () => {
                     filteredConversations.map((conversation) => (
                       <div
                         key={conversation.id}
-                        className={`newsfeed-chat-panel__conversation-item ${
-                          selectedChatId === conversation.id
-                            ? "newsfeed-chat-panel__conversation-item--active"
-                            : ""
-                        }`}
+                        className={`newsfeed-chat-panel__conversation-item ${selectedChatId === conversation.id
+                          ? "newsfeed-chat-panel__conversation-item--active"
+                          : ""
+                          }`}
                         onClick={() => {
                           setSelectedChatId(conversation.id);
                           // Mark messages as read when opening chat
@@ -1170,13 +1057,13 @@ const Business: React.FC = () => {
                             prev.map((chat) =>
                               chat.id === conversation.id
                                 ? {
-                                    ...chat,
-                                    messages: chat.messages.map((msg) => ({
-                                      ...msg,
-                                      isRead: true,
-                                    })),
-                                    unreadCount: 0,
-                                  }
+                                  ...chat,
+                                  messages: chat.messages.map((msg) => ({
+                                    ...msg,
+                                    isRead: true,
+                                  })),
+                                  unreadCount: 0,
+                                }
                                 : chat
                             )
                           );
@@ -1226,11 +1113,10 @@ const Business: React.FC = () => {
 
               {/* Chat Window */}
               <div
-                className={`newsfeed-chat-panel__chat-window ${
-                  selectedChatId
-                    ? "newsfeed-chat-panel__chat-window--visible"
-                    : ""
-                }`}
+                className={`newsfeed-chat-panel__chat-window ${selectedChatId
+                  ? "newsfeed-chat-panel__chat-window--visible"
+                  : ""
+                  }`}
               >
                 {selectedChat ? (
                   <>
@@ -1323,11 +1209,10 @@ const Business: React.FC = () => {
                         return (
                           <div
                             key={message.id}
-                            className={`newsfeed-chat-panel__message ${
-                              isCurrentUser
-                                ? "newsfeed-chat-panel__message--sent"
-                                : "newsfeed-chat-panel__message--received"
-                            }`}
+                            className={`newsfeed-chat-panel__message ${isCurrentUser
+                              ? "newsfeed-chat-panel__message--sent"
+                              : "newsfeed-chat-panel__message--received"
+                              }`}
                           >
                             {!isCurrentUser && (
                               <Avatar
@@ -1379,11 +1264,10 @@ const Business: React.FC = () => {
                                 </span>
                                 {isCurrentUser && (
                                   <span
-                                    className={`newsfeed-chat-panel__message-status ${
-                                      message.isRead
-                                        ? "newsfeed-chat-panel__message-status--read"
-                                        : "newsfeed-chat-panel__message-status--sent"
-                                    }`}
+                                    className={`newsfeed-chat-panel__message-status ${message.isRead
+                                      ? "newsfeed-chat-panel__message-status--read"
+                                      : "newsfeed-chat-panel__message-status--sent"
+                                      }`}
                                     title={message.isRead ? "Read" : "Sent"}
                                   >
                                     {message.isRead ? (
@@ -1640,11 +1524,10 @@ const Business: React.FC = () => {
                   {notifications.map((notification) => (
                     <div
                       key={notification.id}
-                      className={`newsfeed-notification-panel__item ${
-                        !notification.isRead
-                          ? "newsfeed-notification-panel__item--unread"
-                          : ""
-                      }`}
+                      className={`newsfeed-notification-panel__item ${!notification.isRead
+                        ? "newsfeed-notification-panel__item--unread"
+                        : ""
+                        }`}
                       onClick={() => markNotificationAsRead(notification.id)}
                     >
                       <div

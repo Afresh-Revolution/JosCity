@@ -1831,4 +1831,80 @@
   }
 }
 
+// Events route (newsfeed shell): main fills the grid column; hero clears the scrollport;
+// tabs stick to the main column top; extra space before tabs and content.
+.newsfeed-page.events-page-wrapper.events-page {
+  .newsfeed-container.newsfeed-container--no-aside {
+    max-width: none;
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+  }
 
+  // Span the full second grid track (beats Saved’s capped width + justify-self: start when both bundles load).
+  .newsfeed-container--no-aside .newsfeed-main {
+    grid-column: 2 / -1;
+    max-width: none;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    margin-inline: 0;
+    justify-self: stretch;
+    align-self: stretch;
+    padding-top: 12px;
+    scroll-padding-top: 12px;
+    box-sizing: border-box;
+
+    @media (max-width: 992px) {
+      grid-column: 1 / -1;
+    }
+  }
+
+  .eventspage-hero {
+    overflow: visible;
+    padding-top: 48px;
+    padding-bottom: 40px;
+
+    @media (max-width: 1400px) {
+      padding-top: 44px;
+      padding-bottom: 36px;
+    }
+
+    @media (max-width: 1200px) {
+      padding-top: 40px;
+      padding-bottom: 32px;
+    }
+
+    @media (max-width: 992px) {
+      padding-top: 36px;
+      padding-bottom: 28px;
+    }
+
+    @media (max-width: 768px) {
+      padding-top: 28px;
+      padding-bottom: 24px;
+    }
+
+    @media (max-width: 480px) {
+      padding-top: 24px;
+      padding-bottom: 20px;
+    }
+  }
+
+  .eventspage-hero__title {
+    line-height: 1.15;
+  }
+
+  .eventspage-tabs {
+    margin-top: 24px;
+    top: 0;
+
+    @media (max-width: 768px) {
+      top: 0;
+    }
+  }
+
+  .eventspage-content {
+    margin-top: 24px;
+  }
+}

@@ -19,11 +19,14 @@ import {
   Edit,
 } from "lucide-react";
 import SearchBar from "../../components/SearchBar";
+import { getProfileUsername, isAuthenticated } from "../../utils/userUtils";
 import {
-  getProfileUsername,
-  isAuthenticated,
-} from "../../utils/userUtils";
-import { createEvent, updateEvent, deleteEvent, getEvents, type Event } from "../../api/events";
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  getEvents,
+  type Event,
+} from "../../api/events";
 import NewsFeedHeader from "../NewsFeed/NewsFeedHeader";
 import NewsFeedSidebar from "../NewsFeed/NewsFeedSidebar";
 import { useNewsFeedNavPanels } from "../../hooks/useNewsFeedNavPanels";
@@ -147,7 +150,7 @@ const EventsPage: React.FC = () => {
       setEventsLoading(true);
       setEventsError(null);
       try {
-        const response = await getEvents({ limit: 100 }); // Get all events
+        const response = await getEvents({ limit: 40, page: 1 });
         if (response.success && response.data) {
           const normalizedEvents = response.data.map(normalizeEvent);
           setEvents(normalizedEvents);
@@ -156,7 +159,9 @@ const EventsPage: React.FC = () => {
         }
       } catch (error) {
         console.error("Error loading events:", error);
-        setEventsError(error instanceof Error ? error.message : "Failed to load events");
+        setEventsError(
+          error instanceof Error ? error.message : "Failed to load events",
+        );
         setEvents([]);
       } finally {
         setEventsLoading(false);
@@ -181,19 +186,19 @@ const EventsPage: React.FC = () => {
     // First filter by active tab (Going, Interested, etc.)
     if (activeTab === "Going") {
       filtered = filtered.filter((event) =>
-        userEventLists.going.includes(event.id)
+        userEventLists.going.includes(event.id),
       );
     } else if (activeTab === "Interested") {
       filtered = filtered.filter((event) =>
-        userEventLists.interested.includes(event.id)
+        userEventLists.interested.includes(event.id),
       );
     } else if (activeTab === "Invited") {
       filtered = filtered.filter((event) =>
-        userEventLists.invited.includes(event.id)
+        userEventLists.invited.includes(event.id),
       );
     } else if (activeTab === "My Events") {
       filtered = filtered.filter((event) =>
-        userEventLists.myEvents.includes(event.id)
+        userEventLists.myEvents.includes(event.id),
       );
     }
     // "Discover" tab shows all events
@@ -202,7 +207,7 @@ const EventsPage: React.FC = () => {
     if (selectedCategory !== "All") {
       filtered = filtered.filter(
         (event) =>
-          event.category?.toLowerCase() === selectedCategory.toLowerCase()
+          event.category?.toLowerCase() === selectedCategory.toLowerCase(),
       );
     }
 
@@ -313,7 +318,7 @@ const EventsPage: React.FC = () => {
   const handleEventFormChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    >,
   ) => {
     const { name, value } = e.target;
     setEventForm((prev) => {
@@ -347,7 +352,7 @@ const EventsPage: React.FC = () => {
     ];
     if (!validImageTypes.includes(file.type)) {
       setImageError(
-        "Invalid file type. Please upload a JPEG, PNG, GIF, or WebP image."
+        "Invalid file type. Please upload a JPEG, PNG, GIF, or WebP image.",
       );
       e.target.value = ""; // Clear the input
       return;
@@ -357,7 +362,7 @@ const EventsPage: React.FC = () => {
     const maxSize = 10 * 1024 * 1024; // 10MB in bytes
     if (file.size > maxSize) {
       setImageError(
-        "File size too large. Please upload an image smaller than 10MB."
+        "File size too large. Please upload an image smaller than 10MB.",
       );
       e.target.value = ""; // Clear the input
       return;
@@ -381,7 +386,7 @@ const EventsPage: React.FC = () => {
       const time24 = convertTo24Hour(
         eventForm.timeHour,
         eventForm.timeMinute,
-        eventForm.timePeriod
+        eventForm.timePeriod,
       );
       const eventDate = `${eventForm.date}T${time24}`;
 
@@ -404,7 +409,7 @@ const EventsPage: React.FC = () => {
           savedEvent = normalizeEvent(response.data);
           // Update events list
           const updatedEvents = events.map((event) =>
-            event.id === editingEventId ? savedEvent : event
+            event.id === editingEventId ? savedEvent : event,
           );
           setEvents(updatedEvents);
           alert("Event updated successfully!");
@@ -419,7 +424,7 @@ const EventsPage: React.FC = () => {
           // Add to events list
           const updatedEvents = [...events, savedEvent];
           setEvents(updatedEvents);
-          
+
           // Automatically add to "My Events" list when user creates an event
           const updatedLists = {
             ...userEventLists,
@@ -428,11 +433,14 @@ const EventsPage: React.FC = () => {
           setUserEventLists(updatedLists);
           // Save updated lists
           try {
-            localStorage.setItem("userEventLists", JSON.stringify(updatedLists));
+            localStorage.setItem(
+              "userEventLists",
+              JSON.stringify(updatedLists),
+            );
           } catch (error) {
             console.error("Error saving user event lists:", error);
           }
-          
+
           alert("Event created successfully!");
         } else {
           throw new Error("Failed to create event");
@@ -443,11 +451,13 @@ const EventsPage: React.FC = () => {
       handleCloseCreateEventModal();
     } catch (error) {
       console.error("Error saving event:", error);
-      setEventsError(error instanceof Error ? error.message : "Failed to save event");
+      setEventsError(
+        error instanceof Error ? error.message : "Failed to save event",
+      );
       alert(
         error instanceof Error
           ? `Error: ${error.message}`
-          : "Failed to save event. Please try again."
+          : "Failed to save event. Please try again.",
       );
     }
   };
@@ -456,7 +466,7 @@ const EventsPage: React.FC = () => {
   const convertTo24Hour = (
     hour: string,
     minute: string,
-    period: string
+    period: string,
   ): string => {
     let hour24 = parseInt(hour);
     if (period === "PM" && hour24 !== 12) {
@@ -470,7 +480,7 @@ const EventsPage: React.FC = () => {
   // Handle adding/removing events from user lists
   const handleEventAction = (
     eventId: number,
-    action: "going" | "interested" | "invited"
+    action: "going" | "interested" | "invited",
   ) => {
     setUserEventLists((prev) => {
       const currentList = prev[action];
@@ -497,7 +507,7 @@ const EventsPage: React.FC = () => {
   // Check if event is in a list
   const isEventInList = (
     eventId: number,
-    list: "going" | "interested" | "invited" | "myEvents"
+    list: "going" | "interested" | "invited" | "myEvents",
   ): boolean => {
     return userEventLists[list].includes(eventId);
   };
@@ -516,7 +526,7 @@ const EventsPage: React.FC = () => {
   const handleDeleteEvent = async (eventId: number) => {
     if (
       window.confirm(
-        "Are you sure you want to delete this event? This action cannot be undone."
+        "Are you sure you want to delete this event? This action cannot be undone.",
       )
     ) {
       setEventsError(null);
@@ -530,7 +540,9 @@ const EventsPage: React.FC = () => {
           // Remove from all user lists
           const updatedLists = {
             going: userEventLists.going.filter((id) => id !== eventId),
-            interested: userEventLists.interested.filter((id) => id !== eventId),
+            interested: userEventLists.interested.filter(
+              (id) => id !== eventId,
+            ),
             invited: userEventLists.invited.filter((id) => id !== eventId),
             myEvents: userEventLists.myEvents.filter((id) => id !== eventId),
           };
@@ -538,7 +550,10 @@ const EventsPage: React.FC = () => {
 
           // Save updated lists
           try {
-            localStorage.setItem("userEventLists", JSON.stringify(updatedLists));
+            localStorage.setItem(
+              "userEventLists",
+              JSON.stringify(updatedLists),
+            );
           } catch (error) {
             console.error("Error saving user event lists:", error);
           }
@@ -549,758 +564,778 @@ const EventsPage: React.FC = () => {
         }
       } catch (error) {
         console.error("Error deleting event:", error);
-        setEventsError(error instanceof Error ? error.message : "Failed to delete event");
+        setEventsError(
+          error instanceof Error ? error.message : "Failed to delete event",
+        );
         alert(
           error instanceof Error
             ? `Error: ${error.message}`
-            : "Error deleting event. Please try again."
+            : "Error deleting event. Please try again.",
         );
       }
     }
   };
 
   return (
-    <div className="events-page-wrapper events-page">
-      <div className="eventspage eventspage--with-fixed-header">
-      <NewsFeedHeader
-        isLeftSidebarOpen={isLeftSidebarOpen}
-        onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
-        onProfileClick={handleProfileClick}
-        showRightSidebarToggle={false}
-        {...headerNavProps}
-      />
-
-      {isLeftSidebarOpen && (
-        <div
-          className="newsfeed-overlay"
-          onClick={() => setIsLeftSidebarOpen(false)}
-          aria-hidden="true"
+    <div className="newsfeed-page events-page-wrapper events-page">
+      <div className="eventspage">
+        <NewsFeedHeader
+          isLeftSidebarOpen={isLeftSidebarOpen}
+          onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
+          onProfileClick={handleProfileClick}
+          showRightSidebarToggle={false}
+          {...headerNavProps}
         />
-      )}
-      <NewsFeedSidebar
-        isOpen={isLeftSidebarOpen}
-        onClose={() => setIsLeftSidebarOpen(false)}
-      />
 
-      {/* Hero Section */}
-      <section className="eventspage-hero">
-        <div className="eventspage-hero__container">
-          <div className="eventspage-hero__content">
-            <div className="eventspage-hero__illustration">
-              <Calendar size={90} fill="white" stroke="white" />
-            </div>
-            <div className="eventspage-hero__text">
-              <h1 className="eventspage-hero__title">Events</h1>
-              <p className="eventspage-hero__subtitle">Discover events</p>
-            </div>
-          </div>
-          <div className="eventspage-hero__search">
-            <SearchBar
-              placeholder="Search for Events"
-              variant="hero"
-              onSearch={(query) => {
-                // Filter events based on search query
-                // This will be implemented when events data is available
-                console.log("Searching for:", query);
-              }}
-              onResultClick={(result) => {
-                // Handle search result click
-                console.log("Search result clicked:", result);
-              }}
-              searchData={{
-                events: [], // Will be populated with actual events data
-              }}
+        <div className="newsfeed-container newsfeed-container--no-aside">
+          {isLeftSidebarOpen && (
+            <div
+              className="newsfeed-overlay"
+              onClick={() => setIsLeftSidebarOpen(false)}
+              aria-hidden="true"
             />
-          </div>
-        </div>
-      </section>
+          )}
+          <NewsFeedSidebar
+            isOpen={isLeftSidebarOpen}
+            onClose={() => setIsLeftSidebarOpen(false)}
+          />
 
-      {/* Navigation Tabs */}
-      <div className="eventspage-tabs">
-        <div className="eventspage-tabs__container">
-          <div className="eventspage-tabs__list">
-            {tabs.map((tab) => (
-              <button
-                key={tab}
-                className={`eventspage-tabs__item ${
-                  activeTab === tab ? "eventspage-tabs__item--active" : ""
-                }`}
-                onClick={() => setActiveTab(tab)}
-              >
-                {tab}
-              </button>
-            ))}
+          <main className="newsfeed-main" ref={mainContentRef}>
+        {/* Hero Section */}
+        <section className="eventspage-hero">
+          <div className="eventspage-hero__container">
+            <div className="eventspage-hero__content">
+              <div className="eventspage-hero__illustration">
+                <Calendar size={90} fill="white" stroke="white" />
+              </div>
+              <div className="eventspage-hero__text">
+                <h1 className="eventspage-hero__title">Events</h1>
+                <p className="eventspage-hero__subtitle">Discover events</p>
+              </div>
+            </div>
+            <div className="eventspage-hero__search">
+              <SearchBar
+                placeholder="Search for Events"
+                variant="hero"
+                onSearch={(query) => {
+                  // Filter events based on search query
+                  // This will be implemented when events data is available
+                  console.log("Searching for:", query);
+                }}
+                onResultClick={(result) => {
+                  // Handle search result click
+                  console.log("Search result clicked:", result);
+                }}
+                searchData={{
+                  events: [], // Will be populated with actual events data
+                }}
+              />
+            </div>
           </div>
-          <button
-            type="button"
-            className="eventspage-tabs__create-btn"
-            onClick={handleCreateEventClick}
-            title={
-              isAuthenticated()
-                ? "Create a new event"
-                : "Sign in to create an event"
-            }
-          >
-            <Plus size={18} />
-            <span>Add event</span>
-          </button>
-        </div>
-      </div>
+        </section>
 
-      {/* Content Wrapper */}
-      <div className="eventspage-content">
-        {/* Main Content Area */}
-        <div className="eventspage-container">
-          {/* Left Sidebar - Categories */}
-          <aside className="eventspage-sidebar">
-            <div className="eventspage-sidebar__categories">
-              {categories.map((category) => (
+        {/* Navigation Tabs */}
+        <div className="eventspage-tabs">
+          <div className="eventspage-tabs__container">
+            <div className="eventspage-tabs__list">
+              {tabs.map((tab) => (
                 <button
-                  key={category}
-                  className={`eventspage-sidebar__category ${
-                    selectedCategory === category
-                      ? "eventspage-sidebar__category--active"
-                      : ""
+                  key={tab}
+                  className={`eventspage-tabs__item ${
+                    activeTab === tab ? "eventspage-tabs__item--active" : ""
                   }`}
-                  onClick={() => setSelectedCategory(category)}
+                  onClick={() => setActiveTab(tab)}
                 >
-                  {category}
+                  {tab}
                 </button>
               ))}
             </div>
-          </aside>
-
-          {/* Main Content */}
-          <main className="eventspage-main" ref={mainContentRef}>
-            <div className="eventspage-main__header">
-              <div className="eventspage-main__header-left">
-                <h2 className="eventspage-main__title">
-                  {activeTab === "Discover"
-                    ? "Discover Events"
-                    : activeTab === "Going"
-                    ? "Going Events"
-                    : activeTab === "Interested"
-                    ? "Interested Events"
-                    : activeTab === "Invited"
-                    ? "Invited Events"
-                    : activeTab === "My Events"
-                    ? "My Events"
-                    : "Events"}
-                </h2>
-                {/* Mobile Category Filter Button */}
-                <button
-                  className="eventspage-main__category-toggle"
-                  onClick={() => setIsCategoryMenuOpen(!isCategoryMenuOpen)}
-                  aria-label="Filter by category"
-                >
-                  <Filter size={18} />
-                  <span>{selectedCategory}</span>
-                </button>
-              </div>
-              {(activeTab === "Going" ||
-                activeTab === "Interested" ||
-                activeTab === "Invited" ||
-                activeTab === "My Events") && (
-                <div className="eventspage-main__filters">
-                  <button className="eventspage-main__filter-btn">
-                    <FileText size={16} />
-                    <span>All Types</span>
-                  </button>
-                  <button className="eventspage-main__filter-btn">
-                    <Globe size={16} />
-                    <span>All Languages</span>
-                  </button>
-                </div>
-              )}
-            </div>
-            {/* Mobile Category Menu */}
-            {isCategoryMenuOpen && (
-              <>
-                <div
-                  className="eventspage-main__category-menu-backdrop"
-                  onClick={() => setIsCategoryMenuOpen(false)}
-                />
-                <div
-                  className="eventspage-main__category-menu"
-                  ref={categoryMenuRef}
-                >
-                  <div className="eventspage-main__category-menu-header">
-                    <h3>Filter by Category</h3>
-                    <button
-                      onClick={() => setIsCategoryMenuOpen(false)}
-                      aria-label="Close category menu"
-                    >
-                      <X size={20} />
-                    </button>
-                  </div>
-                  <div className="eventspage-main__category-menu-list">
-                    {categories.map((category) => (
-                      <button
-                        key={category}
-                        className={`eventspage-main__category-menu-item ${
-                          selectedCategory === category
-                            ? "eventspage-main__category-menu-item--active"
-                            : ""
-                        }`}
-                        onClick={() => {
-                          setSelectedCategory(category);
-                          setIsCategoryMenuOpen(false);
-                        }}
-                      >
-                        {category}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-            <div className="eventspage-main__content">
-              {eventsLoading ? (
-                <div className="eventspage-main__empty">
-                  <div className="eventspage-main__empty-illustration">
-                    <div className="eventspage-main__empty-icon">
-                      <Clock size={48} />
-                    </div>
-                  </div>
-                  <p className="eventspage-main__empty-text">Loading events...</p>
-                </div>
-              ) : eventsError ? (
-                <div className="eventspage-main__empty">
-                  <div className="eventspage-main__empty-illustration">
-                    <div className="eventspage-main__empty-icon">
-                      <X size={48} />
-                    </div>
-                  </div>
-                  <p className="eventspage-main__empty-text">Error loading events</p>
-                  <p className="eventspage-main__empty-subtext">{eventsError}</p>
-                </div>
-              ) : filteredEvents.length === 0 ? (
-                <div className="eventspage-main__empty">
-                  <div className="eventspage-main__empty-illustration">
-                    <div className="eventspage-main__empty-icon">
-                      <Search size={48} />
-                    </div>
-                  </div>
-                  <p className="eventspage-main__empty-text">No Data Found</p>
-                  <p className="eventspage-main__empty-subtext">
-                    {selectedCategory === "All"
-                      ? "There is no data to show you right now"
-                      : `No ${selectedCategory} events found`}
-                  </p>
-                </div>
-              ) : (
-                <div className="eventspage-main__events-list">
-                  {filteredEvents.map((event) => (
-                    <div key={event.id} className="eventspage-event-card">
-                      {event.image && (
-                        <div className="eventspage-event-card__image">
-                          <img src={event.image} alt={event.title} />
-                        </div>
-                      )}
-                      <div className="eventspage-event-card__content">
-                        <h3 className="eventspage-event-card__title">
-                          {event.title}
-                        </h3>
-                        {event.description && (
-                          <p className="eventspage-event-card__description">
-                            {event.description}
-                          </p>
-                        )}
-                        <div className="eventspage-event-card__meta">
-                          {event.date && (
-                            <span className="eventspage-event-card__date">
-                              <Calendar size={16} />
-                              {new Date(event.date).toLocaleDateString()}
-                              {event.date.includes("T") && (
-                                <span className="eventspage-event-card__time">
-                                  {" "}
-                                  {new Date(event.date).toLocaleTimeString(
-                                    "en-US",
-                                    {
-                                      hour: "numeric",
-                                      minute: "2-digit",
-                                      hour12: true,
-                                    }
-                                  )}
-                                </span>
-                              )}
-                            </span>
-                          )}
-                          {event.location && (
-                            <span className="eventspage-event-card__location">
-                              {event.location}
-                            </span>
-                          )}
-                        </div>
-                        <div className="eventspage-event-card__category">
-                          <span className="eventspage-event-card__category-badge">
-                            {event.category}
-                          </span>
-                        </div>
-                        {/* Capacity/Attendee Info - JOSCITY: going count; Gatewav: tickets sold from Ticketing API */}
-                        {event.capacity && (
-                          <div className="eventspage-event-card__capacity">
-                            <Users size={14} />
-                            <span>
-                              {isExternalEvent(event)
-                                ? `${event.tickets_sold ?? 0} / ${event.capacity} tickets`
-                                : `${getGoingCount(event.id)} / ${event.capacity} going`}
-                            </span>
-                            {(isExternalEvent(event)
-                              ? (event.tickets_sold ?? 0) >= event.capacity
-                              : getGoingCount(event.id) >= event.capacity) && (
-                              <span className="eventspage-event-card__capacity-full">
-                                Full
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {/* External event badge */}
-                        {isExternalEvent(event) && (
-                          <div className="eventspage-event-card__source-badge">
-                            {event.source === "gatewav" ? "Gatewav" : event.source}
-                          </div>
-                        )}
-                        <div className="eventspage-event-card__actions">
-                          {/* Buy tickets - for external (gatewav) events */}
-                          {isExternalEvent(event) && event.ticket_url && (
-                            <a
-                              href={event.ticket_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="eventspage-event-card__action-btn eventspage-event-card__action-btn--primary"
-                            >
-                              <Globe size={16} />
-                              <span>Buy tickets</span>
-                            </a>
-                          )}
-                          {/* Edit and Delete buttons - show for all user-created events on any tab */}
-                          {!isExternalEvent(event) && isEventCreatedByUser(event.id) && (
-                            <>
-                              <button
-                                className="eventspage-event-card__edit-btn"
-                                onClick={() => handleEditEvent(event.id)}
-                                title="Edit event"
-                              >
-                                <Edit size={16} />
-                                <span>Edit</span>
-                              </button>
-                              <button
-                                className="eventspage-event-card__delete-btn"
-                                onClick={() => handleDeleteEvent(event.id)}
-                                title="Delete event"
-                              >
-                                <X size={16} />
-                                <span>Delete</span>
-                              </button>
-                            </>
-                          )}
-
-                          {/* Going button - show Add if not in list, Remove if in list (only for JOSCITY events) */}
-                          {!isExternalEvent(event) && (isEventInList(event.id, "going") ? (
-                            <button
-                              className="eventspage-event-card__remove-btn"
-                              onClick={() =>
-                                handleEventAction(event.id, "going")
-                              }
-                              title="Remove from Going"
-                            >
-                              <X size={16} />
-                              <span>Remove from Going</span>
-                            </button>
-                          ) : (
-                            <button
-                              className="eventspage-event-card__action-btn"
-                              onClick={() =>
-                                handleEventAction(event.id, "going")
-                              }
-                              title="Add to Going"
-                            >
-                              <Calendar size={16} />
-                              <span>Going</span>
-                            </button>
-                          ))}
-
-                          {/* Interested button - show Add if not in list, Remove if in list (only for JOSCITY events) */}
-                          {!isExternalEvent(event) && (isEventInList(event.id, "interested") ? (
-                            <button
-                              className="eventspage-event-card__remove-btn"
-                              onClick={() =>
-                                handleEventAction(event.id, "interested")
-                              }
-                              title="Remove from Interested"
-                            >
-                              <X size={16} />
-                              <span>Remove from Interested</span>
-                            </button>
-                          ) : (
-                            <button
-                              className="eventspage-event-card__action-btn"
-                              onClick={() =>
-                                handleEventAction(event.id, "interested")
-                              }
-                              title="Add to Interested"
-                            >
-                              <Users size={16} />
-                              <span>Interested</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </main>
-        </div>
-      </div>
-
-      {/* Create Event Modal */}
-      {isCreateEventModalOpen && (
-        <>
-          <div
-            className="eventspage-create-modal__backdrop"
-            onClick={handleCloseCreateEventModal}
-          />
-          <div
-            className="eventspage-create-modal"
-            ref={isEditEventModalOpen ? editEventModalRef : createEventModalRef}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="eventspage-create-modal__header">
-              <h2 className="eventspage-create-modal__title">
-                {editingEventId ? "Edit Event" : "Create New Event"}
-              </h2>
-              <button
-                className="eventspage-create-modal__close"
-                onClick={handleCloseCreateEventModal}
-                aria-label="Close modal"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <form
-              className="eventspage-create-modal__form"
-              onSubmit={handleSubmitEvent}
+            <button
+              type="button"
+              className="eventspage-tabs__create-btn"
+              onClick={handleCreateEventClick}
+              title={
+                isAuthenticated()
+                  ? "Create a new event"
+                  : "Sign in to create an event"
+              }
             >
-              {/* Event Image Upload */}
-              <div className="eventspage-create-modal__field">
-                <label className="eventspage-create-modal__label">
-                  <ImageIcon size={18} />
-                  Event Image
-                </label>
-                <div className="eventspage-create-modal__image-upload">
-                  {eventForm.imagePreview ? (
-                    <div className="eventspage-create-modal__image-preview">
-                      <img
-                        src={eventForm.imagePreview}
-                        alt="Event preview"
-                        className="eventspage-create-modal__preview-img"
-                      />
-                      <button
-                        type="button"
-                        className="eventspage-create-modal__remove-image"
-                        onClick={() =>
-                          setEventForm((prev) => ({
-                            ...prev,
-                            image: null,
-                            imagePreview: "",
-                          }))
-                        }
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  ) : (
-                    <label className="eventspage-create-modal__upload-area">
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                        onChange={handleImageChange}
-                        className="eventspage-create-modal__file-input"
-                      />
-                      <ImageIcon size={32} />
-                      <span>Click to upload image</span>
-                      <span className="eventspage-create-modal__upload-hint">
-                        PNG, JPG, GIF, WebP up to 10MB
-                      </span>
-                    </label>
-                  )}
+              <Plus size={18} />
+              <span>Add event</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Content Wrapper */}
+        <div className="eventspage-content">
+          {/* Main Content Area */}
+          <div className="eventspage-container">
+            {/* Left Sidebar - Categories */}
+            <aside className="eventspage-sidebar">
+              <div className="eventspage-sidebar__categories">
+                {categories.map((category) => (
+                  <button
+                    key={category}
+                    className={`eventspage-sidebar__category ${
+                      selectedCategory === category
+                        ? "eventspage-sidebar__category--active"
+                        : ""
+                    }`}
+                    onClick={() => setSelectedCategory(category)}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+            </aside>
+
+            {/* Main Content */}
+            <div className="eventspage-main">
+              <div className="eventspage-main__header">
+                <div className="eventspage-main__header-left">
+                  <h2 className="eventspage-main__title">
+                    {activeTab === "Discover"
+                      ? "Discover Events"
+                      : activeTab === "Going"
+                        ? "Going Events"
+                        : activeTab === "Interested"
+                          ? "Interested Events"
+                          : activeTab === "Invited"
+                            ? "Invited Events"
+                            : activeTab === "My Events"
+                              ? "My Events"
+                              : "Events"}
+                  </h2>
+                  {/* Mobile Category Filter Button */}
+                  <button
+                    className="eventspage-main__category-toggle"
+                    onClick={() => setIsCategoryMenuOpen(!isCategoryMenuOpen)}
+                    aria-label="Filter by category"
+                  >
+                    <Filter size={18} />
+                    <span>{selectedCategory}</span>
+                  </button>
                 </div>
-                {imageError && (
-                  <div className="eventspage-create-modal__error">
-                    {imageError}
+                {(activeTab === "Going" ||
+                  activeTab === "Interested" ||
+                  activeTab === "Invited" ||
+                  activeTab === "My Events") && (
+                  <div className="eventspage-main__filters">
+                    <button className="eventspage-main__filter-btn">
+                      <FileText size={16} />
+                      <span>All Types</span>
+                    </button>
+                    <button className="eventspage-main__filter-btn">
+                      <Globe size={16} />
+                      <span>All Languages</span>
+                    </button>
                   </div>
                 )}
               </div>
-
-              {/* Event Title */}
-              <div className="eventspage-create-modal__field">
-                <label
-                  htmlFor="event-title"
-                  className="eventspage-create-modal__label"
-                >
-                  Event Title *
-                </label>
-                <input
-                  type="text"
-                  id="event-title"
-                  name="title"
-                  value={eventForm.title}
-                  onChange={handleEventFormChange}
-                  className="eventspage-create-modal__input"
-                  placeholder="Enter event title"
-                  required
-                />
-              </div>
-
-              {/* Event Description */}
-              <div className="eventspage-create-modal__field">
-                <label
-                  htmlFor="event-description"
-                  className="eventspage-create-modal__label"
-                >
-                  Description *
-                </label>
-                <textarea
-                  id="event-description"
-                  name="description"
-                  value={eventForm.description}
-                  onChange={handleEventFormChange}
-                  className="eventspage-create-modal__textarea"
-                  placeholder="Describe your event..."
-                  rows={4}
-                  required
-                />
-              </div>
-
-              {/* Category and Date Row */}
-              <div className="eventspage-create-modal__row">
-                <div className="eventspage-create-modal__field">
-                  <label
-                    htmlFor="event-category"
-                    className="eventspage-create-modal__label"
-                  >
-                    Category *
-                  </label>
-                  <select
-                    id="event-category"
-                    name="category"
-                    value={eventForm.category}
-                    onChange={handleEventFormChange}
-                    className="eventspage-create-modal__select"
-                    required
-                  >
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="eventspage-create-modal__field">
-                  <label
-                    htmlFor="event-date"
-                    className="eventspage-create-modal__label"
-                  >
-                    Date *
-                  </label>
-                  <input
-                    type="date"
-                    id="event-date"
-                    name="date"
-                    value={eventForm.date}
-                    onChange={handleEventFormChange}
-                    className="eventspage-create-modal__input"
-                    required
-                    min={new Date().toISOString().split("T")[0]}
+              {/* Mobile Category Menu */}
+              {isCategoryMenuOpen && (
+                <>
+                  <div
+                    className="eventspage-main__category-menu-backdrop"
+                    onClick={() => setIsCategoryMenuOpen(false)}
                   />
-                </div>
+                  <div
+                    className="eventspage-main__category-menu"
+                    ref={categoryMenuRef}
+                  >
+                    <div className="eventspage-main__category-menu-header">
+                      <h3>Filter by Category</h3>
+                      <button
+                        onClick={() => setIsCategoryMenuOpen(false)}
+                        aria-label="Close category menu"
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
+                    <div className="eventspage-main__category-menu-list">
+                      {categories.map((category) => (
+                        <button
+                          key={category}
+                          className={`eventspage-main__category-menu-item ${
+                            selectedCategory === category
+                              ? "eventspage-main__category-menu-item--active"
+                              : ""
+                          }`}
+                          onClick={() => {
+                            setSelectedCategory(category);
+                            setIsCategoryMenuOpen(false);
+                          }}
+                        >
+                          {category}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+              <div className="eventspage-main__content">
+                {eventsLoading ? (
+                  <div className="eventspage-main__empty">
+                    <div className="eventspage-main__empty-illustration">
+                      <div className="eventspage-main__empty-icon">
+                        <Clock size={48} />
+                      </div>
+                    </div>
+                    <p className="eventspage-main__empty-text">
+                      Loading events...
+                    </p>
+                  </div>
+                ) : eventsError ? (
+                  <div className="eventspage-main__empty">
+                    <div className="eventspage-main__empty-illustration">
+                      <div className="eventspage-main__empty-icon">
+                        <X size={48} />
+                      </div>
+                    </div>
+                    <p className="eventspage-main__empty-text">
+                      Error loading events
+                    </p>
+                    <p className="eventspage-main__empty-subtext">
+                      {eventsError}
+                    </p>
+                  </div>
+                ) : filteredEvents.length === 0 ? (
+                  <div className="eventspage-main__empty">
+                    <div className="eventspage-main__empty-illustration">
+                      <div className="eventspage-main__empty-icon">
+                        <Search size={48} />
+                      </div>
+                    </div>
+                    <p className="eventspage-main__empty-text">No Data Found</p>
+                    <p className="eventspage-main__empty-subtext">
+                      {selectedCategory === "All"
+                        ? "There is no data to show you right now"
+                        : `No ${selectedCategory} events found`}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="eventspage-main__events-list">
+                    {filteredEvents.map((event) => (
+                      <div key={event.id} className="eventspage-event-card">
+                        {event.image && (
+                          <div className="eventspage-event-card__image">
+                            <img src={event.image} alt={event.title} />
+                          </div>
+                        )}
+                        <div className="eventspage-event-card__content">
+                          <h3 className="eventspage-event-card__title">
+                            {event.title}
+                          </h3>
+                          {event.description && (
+                            <p className="eventspage-event-card__description">
+                              {event.description}
+                            </p>
+                          )}
+                          <div className="eventspage-event-card__meta">
+                            {event.date && (
+                              <span className="eventspage-event-card__date">
+                                <Calendar size={16} />
+                                {new Date(event.date).toLocaleDateString()}
+                                {event.date.includes("T") && (
+                                  <span className="eventspage-event-card__time">
+                                    {" "}
+                                    {new Date(event.date).toLocaleTimeString(
+                                      "en-US",
+                                      {
+                                        hour: "numeric",
+                                        minute: "2-digit",
+                                        hour12: true,
+                                      },
+                                    )}
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                            {event.location && (
+                              <span className="eventspage-event-card__location">
+                                {event.location}
+                              </span>
+                            )}
+                          </div>
+                          <div className="eventspage-event-card__category">
+                            <span className="eventspage-event-card__category-badge">
+                              {event.category}
+                            </span>
+                          </div>
+                          {/* Capacity/Attendee Info - JOSCITY: going count; Gatewav: tickets sold from Ticketing API */}
+                          {event.capacity && (
+                            <div className="eventspage-event-card__capacity">
+                              <Users size={14} />
+                              <span>
+                                {isExternalEvent(event)
+                                  ? `${event.tickets_sold ?? 0} / ${event.capacity} tickets`
+                                  : `${getGoingCount(event.id)} / ${event.capacity} going`}
+                              </span>
+                              {(isExternalEvent(event)
+                                ? (event.tickets_sold ?? 0) >= event.capacity
+                                : getGoingCount(event.id) >=
+                                  event.capacity) && (
+                                <span className="eventspage-event-card__capacity-full">
+                                  Full
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {/* External event badge */}
+                          {isExternalEvent(event) && (
+                            <div className="eventspage-event-card__source-badge">
+                              {event.source === "gatewav"
+                                ? "Gatewav"
+                                : event.source}
+                            </div>
+                          )}
+                          <div className="eventspage-event-card__actions">
+                            {/* Buy tickets - for external (gatewav) events */}
+                            {isExternalEvent(event) && event.ticket_url && (
+                              <a
+                                href={event.ticket_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="eventspage-event-card__action-btn eventspage-event-card__action-btn--primary"
+                              >
+                                <Globe size={16} />
+                                <span>Buy tickets</span>
+                              </a>
+                            )}
+                            {/* Edit and Delete buttons - show for all user-created events on any tab */}
+                            {!isExternalEvent(event) &&
+                              isEventCreatedByUser(event.id) && (
+                                <>
+                                  <button
+                                    className="eventspage-event-card__edit-btn"
+                                    onClick={() => handleEditEvent(event.id)}
+                                    title="Edit event"
+                                  >
+                                    <Edit size={16} />
+                                    <span>Edit</span>
+                                  </button>
+                                  <button
+                                    className="eventspage-event-card__delete-btn"
+                                    onClick={() => handleDeleteEvent(event.id)}
+                                    title="Delete event"
+                                  >
+                                    <X size={16} />
+                                    <span>Delete</span>
+                                  </button>
+                                </>
+                              )}
+
+                            {/* Going button - show Add if not in list, Remove if in list (only for JOSCITY events) */}
+                            {!isExternalEvent(event) &&
+                              (isEventInList(event.id, "going") ? (
+                                <button
+                                  className="eventspage-event-card__remove-btn"
+                                  onClick={() =>
+                                    handleEventAction(event.id, "going")
+                                  }
+                                  title="Remove from Going"
+                                >
+                                  <X size={16} />
+                                  <span>Remove from Going</span>
+                                </button>
+                              ) : (
+                                <button
+                                  className="eventspage-event-card__action-btn"
+                                  onClick={() =>
+                                    handleEventAction(event.id, "going")
+                                  }
+                                  title="Add to Going"
+                                >
+                                  <Calendar size={16} />
+                                  <span>Going</span>
+                                </button>
+                              ))}
+
+                            {/* Interested button - show Add if not in list, Remove if in list (only for JOSCITY events) */}
+                            {!isExternalEvent(event) &&
+                              (isEventInList(event.id, "interested") ? (
+                                <button
+                                  className="eventspage-event-card__remove-btn"
+                                  onClick={() =>
+                                    handleEventAction(event.id, "interested")
+                                  }
+                                  title="Remove from Interested"
+                                >
+                                  <X size={16} />
+                                  <span>Remove from Interested</span>
+                                </button>
+                              ) : (
+                                <button
+                                  className="eventspage-event-card__action-btn"
+                                  onClick={() =>
+                                    handleEventAction(event.id, "interested")
+                                  }
+                                  title="Add to Interested"
+                                >
+                                  <Users size={16} />
+                                  <span>Interested</span>
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+          </main>
+        </div>
+
+        {/* Create Event Modal */}
+        {isCreateEventModalOpen && (
+          <>
+            <div
+              className="eventspage-create-modal__backdrop"
+              onClick={handleCloseCreateEventModal}
+            />
+            <div
+              className="eventspage-create-modal"
+              ref={
+                isEditEventModalOpen ? editEventModalRef : createEventModalRef
+              }
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="eventspage-create-modal__header">
+                <h2 className="eventspage-create-modal__title">
+                  {editingEventId ? "Edit Event" : "Create New Event"}
+                </h2>
+                <button
+                  className="eventspage-create-modal__close"
+                  onClick={handleCloseCreateEventModal}
+                  aria-label="Close modal"
+                >
+                  <X size={24} />
+                </button>
               </div>
 
-              {/* Time and Location Row */}
-              <div className="eventspage-create-modal__row">
+              <form
+                className="eventspage-create-modal__form"
+                onSubmit={handleSubmitEvent}
+              >
+                {/* Event Image Upload */}
                 <div className="eventspage-create-modal__field">
-                  <label
-                    htmlFor="event-time"
-                    className="eventspage-create-modal__label"
-                  >
-                    Time *
+                  <label className="eventspage-create-modal__label">
+                    <ImageIcon size={18} />
+                    Event Image
                   </label>
-                  <div className="eventspage-create-modal__time-inputs">
-                    <select
-                      name="timeHour"
-                      value={eventForm.timeHour}
-                      onChange={handleEventFormChange}
-                      className="eventspage-create-modal__time-select"
-                      required
-                    >
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map(
-                        (hour) => (
-                          <option key={hour} value={hour.toString()}>
-                            {hour}
-                          </option>
-                        )
-                      )}
-                    </select>
-                    <span className="eventspage-create-modal__time-separator">
-                      :
-                    </span>
-                    <select
-                      name="timeMinute"
-                      value={eventForm.timeMinute}
-                      onChange={handleEventFormChange}
-                      className="eventspage-create-modal__time-select"
-                      required
-                    >
-                      {Array.from({ length: 60 }, (_, i) => i).map((min) => (
-                        <option
-                          key={min}
-                          value={min.toString().padStart(2, "0")}
+                  <div className="eventspage-create-modal__image-upload">
+                    {eventForm.imagePreview ? (
+                      <div className="eventspage-create-modal__image-preview">
+                        <img
+                          src={eventForm.imagePreview}
+                          alt="Event preview"
+                          className="eventspage-create-modal__preview-img"
+                        />
+                        <button
+                          type="button"
+                          className="eventspage-create-modal__remove-image"
+                          onClick={() =>
+                            setEventForm((prev) => ({
+                              ...prev,
+                              image: null,
+                              imagePreview: "",
+                            }))
+                          }
                         >
-                          {min.toString().padStart(2, "0")}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      name="timePeriod"
-                      value={eventForm.timePeriod}
-                      onChange={handleEventFormChange}
-                      className="eventspage-create-modal__time-select"
-                      required
-                    >
-                      <option value="AM">AM</option>
-                      <option value="PM">PM</option>
-                    </select>
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="eventspage-create-modal__upload-area">
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                          onChange={handleImageChange}
+                          className="eventspage-create-modal__file-input"
+                        />
+                        <ImageIcon size={32} />
+                        <span>Click to upload image</span>
+                        <span className="eventspage-create-modal__upload-hint">
+                          PNG, JPG, GIF, WebP up to 10MB
+                        </span>
+                      </label>
+                    )}
                   </div>
+                  {imageError && (
+                    <div className="eventspage-create-modal__error">
+                      {imageError}
+                    </div>
+                  )}
                 </div>
 
+                {/* Event Title */}
                 <div className="eventspage-create-modal__field">
                   <label
-                    htmlFor="event-location"
+                    htmlFor="event-title"
                     className="eventspage-create-modal__label"
                   >
-                    <MapPin size={16} />
-                    Location *
+                    Event Title *
                   </label>
                   <input
                     type="text"
-                    id="event-location"
-                    name="location"
-                    value={eventForm.location}
+                    id="event-title"
+                    name="title"
+                    value={eventForm.title}
                     onChange={handleEventFormChange}
                     className="eventspage-create-modal__input"
-                    placeholder="Event location"
+                    placeholder="Enter event title"
                     required
                   />
                 </div>
-              </div>
 
-              {/* Capacity and Price Row */}
-              <div className="eventspage-create-modal__row">
+                {/* Event Description */}
                 <div className="eventspage-create-modal__field">
                   <label
-                    htmlFor="event-capacity"
+                    htmlFor="event-description"
                     className="eventspage-create-modal__label"
                   >
-                    <User size={16} />
-                    Capacity
+                    Description *
                   </label>
-                  <input
-                    type="number"
-                    id="event-capacity"
-                    name="capacity"
-                    value={eventForm.capacity}
+                  <textarea
+                    id="event-description"
+                    name="description"
+                    value={eventForm.description}
                     onChange={handleEventFormChange}
-                    className="eventspage-create-modal__input"
-                    placeholder="Max attendees"
-                    min="1"
+                    className="eventspage-create-modal__textarea"
+                    placeholder="Describe your event..."
+                    rows={4}
+                    required
                   />
                 </div>
 
-                <div className="eventspage-create-modal__field">
-                  <label
-                    htmlFor="event-price"
-                    className="eventspage-create-modal__label"
-                  >
-                    <DollarSign size={16} />
-                    Price
-                  </label>
-                  <input
-                    type="number"
-                    id="event-price"
-                    name="price"
-                    value={eventForm.price}
-                    onChange={handleEventFormChange}
-                    className="eventspage-create-modal__input"
-                    placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-              </div>
-
-              {/* Privacy Setting */}
-              <div className="eventspage-create-modal__field">
-                <label className="eventspage-create-modal__checkbox-label">
-                  <input
-                    type="checkbox"
-                    name="isPublic"
-                    checked={eventForm.isPublic}
-                    onChange={(e) =>
-                      setEventForm((prev) => ({
-                        ...prev,
-                        isPublic: e.target.checked,
-                      }))
-                    }
-                    className="eventspage-create-modal__checkbox"
-                  />
-                  <div className="eventspage-create-modal__checkbox-content">
-                    {eventForm.isPublic ? (
-                      <Eye size={18} />
-                    ) : (
-                      <EyeOff size={18} />
-                    )}
-                    <span>
-                      {eventForm.isPublic ? "Public Event" : "Private Event"}
-                    </span>
+                {/* Category and Date Row */}
+                <div className="eventspage-create-modal__row">
+                  <div className="eventspage-create-modal__field">
+                    <label
+                      htmlFor="event-category"
+                      className="eventspage-create-modal__label"
+                    >
+                      Category *
+                    </label>
+                    <select
+                      id="event-category"
+                      name="category"
+                      value={eventForm.category}
+                      onChange={handleEventFormChange}
+                      className="eventspage-create-modal__select"
+                      required
+                    >
+                      {categories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                </label>
-              </div>
 
-              {/* Form Actions */}
-              <div className="eventspage-create-modal__actions">
-                <button
-                  type="button"
-                  className="eventspage-create-modal__cancel"
-                  onClick={handleCloseCreateEventModal}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="eventspage-create-modal__submit"
-                >
-                  {editingEventId ? (
-                    <>
-                      <Edit size={18} />
-                      Update Event
-                    </>
-                  ) : (
-                    <>
-                      <Plus size={18} />
-                      Create Event
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </>
-      )}
+                  <div className="eventspage-create-modal__field">
+                    <label
+                      htmlFor="event-date"
+                      className="eventspage-create-modal__label"
+                    >
+                      Date *
+                    </label>
+                    <input
+                      type="date"
+                      id="event-date"
+                      name="date"
+                      value={eventForm.date}
+                      onChange={handleEventFormChange}
+                      className="eventspage-create-modal__input"
+                      required
+                      min={new Date().toISOString().split("T")[0]}
+                    />
+                  </div>
+                </div>
+
+                {/* Time and Location Row */}
+                <div className="eventspage-create-modal__row">
+                  <div className="eventspage-create-modal__field">
+                    <label
+                      htmlFor="event-time"
+                      className="eventspage-create-modal__label"
+                    >
+                      Time *
+                    </label>
+                    <div className="eventspage-create-modal__time-inputs">
+                      <select
+                        name="timeHour"
+                        value={eventForm.timeHour}
+                        onChange={handleEventFormChange}
+                        className="eventspage-create-modal__time-select"
+                        required
+                      >
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(
+                          (hour) => (
+                            <option key={hour} value={hour.toString()}>
+                              {hour}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                      <span className="eventspage-create-modal__time-separator">
+                        :
+                      </span>
+                      <select
+                        name="timeMinute"
+                        value={eventForm.timeMinute}
+                        onChange={handleEventFormChange}
+                        className="eventspage-create-modal__time-select"
+                        required
+                      >
+                        {Array.from({ length: 60 }, (_, i) => i).map((min) => (
+                          <option
+                            key={min}
+                            value={min.toString().padStart(2, "0")}
+                          >
+                            {min.toString().padStart(2, "0")}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        name="timePeriod"
+                        value={eventForm.timePeriod}
+                        onChange={handleEventFormChange}
+                        className="eventspage-create-modal__time-select"
+                        required
+                      >
+                        <option value="AM">AM</option>
+                        <option value="PM">PM</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="eventspage-create-modal__field">
+                    <label
+                      htmlFor="event-location"
+                      className="eventspage-create-modal__label"
+                    >
+                      <MapPin size={16} />
+                      Location *
+                    </label>
+                    <input
+                      type="text"
+                      id="event-location"
+                      name="location"
+                      value={eventForm.location}
+                      onChange={handleEventFormChange}
+                      className="eventspage-create-modal__input"
+                      placeholder="Event location"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Capacity and Price Row */}
+                <div className="eventspage-create-modal__row">
+                  <div className="eventspage-create-modal__field">
+                    <label
+                      htmlFor="event-capacity"
+                      className="eventspage-create-modal__label"
+                    >
+                      <User size={16} />
+                      Capacity
+                    </label>
+                    <input
+                      type="number"
+                      id="event-capacity"
+                      name="capacity"
+                      value={eventForm.capacity}
+                      onChange={handleEventFormChange}
+                      className="eventspage-create-modal__input"
+                      placeholder="Max attendees"
+                      min="1"
+                    />
+                  </div>
+
+                  <div className="eventspage-create-modal__field">
+                    <label
+                      htmlFor="event-price"
+                      className="eventspage-create-modal__label"
+                    >
+                      <DollarSign size={16} />
+                      Price
+                    </label>
+                    <input
+                      type="number"
+                      id="event-price"
+                      name="price"
+                      value={eventForm.price}
+                      onChange={handleEventFormChange}
+                      className="eventspage-create-modal__input"
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+
+                {/* Privacy Setting */}
+                <div className="eventspage-create-modal__field">
+                  <label className="eventspage-create-modal__checkbox-label">
+                    <input
+                      type="checkbox"
+                      name="isPublic"
+                      checked={eventForm.isPublic}
+                      onChange={(e) =>
+                        setEventForm((prev) => ({
+                          ...prev,
+                          isPublic: e.target.checked,
+                        }))
+                      }
+                      className="eventspage-create-modal__checkbox"
+                    />
+                    <div className="eventspage-create-modal__checkbox-content">
+                      {eventForm.isPublic ? (
+                        <Eye size={18} />
+                      ) : (
+                        <EyeOff size={18} />
+                      )}
+                      <span>
+                        {eventForm.isPublic ? "Public Event" : "Private Event"}
+                      </span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Form Actions */}
+                <div className="eventspage-create-modal__actions">
+                  <button
+                    type="button"
+                    className="eventspage-create-modal__cancel"
+                    onClick={handleCloseCreateEventModal}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="eventspage-create-modal__submit"
+                  >
+                    {editingEventId ? (
+                      <>
+                        <Edit size={18} />
+                        Update Event
+                      </>
+                    ) : (
+                      <>
+                        <Plus size={18} />
+                        Create Event
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </>
+        )}
       </div>
 
       {panels}

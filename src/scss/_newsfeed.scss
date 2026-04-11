@@ -825,30 +825,62 @@
 
   @media (max-width: 992px) {
     position: fixed;
-    top: 64px;
+    // Align top edge with NewsFeed header (PWA strip + bar); fill to bottom of viewport.
+    top: calc(37px + (80px * 0.93 - 10px));
     left: 0;
     bottom: 0;
     width: 280px;
     max-width: 85vw;
     z-index: 1100;
-    transform: translateX(-100%);
-    opacity: 0;
+    transform: translate3d(-100%, 0, 0);
     visibility: hidden;
+    pointer-events: none;
     border-radius: 0;
-    border-top-right-radius: 12px;
-    border-bottom-right-radius: 12px;
-    overflow: visible; // No scrolling on mobile
-    height: auto;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
     padding: 16px;
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+    box-shadow: 2px 0 24px rgba(0, 0, 0, 0.22);
     background-color: var(--card-bg);
+    transition:
+      transform 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+      visibility 0s linear 0.36s,
+      pointer-events 0s linear 0.36s,
+      box-shadow 0.32s ease;
+
+    @media (max-width: 768px) {
+      top: calc(37px + 15px + (80px * 0.93 - 10px));
+      width: 260px;
+      padding: 14px;
+      padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
+    }
+
+    @media (max-width: 480px) {
+      width: 240px;
+      max-width: 80vw;
+      padding: 12px;
+      padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    }
+
+    @media (max-width: 360px) {
+      width: 220px;
+      max-width: 75vw;
+      padding: 10px;
+      padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    }
   }
 
   &--open {
     @media (max-width: 992px) {
-      transform: translateX(0);
-      opacity: 1;
+      transform: translate3d(0, 0, 0);
       visibility: visible;
+      pointer-events: auto;
+      transition:
+        transform 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+        visibility 0s linear 0s,
+        pointer-events 0s linear 0s,
+        box-shadow 0.32s ease;
     }
   }
 
@@ -862,6 +894,7 @@
 
     @media (max-width: 992px) {
       display: flex;
+      flex-shrink: 0;
     }
   }
 
@@ -893,6 +926,14 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+
+    @media (max-width: 992px) {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
   }
 
   &__section {

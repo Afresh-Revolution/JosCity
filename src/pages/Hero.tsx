@@ -392,6 +392,7 @@ function Hero() {
           ))}
         </div>
       </div>
+
       <AboutSection />
       <section id="news" className="landing-news" aria-labelledby="landing-news-title">
         <div className="landing-news__ambient" aria-hidden />

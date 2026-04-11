@@ -526,6 +526,9 @@ export interface Event {
   event_cover: string;
   event_date: string;
   event_admin: string;
+  event_category?: string;
+  event_location?: string;
+  event_capacity?: number;
   user_name?: string;
   user_firstname?: string;
   user_lastname?: string;

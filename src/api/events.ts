@@ -37,6 +37,43 @@ export interface EventsResponse {
   };
 }
 
+export interface LandingEventsResponse {
+  success: boolean;
+  data: Event[];
+}
+
+/**
+ * Public landing feed (no auth). Same event shape as getEvents list items.
+ */
+export const getPublicLandingEvents = async (params?: {
+  limit?: number;
+}): Promise<LandingEventsResponse> => {
+  const q = new URLSearchParams();
+  if (params?.limit) q.set("limit", String(params.limit));
+  const qs = q.toString();
+  const response = await fetch(
+    `${API_BASE_URL}/events/public/landing${qs ? `?${qs}` : ""}`,
+    {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(30000),
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      typeof errorData.message === "string"
+        ? errorData.message
+        : typeof errorData.error === "string"
+          ? errorData.error
+          : `HTTP ${response.status}: ${response.statusText}`
+    );
+  }
+
+  return response.json();
+};
+
 export interface EventResponse {
   success: boolean;
   data: Event;

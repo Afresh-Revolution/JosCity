@@ -9,15 +9,19 @@ import NewsFeedHeader from "./NewsFeed/NewsFeedHeader";
 import NewsFeedSidebar from "./NewsFeed/NewsFeedSidebar";
 import { getEvents, type Event } from "../api/events";
 import { getProfileUsername } from "../utils/userUtils";
+import eventPlaceholder from "../image/discover.jpg";
 
-const normalizeEvent = (event: Event) => ({
-  id: event.event_id ?? event.id,
-  title: event.event_title || event.title,
-  description: event.event_description || event.description || "",
-  date: event.event_date || event.date,
-  location: event.event_location || event.location || "",
-  image: event.event_cover || event.image || "",
-});
+const normalizeEvent = (event: Event) => {
+  const rawCover = event.event_cover || event.image || "";
+  return {
+    id: event.event_id ?? event.id,
+    title: event.event_title || event.title,
+    description: event.event_description || event.description || "",
+    date: event.event_date || event.date,
+    location: event.event_location || event.location || "",
+    image: String(rawCover).trim() || eventPlaceholder,
+  };
+};
 
 const Events: React.FC = () => {
   const navigate = useNavigate();
@@ -73,9 +77,7 @@ const Events: React.FC = () => {
 
       try {
         const response = await getEvents({ limit: 6 });
-        const normalizedEvents = (response.data || [])
-          .map(normalizeEvent)
-          .filter((event) => !!event.image);
+        const normalizedEvents = (response.data || []).map(normalizeEvent);
         setEvents(normalizedEvents);
       } catch (loadError) {
         setError(

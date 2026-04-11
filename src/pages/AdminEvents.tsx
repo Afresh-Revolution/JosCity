@@ -214,12 +214,13 @@ const AdminEvents: React.FC = () => {
     setCreateForm({
       title: event.event_title || "",
       description: event.event_description || "",
-      category: "",
+      category: event.event_category || "",
       date: formattedDate,
       time: formattedTime,
-      location: "",
+      location: event.event_location || "",
       image: event.event_cover || "",
-      capacity: "",
+      capacity:
+        event.event_capacity != null ? String(event.event_capacity) : "",
     });
     setFormError(null);
     setSuccess(null);
@@ -312,11 +313,16 @@ const AdminEvents: React.FC = () => {
                   <div className="admin-event-card__info">
                     <h3>{event.event_title}</h3>
                     <p className="admin-event-card__description">
-                      {event.event_description?.substring(0, 100)}...
+                      {event.event_description && event.event_description.length > 100
+                        ? `${event.event_description.substring(0, 100)}…`
+                        : event.event_description || ""}
                     </p>
                     <div className="admin-event-card__organizer">
                       <span>
-                        Organizer: {event.user_firstname} {event.user_lastname}
+                        Organizer:{" "}
+                        {event.user_firstname || event.user_lastname
+                          ? `${event.user_firstname || ""} ${event.user_lastname || ""}`.trim()
+                          : "JOSCity (official)"}
                       </span>
                     </div>
                   </div>

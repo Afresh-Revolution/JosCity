@@ -57,7 +57,7 @@ export const getPublicLandingEvents = async (params?: {
       method: "GET",
       headers: { "Content-Type": "application/json" },
       signal: AbortSignal.timeout(30000),
-    }
+    },
   );
 
   if (!response.ok) {
@@ -67,7 +67,7 @@ export const getPublicLandingEvents = async (params?: {
         ? errorData.message
         : typeof errorData.error === "string"
           ? errorData.error
-          : `HTTP ${response.status}: ${response.statusText}`
+          : `HTTP ${response.status}: ${response.statusText}`,
     );
   }
 
@@ -98,7 +98,7 @@ export const createEvent = async (eventData: {
   capacity?: number;
 }): Promise<EventResponse> => {
   const token = getAuthToken();
-  
+
   if (!token) {
     throw new Error("Authentication required");
   }
@@ -115,7 +115,11 @@ export const createEvent = async (eventData: {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    throw new Error(
+      errorData.error ||
+        errorData.message ||
+        `HTTP ${response.status}: ${response.statusText}`,
+    );
   }
 
   return response.json();
@@ -134,10 +138,10 @@ export const updateEvent = async (
     location?: string;
     image?: string;
     capacity?: number;
-  }
+  },
 ): Promise<EventResponse> => {
   const token = getAuthToken();
-  
+
   if (!token) {
     throw new Error("Authentication required");
   }
@@ -154,7 +158,11 @@ export const updateEvent = async (
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    throw new Error(
+      errorData.error ||
+        errorData.message ||
+        `HTTP ${response.status}: ${response.statusText}`,
+    );
   }
 
   return response.json();
@@ -188,7 +196,11 @@ export const getEvents = async (params?: {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    throw new Error(
+      errorData.error ||
+        errorData.message ||
+        `HTTP ${response.status}: ${response.statusText}`,
+    );
   }
 
   return response.json();
@@ -208,7 +220,11 @@ export const getEvent = async (eventId: number): Promise<EventResponse> => {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    throw new Error(
+      errorData.error ||
+        errorData.message ||
+        `HTTP ${response.status}: ${response.statusText}`,
+    );
   }
 
   return response.json();
@@ -217,9 +233,11 @@ export const getEvent = async (eventId: number): Promise<EventResponse> => {
 /**
  * Delete an event
  */
-export const deleteEvent = async (eventId: number): Promise<{ success: boolean; message: string }> => {
+export const deleteEvent = async (
+  eventId: number,
+): Promise<{ success: boolean; message: string }> => {
   const token = getAuthToken();
-  
+
   if (!token) {
     throw new Error("Authentication required");
   }
@@ -235,9 +253,12 @@ export const deleteEvent = async (eventId: number): Promise<{ success: boolean; 
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    throw new Error(
+      errorData.error ||
+        errorData.message ||
+        `HTTP ${response.status}: ${response.statusText}`,
+    );
   }
 
   return response.json();
 };
-

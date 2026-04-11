@@ -7,7 +7,11 @@ import ChatPanel from "../components/ChatPanel";
 import FindFriendsModal from "../components/FindFriendsModal";
 import NewsFeedHeader from "./NewsFeed/NewsFeedHeader";
 import NewsFeedSidebar from "./NewsFeed/NewsFeedSidebar";
-import { getEvents, type Event } from "../api/events";
+import {
+  getEvents,
+  getPublicLandingEvents,
+  type Event,
+} from "../api/events";
 import { getProfileUsername } from "../utils/userUtils";
 import eventPlaceholder from "../image/discover.jpg";
 
@@ -35,9 +39,12 @@ const Events: React.FC = () => {
   const [events, setEvents] = useState<ReturnType<typeof normalizeEvent>[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedEvent, setSelectedEvent] =
-    useState<ReturnType<typeof normalizeEvent> | null>(null);
-  const [visibleElements, setVisibleElements] = useState<Set<string>>(new Set());
+  const [selectedEvent, setSelectedEvent] = useState<ReturnType<
+    typeof normalizeEvent
+  > | null>(null);
+  const [visibleElements, setVisibleElements] = useState<Set<string>>(
+    new Set(),
+  );
   const badgeRef = useRef<HTMLDivElement>(null);
   const imageWrapperRef = useRef<HTMLDivElement>(null);
 
@@ -59,7 +66,7 @@ const Events: React.FC = () => {
           }
         });
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
 
     const elements = [badgeRef.current, imageWrapperRef.current];
@@ -76,14 +83,22 @@ const Events: React.FC = () => {
       setError(null);
 
       try {
-        const response = await getEvents({ limit: 6 });
-        const normalizedEvents = (response.data || []).map(normalizeEvent);
-        setEvents(normalizedEvents);
+        const response = isStandalonePage
+          ? await getEvents({ limit: 24, page: 1 })
+          : await getPublicLandingEvents({ limit: 6 });
+        const raw = response.data || [];
+        const normalizedEvents = raw.map(normalizeEvent);
+        const now = new Date();
+        const upcomingOnly = normalizedEvents.filter((ev) => {
+          if (!ev.date) return true;
+          return new Date(ev.date) > now;
+        });
+        setEvents(isStandalonePage ? upcomingOnly.slice(0, 18) : upcomingOnly);
       } catch (loadError) {
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "Unable to load events right now."
+            : "Unable to load events right now.",
         );
       } finally {
         setLoading(false);
@@ -91,7 +106,7 @@ const Events: React.FC = () => {
     };
 
     loadEvents();
-  }, []);
+  }, [isStandalonePage]);
 
   useEffect(() => {
     if (!selectedEvent) return;
@@ -208,7 +223,9 @@ const Events: React.FC = () => {
               />
               <div className="events__lightbox-caption">
                 <h3>{selectedEvent.title}</h3>
-                {selectedEvent.description && <p>{selectedEvent.description}</p>}
+                {selectedEvent.description && (
+                  <p>{selectedEvent.description}</p>
+                )}
               </div>
             </div>
           </div>

@@ -39,29 +39,19 @@ import {
   requestNotificationPermission,
 } from "../../utils/notificationUtils";
 import { getUserData } from "../../utils/userUtils";
+import { feedApi } from "../../services/feedApi";
+import {
+  mapFeedApiItemToPost,
+  type CardPostShape,
+} from "../../utils/mapFeedApiItemToPost";
 import "../../scss/_business.scss";
 import "../../scss/_emojipicker.scss";
 import "../../scss/_profilemodal.scss";
 import "../../scss/_messagepopup.scss";
 
-// Post interface matching the PostCard component
-interface Post {
-  id: number;
-  userName: string;
-  userAvatar: string;
-  action: string;
-  timeAgo: string;
-  image?: string;
-  images?: string[];
-  video?: string;
-  videos?: string[];
-  likes: number;
-  comments: number;
-  views: number;
-  reviews: number;
-  hashtags?: string;
-  caption?: string;
-  accountType?: string; // Store account type with post
+function isBusinessAuthorPost(post: CardPostShape): boolean {
+  const t = (post.accountType || "").toLowerCase().trim();
+  return t === "business";
 }
 
 // Chat interfaces
@@ -95,13 +85,13 @@ interface ChatConversation {
 interface Notification {
   id: number;
   type:
-  | "like"
-  | "comment"
-  | "friend_request"
-  | "mention"
-  | "share"
-  | "event"
-  | "message";
+    | "like"
+    | "comment"
+    | "friend_request"
+    | "mention"
+    | "share"
+    | "event"
+    | "message";
   userId: number;
   userName: string;
   userAvatar: string;
@@ -118,8 +108,9 @@ const Business: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
-  const [businessPosts, setBusinessPosts] = useState<Post[]>([]);
+  const [businessPosts, setBusinessPosts] = useState<CardPostShape[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [feedError, setFeedError] = useState<string | null>(null);
 
   // Chat/Messages state
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
@@ -164,91 +155,55 @@ const Business: React.FC = () => {
   // Add Friend Modal state
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
 
-  // Load business posts from localStorage
-  const loadBusinessPosts = useCallback(() => {
+  const fetchBusinessFeeds = useCallback(async () => {
     try {
       setIsLoading(true);
-      // Get all posts from localStorage
-      const allPosts = JSON.parse(
-        localStorage.getItem("allPosts") || "[]"
-      ) as Post[];
-
-      // Filter posts from business account_type users
-      const business = allPosts.filter((post) => {
-        // If post has accountType field, use it
-        if (post.accountType) {
-          const accountType = post.accountType.toLowerCase();
-          return accountType === "business" || accountType === "Business";
-        }
-        // For posts without accountType, we can't reliably filter
-        // So we'll only show posts that explicitly have accountType: "Business"
-        return false;
+      setFeedError(null);
+      const response = await feedApi.getFeeds({
+        feedChannel: "business",
+        page: 1,
+        limit: 50,
+        type: "all",
       });
 
-      // If no business posts found, use mock data for demonstration
-      if (business.length === 0) {
-        // Mock business posts
-        const mockBusinessPosts: Post[] = [
-          {
-            id: 101,
-            userName: "Tech Solutions Inc.",
-            userAvatar: "",
-            action: "shared a new product",
-            timeAgo: "2 hours ago",
-            image: "",
-            likes: 12,
-            comments: 3,
-            views: 150,
-            reviews: 5,
-            caption:
-              "Introducing our latest innovation! We're excited to share this with our community. #TechInnovation #Business",
-            accountType: "Business",
-          },
-          {
-            id: 102,
-            userName: "Local Restaurant",
-            userAvatar: "",
-            action: "updated their menu",
-            timeAgo: "5 hours ago",
-            image: "",
-            likes: 8,
-            comments: 2,
-            views: 89,
-            reviews: 4,
-            caption:
-              "Check out our new seasonal menu! Fresh ingredients, amazing flavors. Come visit us today! #Food #LocalBusiness",
-            accountType: "Business",
-          },
-        ];
-        setBusinessPosts(mockBusinessPosts);
+      if (
+        response &&
+        response.success &&
+        response.data &&
+        Array.isArray(response.data)
+      ) {
+        const mapped = (response.data as unknown[])
+          .map((item) => mapFeedApiItemToPost(item))
+          .filter((p): p is CardPostShape => p != null)
+          .filter(isBusinessAuthorPost);
+        setBusinessPosts(mapped);
       } else {
-        setBusinessPosts(business);
+        setBusinessPosts([]);
       }
     } catch (error) {
-      console.error("Error loading business posts:", error);
+      console.error("Error loading business feed:", error);
+      setFeedError(
+        error instanceof Error
+          ? error.message
+          : "Failed to load business posts. Please try again.",
+      );
       setBusinessPosts([]);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Listen for storage changes to update business posts
   useEffect(() => {
-    loadBusinessPosts();
+    void fetchBusinessFeeds();
+  }, [fetchBusinessFeeds]);
 
-    // Listen for custom event when posts are updated
-    const handleStorageChange = () => {
-      loadBusinessPosts();
+  useEffect(() => {
+    const onShared = () => {
+      void fetchBusinessFeeds();
     };
-
-    window.addEventListener("storage", handleStorageChange);
-    window.addEventListener("allPostsUpdated", handleStorageChange);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("allPostsUpdated", handleStorageChange);
-    };
-  }, [loadBusinessPosts]);
+    window.addEventListener("feedPostShared", onShared);
+    return () => window.removeEventListener("feedPostShared", onShared);
+  }, [fetchBusinessFeeds]);
 
   // Filter posts based on search query
   const filteredPosts = businessPosts.filter((post) => {
@@ -262,7 +217,6 @@ const Business: React.FC = () => {
     );
   });
 
-
   const handleProfileClick = () => {
     const username = getProfileUsername();
     if (username) {
@@ -272,22 +226,22 @@ const Business: React.FC = () => {
 
   // Calculate unread notifications count
   const unreadNotificationsCount = notifications.filter(
-    (n) => !n.isRead
+    (n) => !n.isRead,
   ).length;
 
   // Mark notification as read
   const markNotificationAsRead = (notificationId: number) => {
     setNotifications((prev) =>
       prev.map((notif) =>
-        notif.id === notificationId ? { ...notif, isRead: true } : notif
-      )
+        notif.id === notificationId ? { ...notif, isRead: true } : notif,
+      ),
     );
   };
 
   // Mark all notifications as read
   const markAllAsRead = () => {
     setNotifications((prev) =>
-      prev.map((notif) => ({ ...notif, isRead: true }))
+      prev.map((notif) => ({ ...notif, isRead: true })),
     );
   };
 
@@ -299,7 +253,7 @@ const Business: React.FC = () => {
   // Delete notification
   const deleteNotification = (notificationId: number) => {
     setNotifications((prev) =>
-      prev.filter((notif) => notif.id !== notificationId)
+      prev.filter((notif) => notif.id !== notificationId),
     );
   };
 
@@ -345,12 +299,12 @@ const Business: React.FC = () => {
 
   // Filter conversations based on search query
   const filteredConversations = chatConversations.filter((chat) =>
-    chat.userName.toLowerCase().includes(chatSearchQuery.toLowerCase().trim())
+    chat.userName.toLowerCase().includes(chatSearchQuery.toLowerCase().trim()),
   );
 
   // Get selected chat
   const selectedChat = chatConversations.find(
-    (chat) => chat.id === selectedChatId
+    (chat) => chat.id === selectedChatId,
   );
 
   // Scroll to bottom when messages change
@@ -382,7 +336,8 @@ const Business: React.FC = () => {
   useEffect(() => {
     const user = getUserData();
     if (user && (user.user_id || (user as { id?: number }).id)) {
-      const userId = (user.user_id as number) || ((user as { id?: number }).id as number);
+      const userId =
+        (user.user_id as number) || ((user as { id?: number }).id as number);
       setCurrentUserId(userId);
       loadFriendsList();
     }
@@ -409,10 +364,12 @@ const Business: React.FC = () => {
 
     // Check various name formats
     const currentDisplayName = user.display_name || user.name || "";
-    const currentFullName = user.user_firstname && user.user_lastname
-      ? `${user.user_firstname} ${user.user_lastname}`.trim()
-      : "";
-    const currentBusinessName = (user as { business_name?: string }).business_name || "";
+    const currentFullName =
+      user.user_firstname && user.user_lastname
+        ? `${user.user_firstname} ${user.user_lastname}`.trim()
+        : "";
+    const currentBusinessName =
+      (user as { business_name?: string }).business_name || "";
 
     // Normalize names for comparison (case-insensitive, trim whitespace)
     const normalize = (str: string) => str.toLowerCase().trim();
@@ -427,7 +384,8 @@ const Business: React.FC = () => {
   // Listen for post likes - only notify if the user who liked is following
   useEffect(() => {
     const handlePostLike = async (event: CustomEvent) => {
-      const { postId, postOwnerName, likerId, likerName, likerAvatar } = event.detail;
+      const { postId, postOwnerName, likerId, likerName, likerAvatar } =
+        event.detail;
 
       // Don't notify if user liked their own post
       if (likerId === currentUserId) return;
@@ -454,14 +412,14 @@ const Business: React.FC = () => {
             (n) =>
               n.type === "like" &&
               n.relatedPostId === postId &&
-              n.userId === likerId
+              n.userId === likerId,
           );
           if (!existingNotification) {
             playNotificationSound();
             showBrowserNotification(
               likerName || "Someone",
               "liked your post",
-              likerAvatar || ""
+              likerAvatar || "",
             );
             return [newNotification, ...prev];
           }
@@ -470,16 +428,29 @@ const Business: React.FC = () => {
       }
     };
 
-    window.addEventListener("postLiked" as any, handlePostLike as unknown as EventListener);
+    window.addEventListener(
+      "postLiked" as any,
+      handlePostLike as unknown as EventListener,
+    );
     return () => {
-      window.removeEventListener("postLiked" as any, handlePostLike as unknown as EventListener);
+      window.removeEventListener(
+        "postLiked" as any,
+        handlePostLike as unknown as EventListener,
+      );
     };
   }, [currentUserId, friendsList]);
 
   // Listen for post comments - only notify if the user who commented is following
   useEffect(() => {
     const handlePostComment = async (event: CustomEvent) => {
-      const { postId, postOwnerName, commenterId, commenterName, commenterAvatar, commentText } = event.detail;
+      const {
+        postId,
+        postOwnerName,
+        commenterId,
+        commenterName,
+        commenterAvatar,
+        commentText,
+      } = event.detail;
 
       // Don't notify if user commented on their own post
       if (commenterId === currentUserId) return;
@@ -487,12 +458,17 @@ const Business: React.FC = () => {
       // Only notify if:
       // 1. It's the current user's post
       // 2. The commenter is following the current user (is in friends list)
-      if (isMyPost(postOwnerName) && commenterId && friendsList.includes(commenterId)) {
-        const messageText = commentText && commentText.length > 50
-          ? `commented: "${commentText.substring(0, 50)}..."`
-          : commentText
-            ? `commented: "${commentText}"`
-            : "commented on your post";
+      if (
+        isMyPost(postOwnerName) &&
+        commenterId &&
+        friendsList.includes(commenterId)
+      ) {
+        const messageText =
+          commentText && commentText.length > 50
+            ? `commented: "${commentText.substring(0, 50)}..."`
+            : commentText
+              ? `commented: "${commentText}"`
+              : "commented on your post";
 
         const newNotification: Notification = {
           id: Date.now(),
@@ -513,7 +489,7 @@ const Business: React.FC = () => {
               n.type === "comment" &&
               n.relatedPostId === postId &&
               n.userId === commenterId &&
-              n.timestamp === "Just now"
+              n.timestamp === "Just now",
           );
           if (!recentNotification) {
             playNotificationSound();
@@ -522,7 +498,7 @@ const Business: React.FC = () => {
               commentText && commentText.length > 50
                 ? commentText.substring(0, 50) + "..."
                 : commentText || "commented on your post",
-              commenterAvatar || ""
+              commenterAvatar || "",
             );
             return [newNotification, ...prev];
           }
@@ -531,9 +507,15 @@ const Business: React.FC = () => {
       }
     };
 
-    window.addEventListener("postCommented" as any, handlePostComment as unknown as EventListener);
+    window.addEventListener(
+      "postCommented" as any,
+      handlePostComment as unknown as EventListener,
+    );
     return () => {
-      window.removeEventListener("postCommented" as any, handlePostComment as unknown as EventListener);
+      window.removeEventListener(
+        "postCommented" as any,
+        handlePostComment as unknown as EventListener,
+      );
     };
   }, [currentUserId, friendsList]);
 
@@ -570,14 +552,14 @@ const Business: React.FC = () => {
           (n) =>
             n.type === "friend_request" &&
             n.userId === friendId &&
-            n.message === "started following you"
+            n.message === "started following you",
         );
         if (!existingNotification) {
           playNotificationSound();
           showBrowserNotification(
             friendName || "Someone",
             "started following you",
-            friendAvatar || ""
+            friendAvatar || "",
           );
           return [newNotification, ...prev];
         }
@@ -585,9 +567,15 @@ const Business: React.FC = () => {
       });
     };
 
-    window.addEventListener("friendAdded" as any, handleFriendAddedEvent as EventListener);
+    window.addEventListener(
+      "friendAdded" as any,
+      handleFriendAddedEvent as EventListener,
+    );
     return () => {
-      window.removeEventListener("friendAdded" as any, handleFriendAddedEvent as EventListener);
+      window.removeEventListener(
+        "friendAdded" as any,
+        handleFriendAddedEvent as EventListener,
+      );
     };
   }, []);
 
@@ -619,7 +607,7 @@ const Business: React.FC = () => {
               (n) =>
                 n.type === "message" &&
                 n.relatedChatId === chat.id &&
-                n.userId === chat.userId
+                n.userId === chat.userId,
             );
 
             if (!existingNotification) {
@@ -657,7 +645,7 @@ const Business: React.FC = () => {
                 messageText.length > 50
                   ? messageText.substring(0, 50) + "..."
                   : messageText,
-                chat.userAvatar
+                chat.userAvatar,
               );
 
               return [newNotification, ...prev];
@@ -747,7 +735,7 @@ const Business: React.FC = () => {
           };
         }
         return chat;
-      })
+      }),
     );
 
     setMessageInput("");
@@ -757,7 +745,7 @@ const Business: React.FC = () => {
   // Handle file attachment
   const handleFileSelect = (
     e: React.ChangeEvent<HTMLInputElement>,
-    type: "image" | "video" | "file"
+    type: "image" | "video" | "file",
   ) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -837,19 +825,18 @@ const Business: React.FC = () => {
         showRightSidebarToggle={true}
       />
 
-      {/* Mobile Overlay */}
-      {(isLeftSidebarOpen || isRightSidebarOpen) && (
-        <div
-          className="newsfeed-overlay"
-          onClick={() => {
-            setIsLeftSidebarOpen(false);
-            setIsRightSidebarOpen(false);
-          }}
-        />
-      )}
-
       {/* Main Content */}
       <div className="newsfeed-container">
+        {(isLeftSidebarOpen || isRightSidebarOpen) && (
+          <div
+            className="newsfeed-overlay"
+            onClick={() => {
+              setIsLeftSidebarOpen(false);
+              setIsRightSidebarOpen(false);
+            }}
+          />
+        )}
+
         {/* Left Sidebar */}
         <NewsFeedSidebar
           isOpen={isLeftSidebarOpen}
@@ -901,14 +888,22 @@ const Business: React.FC = () => {
             )}
 
             {/* Empty State */}
-            {!isLoading && filteredPosts.length === 0 && (
+            {!isLoading && feedError && (
+              <div className="newsfeed-post">
+                <div className="newsfeed-post__caption">
+                  <p>{feedError}</p>
+                </div>
+              </div>
+            )}
+
+            {!isLoading && !feedError && filteredPosts.length === 0 && (
               <div className="newsfeed-post">
                 <div className="newsfeed-post__caption">
                   <p>
                     {searchQuery
                       ? "No business posts match your search."
                       : businessPosts.length === 0
-                        ? "No business posts available yet. Posts from business accounts will appear here."
+                        ? "No business posts yet. Posts from business accounts appear here once published."
                         : "No business posts match your search."}
                   </p>
                 </div>
@@ -917,16 +912,26 @@ const Business: React.FC = () => {
 
             {/* Business Posts List */}
             {!isLoading &&
+              !feedError &&
               filteredPosts.map((post) => (
-                <PostCard key={post.id} post={post} />
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onPostDeleted={(postId) =>
+                    setBusinessPosts((prev) =>
+                      prev.filter((p) => p.id !== postId),
+                    )
+                  }
+                />
               ))}
           </div>
         </main>
 
         {/* Right Sidebar */}
         <aside
-          className={`newsfeed-aside ${isRightSidebarOpen ? "newsfeed-aside--open" : ""
-            }`}
+          className={`newsfeed-aside ${
+            isRightSidebarOpen ? "newsfeed-aside--open" : ""
+          }`}
         >
           <div className="newsfeed-aside__header">
             <h3>Trending & Businesses</h3>
@@ -960,7 +965,9 @@ const Business: React.FC = () => {
                 href="/terms-of-service"
                 onClick={(e) => {
                   e.preventDefault();
-                  navigate("/terms-of-service", { state: { fromNewsfeed: true } });
+                  navigate("/terms-of-service", {
+                    state: { fromNewsfeed: true },
+                  });
                 }}
               >
                 Terms
@@ -969,7 +976,9 @@ const Business: React.FC = () => {
                 href="/privacy-policy"
                 onClick={(e) => {
                   e.preventDefault();
-                  navigate("/privacy-policy", { state: { fromNewsfeed: true } });
+                  navigate("/privacy-policy", {
+                    state: { fromNewsfeed: true },
+                  });
                 }}
               >
                 Privacy
@@ -1019,10 +1028,11 @@ const Business: React.FC = () => {
             <div className="newsfeed-chat-panel__container">
               {/* Conversations List */}
               <div
-                className={`newsfeed-chat-panel__conversations ${selectedChatId
-                  ? "newsfeed-chat-panel__conversations--hidden"
-                  : ""
-                  }`}
+                className={`newsfeed-chat-panel__conversations ${
+                  selectedChatId
+                    ? "newsfeed-chat-panel__conversations--hidden"
+                    : ""
+                }`}
               >
                 <div className="newsfeed-chat-panel__search-wrapper">
                   <Search
@@ -1042,10 +1052,11 @@ const Business: React.FC = () => {
                     filteredConversations.map((conversation) => (
                       <div
                         key={conversation.id}
-                        className={`newsfeed-chat-panel__conversation-item ${selectedChatId === conversation.id
-                          ? "newsfeed-chat-panel__conversation-item--active"
-                          : ""
-                          }`}
+                        className={`newsfeed-chat-panel__conversation-item ${
+                          selectedChatId === conversation.id
+                            ? "newsfeed-chat-panel__conversation-item--active"
+                            : ""
+                        }`}
                         onClick={() => {
                           setSelectedChatId(conversation.id);
                           // Mark messages as read when opening chat
@@ -1053,15 +1064,15 @@ const Business: React.FC = () => {
                             prev.map((chat) =>
                               chat.id === conversation.id
                                 ? {
-                                  ...chat,
-                                  messages: chat.messages.map((msg) => ({
-                                    ...msg,
-                                    isRead: true,
-                                  })),
-                                  unreadCount: 0,
-                                }
-                                : chat
-                            )
+                                    ...chat,
+                                    messages: chat.messages.map((msg) => ({
+                                      ...msg,
+                                      isRead: true,
+                                    })),
+                                    unreadCount: 0,
+                                  }
+                                : chat,
+                            ),
                           );
                         }}
                       >
@@ -1109,10 +1120,11 @@ const Business: React.FC = () => {
 
               {/* Chat Window */}
               <div
-                className={`newsfeed-chat-panel__chat-window ${selectedChatId
-                  ? "newsfeed-chat-panel__chat-window--visible"
-                  : ""
-                  }`}
+                className={`newsfeed-chat-panel__chat-window ${
+                  selectedChatId
+                    ? "newsfeed-chat-panel__chat-window--visible"
+                    : ""
+                }`}
               >
                 {selectedChat ? (
                   <>
@@ -1179,13 +1191,13 @@ const Business: React.FC = () => {
                                 setIsChatMenuOpen(false);
                                 if (
                                   window.confirm(
-                                    "Are you sure you want to delete this conversation?"
+                                    "Are you sure you want to delete this conversation?",
                                   )
                                 ) {
                                   setChatConversations((prev) =>
                                     prev.filter(
-                                      (chat) => chat.id !== selectedChatId
-                                    )
+                                      (chat) => chat.id !== selectedChatId,
+                                    ),
                                   );
                                   setSelectedChatId(null);
                                 }
@@ -1205,10 +1217,11 @@ const Business: React.FC = () => {
                         return (
                           <div
                             key={message.id}
-                            className={`newsfeed-chat-panel__message ${isCurrentUser
-                              ? "newsfeed-chat-panel__message--sent"
-                              : "newsfeed-chat-panel__message--received"
-                              }`}
+                            className={`newsfeed-chat-panel__message ${
+                              isCurrentUser
+                                ? "newsfeed-chat-panel__message--sent"
+                                : "newsfeed-chat-panel__message--received"
+                            }`}
                           >
                             {!isCurrentUser && (
                               <Avatar
@@ -1260,10 +1273,11 @@ const Business: React.FC = () => {
                                 </span>
                                 {isCurrentUser && (
                                   <span
-                                    className={`newsfeed-chat-panel__message-status ${message.isRead
-                                      ? "newsfeed-chat-panel__message-status--read"
-                                      : "newsfeed-chat-panel__message-status--sent"
-                                      }`}
+                                    className={`newsfeed-chat-panel__message-status ${
+                                      message.isRead
+                                        ? "newsfeed-chat-panel__message-status--read"
+                                        : "newsfeed-chat-panel__message-status--sent"
+                                    }`}
                                     title={message.isRead ? "Read" : "Sent"}
                                   >
                                     {message.isRead ? (
@@ -1452,7 +1466,7 @@ const Business: React.FC = () => {
           }
           onMessage={() => {
             const chat = chatConversations.find(
-              (c) => c.userId === selectedProfileUserId
+              (c) => c.userId === selectedProfileUserId,
             );
             if (chat) {
               setSelectedChatId(chat.id);
@@ -1520,17 +1534,18 @@ const Business: React.FC = () => {
                   {notifications.map((notification) => (
                     <div
                       key={notification.id}
-                      className={`newsfeed-notification-panel__item ${!notification.isRead
-                        ? "newsfeed-notification-panel__item--unread"
-                        : ""
-                        }`}
+                      className={`newsfeed-notification-panel__item ${
+                        !notification.isRead
+                          ? "newsfeed-notification-panel__item--unread"
+                          : ""
+                      }`}
                       onClick={() => markNotificationAsRead(notification.id)}
                     >
                       <div
                         className="newsfeed-notification-panel__icon-wrapper"
                         style={{
                           backgroundColor: `${getNotificationColor(
-                            notification.type
+                            notification.type,
                           )}20`,
                         }}
                       >

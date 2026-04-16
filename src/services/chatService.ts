@@ -1,5 +1,5 @@
 import { io, type Socket } from "socket.io-client";
-import API_BASE_URL from "../api/config";
+import API_BASE_URL, { SOCKET_IO_PATH } from "../api/config";
 
 /** Window event: refresh chat lists / unread after peer removed (unfriend). */
 export const CHAT_UI_REFRESH_EVENT = "joscity-chat-refresh";
@@ -509,20 +509,22 @@ class ChatService {
     if (!token || this.socketUnavailable || this.apiUnavailable) return null;
 
     if (this.socket) {
-      if (!this.socket.connected) {
+      if (this.socket.connected) {
         this.socket.auth = { token };
-        this.socket.connect();
+        return this.socket;
       }
-      return this.socket;
+      // A disconnected socket can keep a stale Engine.IO session id; polling then returns 400.
+      this.disconnect();
     }
 
     this.socket = io(getSocketBaseUrl(), {
+      path: SOCKET_IO_PATH,
       auth: { token },
-      transports: ["polling", "websocket"],
+      transports: ["websocket", "polling"],
       autoConnect: true,
-      withCredentials: true,
-      reconnectionAttempts: 1,
-      timeout: 5000,
+      reconnectionAttempts: 3,
+      reconnectionDelay: 1000,
+      timeout: 10000,
     });
 
     this.socket.on("connect_error", (error: unknown) => {

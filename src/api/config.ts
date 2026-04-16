@@ -9,6 +9,14 @@ const API_BASE_URL: string =
   "/api";
 
 /**
+ * Engine.IO path for Socket.IO (must match the server). Default `/socket.io`.
+ * If your Node app mounts Socket.IO under the same prefix as REST (e.g. `/api/socket.io`),
+ * set `VITE_SOCKET_PATH=/api/socket.io` in `.env`.
+ */
+export const SOCKET_IO_PATH: string =
+  import.meta.env.VITE_SOCKET_PATH || "/socket.io";
+
+/**
  * Build an absolute API path. Ensures a single `/api` prefix so production envs like
  * `https://example.com` (missing `/api`) still hit `https://example.com/api/...`.
  */
@@ -25,7 +33,9 @@ if (import.meta.env.DEV) {
     VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
     VITE_API_URL: import.meta.env.VITE_API_URL,
     VITE_BASE_URL: import.meta.env.VITE_BASE_URL,
+    VITE_SOCKET_PATH: import.meta.env.VITE_SOCKET_PATH,
     resolved: API_BASE_URL,
+    socketPath: SOCKET_IO_PATH,
   });
 }
 

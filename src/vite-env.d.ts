@@ -19,6 +19,8 @@ interface ImportMetaEnv {
   readonly VITE_BASE_URL?: string;
   readonly VITE_MAINTENANCE_MODE?: string;
   readonly VITE_VAPID_PUBLIC_KEY?: string;
+  /** Engine.IO path, e.g. `/api/socket.io` if the server mounts Socket.IO under `/api`. */
+  readonly VITE_SOCKET_PATH?: string;
 }
 
 declare module "virtual:pwa-register/react" {

@@ -53,7 +53,16 @@ function UserRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
-preventInspect();
+const preventInspectEnabled = (): boolean => {
+  const v = import.meta.env.VITE_PREVENT_INSPECT;
+  if (v == null || v === "") return false;
+  const s = String(v).trim().toLowerCase();
+  return s === "true" || s === "1" || s === "yes";
+};
+
+if (preventInspectEnabled()) {
+  preventInspect();
+}
 
 // Landing page component (without WelcomePage or Register)
 export function LandingPage() {

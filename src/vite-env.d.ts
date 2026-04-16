@@ -21,6 +21,8 @@ interface ImportMetaEnv {
   readonly VITE_VAPID_PUBLIC_KEY?: string;
   /** Engine.IO path, e.g. `/api/socket.io` if the server mounts Socket.IO under `/api`. */
   readonly VITE_SOCKET_PATH?: string;
+  /** When `true` or `1`, enables client-side “prevent inspect” (blocks context menu, common DevTools shortcuts, etc.). */
+  readonly VITE_PREVENT_INSPECT?: string;
 }
 
 declare module "virtual:pwa-register/react" {

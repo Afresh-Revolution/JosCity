@@ -13,7 +13,6 @@ interface CreateReelModalProps {
   onCreated?: (reel: ReelItem) => void;
 }
 
-const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
 const MAX_THUMBNAIL_SIZE = 5 * 1024 * 1024;
 
 const generateThumbnailFromVideo = async (videoFile: File): Promise<File | null> =>
@@ -201,11 +200,6 @@ const CreateReelModal: React.FC<CreateReelModalProps> = ({
       return;
     }
 
-    if (nextFile.size > MAX_VIDEO_SIZE) {
-      setError("Please choose a video smaller than 100MB.");
-      return;
-    }
-
     revokePreviewUrl(videoObjectUrlRef);
     const objectUrl = URL.createObjectURL(nextFile);
     videoObjectUrlRef.current = objectUrl;
@@ -383,7 +377,7 @@ const CreateReelModal: React.FC<CreateReelModalProps> = ({
                 >
                   <Upload size={22} />
                   <span>Choose video</span>
-                  <small>MP4, MOV, WebM up to 100MB</small>
+                  <small>MP4, MOV, WebM</small>
                 </button>
               )}
               <input

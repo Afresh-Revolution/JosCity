@@ -95,16 +95,6 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
         return;
       }
 
-      // Validate file size (max 50MB)
-      const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-      if (file.size > MAX_FILE_SIZE) {
-        alert("Video size must be less than 50MB");
-        if (videoInputRef.current) {
-          videoInputRef.current.value = "";
-        }
-        return;
-      }
-
       // Clear image if video is selected
       setSelectedImage(null);
       setSelectedImageFile(null);

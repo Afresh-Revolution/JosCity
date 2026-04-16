@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Search,
   Calendar,
@@ -32,6 +32,7 @@ import {
   getEvents,
   type Event,
 } from "../../api/events";
+import EventShareButton from "../../components/EventShareButton";
 import NewsFeedHeader from "../NewsFeed/NewsFeedHeader";
 import NewsFeedSidebar from "../NewsFeed/NewsFeedSidebar";
 import { useNewsFeedNavPanels } from "../../hooks/useNewsFeedNavPanels";
@@ -84,6 +85,8 @@ const normalizeEvent = (event: Event): Event => {
 
 const EventsPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const eventParam = searchParams.get("event");
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("Discover");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -188,6 +191,19 @@ const EventsPage: React.FC = () => {
 
     loadEvents();
   }, []);
+
+  useEffect(() => {
+    if (eventsLoading || events.length === 0 || !eventParam) return;
+    const id = Number(eventParam);
+    if (!Number.isFinite(id)) return;
+    const t = window.setTimeout(() => {
+      const el = document.getElementById(`events-event-${id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 120);
+    return () => window.clearTimeout(t);
+  }, [eventsLoading, events, eventParam]);
 
   // Filter events based on selected category and active tab
   useEffect(() => {
@@ -899,16 +915,28 @@ const EventsPage: React.FC = () => {
                     ) : (
                       <div className="eventspage-main__events-list">
                         {filteredEvents.map((event) => (
-                          <div key={event.id} className="eventspage-event-card">
+                          <div
+                            key={event.id}
+                            id={`events-event-${event.id}`}
+                            className="eventspage-event-card"
+                          >
                             {event.image && (
                               <div className="eventspage-event-card__image">
                                 <img src={event.image} alt={event.title} />
                               </div>
                             )}
                             <div className="eventspage-event-card__content">
-                              <h3 className="eventspage-event-card__title">
-                                {event.title}
-                              </h3>
+                              <div className="eventspage-event-card__title-row">
+                                <h3 className="eventspage-event-card__title">
+                                  {event.title}
+                                </h3>
+                                <EventShareButton
+                                  eventId={event.id}
+                                  title={event.title}
+                                  className="eventspage-event-card__share"
+                                  iconSize={17}
+                                />
+                              </div>
                               {event.description && (
                                 <p className="eventspage-event-card__description">
                                   {event.description}

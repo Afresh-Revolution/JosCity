@@ -41,7 +41,6 @@ interface CreateScheduledPostModalProps {
 const MAX_IMAGES = 5;
 const MAX_VIDEOS = 3;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 
 const CreateScheduledPostModal: React.FC<CreateScheduledPostModalProps> = ({
   isOpen,
@@ -129,10 +128,6 @@ const CreateScheduledPostModal: React.FC<CreateScheduledPostModalProps> = ({
     Array.from(files).forEach((file, index) => {
       if (!file.type.startsWith("video/")) {
         errors.push(`File ${index + 1} is not a video file.`);
-        return;
-      }
-      if (file.size > MAX_VIDEO_BYTES) {
-        errors.push(`Video ${index + 1} size must be less than 50MB.`);
         return;
       }
       if (videoEntries.length + toAdd.length >= MAX_VIDEOS) {

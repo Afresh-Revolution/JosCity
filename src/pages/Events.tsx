@@ -15,6 +15,7 @@ import {
 import { getProfileUsername } from "../utils/userUtils";
 import { eventCoverForDisplay } from "../utils/mediaUrl";
 import eventPlaceholder from "../image/discover.jpg";
+import EventShareButton from "../components/EventShareButton";
 
 const normalizeEvent = (event: Event) => {
   const rawCover = event.event_cover || event.image || "";
@@ -166,35 +167,52 @@ const Events: React.FC = () => {
           ) : (
             <div className="events__grid">
               {events.map((event) => (
-                <button
-                  key={event.id}
-                  type="button"
-                  className="events__card"
-                  onClick={() => setSelectedEvent(event)}
-                >
-                  <div className="events__card-image-shell">
-                    <img
-                      src={event.image}
-                      alt={event.title}
-                      className="events__card-image"
-                    />
-                  </div>
-                  <div className="events__card-body">
-                    <h3 className="events__card-title">{event.title}</h3>
-                    {event.date && (
-                      <div className="events__meta">
-                        <Clock size={14} />
-                        <span>{formatEventDate(event.date)}</span>
+                <div key={event.id} className="events__card-wrap">
+                  <div
+                    className="events__card"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedEvent(event)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedEvent(event);
+                      }
+                    }}
+                    aria-label={`View ${event.title}`}
+                  >
+                    <div className="events__card-image-shell">
+                      <img
+                        src={event.image}
+                        alt=""
+                        className="events__card-image"
+                      />
+                    </div>
+                    <div className="events__card-body">
+                      <div className="events__card-title-row">
+                        <h3 className="events__card-title">{event.title}</h3>
+                        <EventShareButton
+                          eventId={event.id}
+                          title={event.title}
+                          className="events__card-share"
+                          iconSize={16}
+                        />
                       </div>
-                    )}
-                    {event.location && (
-                      <div className="events__meta">
-                        <MapPin size={14} />
-                        <span>{event.location}</span>
-                      </div>
-                    )}
+                      {event.date && (
+                        <div className="events__meta">
+                          <Clock size={14} />
+                          <span>{formatEventDate(event.date)}</span>
+                        </div>
+                      )}
+                      {event.location && (
+                        <div className="events__meta">
+                          <MapPin size={14} />
+                          <span>{event.location}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           )}

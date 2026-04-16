@@ -226,20 +226,14 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB (reduced from 50MB for faster uploads)
     const MAX_VIDEOS = 1; // Maximum 1 video (reduced for faster uploads)
     const validFiles: File[] = [];
     const errors: string[] = [];
 
-    // Filter and validate files
+    // Filter and validate files (video size limits enforced by the API)
     Array.from(files).forEach((file, index) => {
       if (!file.type.startsWith("video/")) {
         errors.push(`File ${index + 1} is not a video file.`);
-        return;
-      }
-
-      if (file.size > MAX_FILE_SIZE) {
-        errors.push(`Video ${index + 1} size must be less than 50MB.`);
         return;
       }
 

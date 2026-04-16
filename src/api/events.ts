@@ -24,6 +24,10 @@ export interface Event {
   source?: string;
   /** URL to buy tickets on external site (e.g. gatewav) */
   ticket_url?: string | null;
+  /** Creator / organizer (DB `event_admin`); required for edit/delete and My Events without localStorage */
+  event_admin?: number | null;
+  /** Same as event_admin when API returns joined user row */
+  user_id?: number | null;
 }
 
 export interface EventsResponse {

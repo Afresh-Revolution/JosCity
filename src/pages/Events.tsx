@@ -13,6 +13,7 @@ import {
   type Event,
 } from "../api/events";
 import { getProfileUsername } from "../utils/userUtils";
+import { eventCoverForDisplay } from "../utils/mediaUrl";
 import eventPlaceholder from "../image/discover.jpg";
 
 const normalizeEvent = (event: Event) => {
@@ -23,7 +24,7 @@ const normalizeEvent = (event: Event) => {
     description: event.event_description || event.description || "",
     date: event.event_date || event.date,
     location: event.event_location || event.location || "",
-    image: String(rawCover).trim() || eventPlaceholder,
+    image: eventCoverForDisplay(String(rawCover), eventPlaceholder),
   };
 };
 

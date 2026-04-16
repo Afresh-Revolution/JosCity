@@ -56,6 +56,16 @@ function devApiProxy(target: string) {
   };
 }
 
+/** Applied to `vite dev` and `vite preview` (production headers should also be set on your CDN/host). */
+const securityHeaders: Record<string, string> = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "SAMEORIGIN",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy":
+    "camera=(self), microphone=(self), geolocation=(self), payment=(self)",
+  "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+};
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
@@ -116,6 +126,7 @@ export default defineConfig({
     }),
   ],
   server: {
+    headers: securityHeaders,
     host: true, // Allow access from network devices
     allowedHosts: [
       "joscity-com.onrender.com",
@@ -135,6 +146,8 @@ export default defineConfig({
           "http://localhost:3001"
       ),
       "/api": devApiProxy(process.env.VITE_API_TARGET || "http://localhost:3000"),
+      // Socket.IO default path is /socket.io at the API origin; proxy when VITE_API_BASE_URL is relative `/api`.
+      "/socket.io": devApiProxy(process.env.VITE_API_TARGET || "http://localhost:3000"),
     },
   },
   build: {
@@ -142,12 +155,16 @@ export default defineConfig({
     assetsDir: "assets",
     // Let Vite handle chunking automatically for better dependency resolution
     // This ensures React and its dependencies load in the correct order
-    chunkSizeWarningLimit: 1000,
+    // Large SPA + PWA; tune if you add route-based code splitting
+    chunkSizeWarningLimit: 3000,
     // Ensure proper module resolution
     commonjsOptions: {
       include: [/node_modules/],
       transformMixedEsModules: true,
     },
+  },
+  preview: {
+    headers: securityHeaders,
   },
   publicDir: "public",
 });

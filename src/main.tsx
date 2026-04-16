@@ -30,9 +30,8 @@ import ContactPage from "./pages/ContactPage";
 import UserProfile from "./pages/UserProfile";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import NavbarThemeToggle from "./components/NavbarThemeToggle";
-// import { preventInspect } from "./utils/preventInspect";
+import { preventInspect } from "./utils/preventInspect";
 import Maintenance from "./pages/Maintenance";
-// import RoutingDisabled from "./pages/RoutingDisabled";
 import ComingSoonSection from "./pages/NewsFeed/ComingSoonSection";
 import Forums from "./pages/NewsFeed/Forums";
 import MarketPlace from "./pages/NewsFeed/MarketPlace";
@@ -54,9 +53,7 @@ function UserRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Prevent browser inspection/devtools
-// preventInspect();
-// preventInspect(); // Commented out to allow browser dev tools
+preventInspect();
 
 // Landing page component (without WelcomePage or Register)
 export function LandingPage() {

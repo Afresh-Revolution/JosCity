@@ -19,7 +19,12 @@ import {
   Edit,
 } from "lucide-react";
 import SearchBar from "../../components/SearchBar";
-import { getProfileUsername, isAuthenticated } from "../../utils/userUtils";
+import {
+  getProfileUsername,
+  getUserId,
+  isAuthenticated,
+} from "../../utils/userUtils";
+import { pickEventCreatorUserId } from "../../utils/eventOwnership";
 import {
   createEvent,
   updateEvent,
@@ -30,6 +35,9 @@ import {
 import NewsFeedHeader from "../NewsFeed/NewsFeedHeader";
 import NewsFeedSidebar from "../NewsFeed/NewsFeedSidebar";
 import { useNewsFeedNavPanels } from "../../hooks/useNewsFeedNavPanels";
+import { compressImage } from "../../utils/imageCompression";
+import { fileToDataUrl, isBlobUrl } from "../../utils/mediaUrl";
+import eventPlaceholder from "../../image/discover.jpg";
 import "../../main.css";
 import "../../scss/_eventspage.scss";
 import "../../scss/_searchbar.scss";
@@ -40,6 +48,14 @@ import "../../scss/_messagepopup.scss";
 
 // Helper function to normalize event data from API to component format
 const normalizeEvent = (event: Event): Event => {
+  const rawCover = event.event_cover || event.image;
+  const cover =
+    typeof rawCover === "string" && rawCover.trim() && !isBlobUrl(rawCover)
+      ? rawCover.trim()
+      : eventPlaceholder;
+
+  const creatorId = pickEventCreatorUserId(event);
+
   return {
     id: event.event_id ?? event.id,
     event_id: event.event_id ?? event.id,
@@ -53,14 +69,16 @@ const normalizeEvent = (event: Event): Event => {
     event_date: event.event_date || event.date,
     location: event.event_location || event.location,
     event_location: event.event_location || event.location,
-    image: event.event_cover || event.image,
-    event_cover: event.event_cover || event.image,
+    image: cover,
+    event_cover: cover,
     capacity: event.event_capacity ?? event.capacity,
     event_capacity: event.event_capacity ?? event.capacity,
     tickets_sold: event.tickets_sold,
     user_picture: event.user_picture,
     source: event.source,
     ticket_url: event.ticket_url ?? null,
+    event_admin: event.event_admin ?? creatorId ?? null,
+    user_id: creatorId ?? event.user_id ?? undefined,
   };
 };
 
@@ -197,9 +215,12 @@ const EventsPage: React.FC = () => {
         userEventLists.invited.includes(event.id),
       );
     } else if (activeTab === "My Events") {
-      filtered = filtered.filter((event) =>
-        userEventLists.myEvents.includes(event.id),
-      );
+      const uid = getUserId();
+      filtered = filtered.filter((event) => {
+        const ownerId = pickEventCreatorUserId(event);
+        if (uid && ownerId === uid) return true;
+        return userEventLists.myEvents.includes(event.id);
+      });
     }
     // "Discover" tab shows all events
 
@@ -213,6 +234,36 @@ const EventsPage: React.FC = () => {
 
     setFilteredEvents(filtered);
   }, [selectedCategory, events, activeTab, userEventLists]);
+
+  // When API returns event_admin, merge owned event ids into myEvents (works across devices / cleared storage).
+  useEffect(() => {
+    const uid = getUserId();
+    if (!uid || events.length === 0) return;
+
+    const ownedIds = events
+      .filter((e) => pickEventCreatorUserId(e) === uid)
+      .map((e) => e.id);
+    if (ownedIds.length === 0) return;
+
+    setUserEventLists((prev) => {
+      const nextSet = new Set(prev.myEvents);
+      let changed = false;
+      for (const id of ownedIds) {
+        if (!nextSet.has(id)) {
+          nextSet.add(id);
+          changed = true;
+        }
+      }
+      if (!changed) return prev;
+      const next = { ...prev, myEvents: [...nextSet] };
+      try {
+        localStorage.setItem("userEventLists", JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, [events]);
 
   // Navigation tabs
   const tabs = ["Discover", "Going", "Interested", "Invited", "My Events"];
@@ -290,6 +341,12 @@ const EventsPage: React.FC = () => {
     const hour12 = hours % 12 || 12;
 
     // Populate form with event data
+    const existingCover = eventToEdit.event_cover || eventToEdit.image || "";
+    const safePreview =
+      typeof existingCover === "string" && !isBlobUrl(existingCover)
+        ? existingCover
+        : "";
+
     setEventForm({
       title: eventToEdit.title,
       description: eventToEdit.description || "",
@@ -301,7 +358,7 @@ const EventsPage: React.FC = () => {
       timePeriod: period,
       location: eventToEdit.location || "",
       image: null,
-      imagePreview: eventToEdit.image || "",
+      imagePreview: safePreview,
       capacity: eventToEdit.capacity?.toString() || "",
       price: "",
       isPublic: true,
@@ -390,13 +447,28 @@ const EventsPage: React.FC = () => {
       );
       const eventDate = `${eventForm.date}T${time24}`;
 
+      let imageForApi: string | undefined;
+      if (eventForm.image instanceof File) {
+        const compressed = await compressImage(eventForm.image, {
+          maxWidth: 1200,
+          maxHeight: 1200,
+          maxSizeMB: 1,
+        });
+        imageForApi = await fileToDataUrl(compressed);
+      } else if (eventForm.imagePreview?.trim()) {
+        const p = eventForm.imagePreview.trim();
+        if (!isBlobUrl(p)) {
+          imageForApi = p;
+        }
+      }
+
       const eventData = {
         title: eventForm.title,
         description: eventForm.description || undefined,
         category: eventForm.category !== "All" ? eventForm.category : undefined,
         date: eventDate,
         location: eventForm.location || undefined,
-        image: eventForm.imagePreview || undefined,
+        ...(imageForApi !== undefined ? { image: imageForApi } : {}),
         capacity: eventForm.capacity ? parseInt(eventForm.capacity) : undefined,
       };
 
@@ -512,9 +584,12 @@ const EventsPage: React.FC = () => {
     return userEventLists[list].includes(eventId);
   };
 
-  // Check if event is created by user
-  const isEventCreatedByUser = (eventId: number): boolean => {
-    return userEventLists.myEvents.includes(eventId);
+  /** Owner = API event_admin / creator id matches current user, or legacy localStorage myEvents. */
+  const isCurrentUserEventOwner = (event: Event): boolean => {
+    const uid = getUserId();
+    const ownerId = pickEventCreatorUserId(event);
+    if (uid && ownerId != null && ownerId === uid) return true;
+    return userEventLists.myEvents.includes(event.id);
   };
 
   // External event (e.g. gatewav): show "Buy tickets" link, hide Going/Interested/Edit/Delete
@@ -904,7 +979,7 @@ const EventsPage: React.FC = () => {
                             )}
                             {/* Edit and Delete buttons - show for all user-created events on any tab */}
                             {!isExternalEvent(event) &&
-                              isEventCreatedByUser(event.id) && (
+                              isCurrentUserEventOwner(event) && (
                                 <>
                                   <button
                                     className="eventspage-event-card__edit-btn"

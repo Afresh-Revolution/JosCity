@@ -86,10 +86,6 @@ export const preventInspect = () => {
     ) {
       if (!devtools.open) {
         devtools.open = true;
-        // Optionally redirect or show a message
-        // window.location.href = "about:blank";
-        // Or reload the page
-        // window.location.reload();
       }
     } else {
       devtools.open = false;

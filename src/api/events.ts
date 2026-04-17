@@ -28,6 +28,13 @@ export interface Event {
   event_admin?: number | null;
   /** Same as event_admin when API returns joined user row */
   user_id?: number | null;
+  /** Naira price for paid events (>0 shows bank transfer flow) */
+  event_price_naira?: number;
+  payment_contact_email?: string | null;
+  payment_bank_name?: string | null;
+  payment_account_name?: string | null;
+  payment_account_number?: string | null;
+  event_tickets_sold?: number;
 }
 
 export interface EventsResponse {
@@ -100,6 +107,11 @@ export const createEvent = async (eventData: {
   location?: string;
   image?: string;
   capacity?: number;
+  price_naira?: number;
+  payment_contact_email?: string;
+  payment_bank_name?: string;
+  payment_account_name?: string;
+  payment_account_number?: string;
 }): Promise<EventResponse> => {
   const token = getAuthToken();
 
@@ -142,6 +154,11 @@ export const updateEvent = async (
     location?: string;
     image?: string;
     capacity?: number;
+    price_naira?: number;
+    payment_contact_email?: string;
+    payment_bank_name?: string;
+    payment_account_name?: string;
+    payment_account_number?: string;
   },
 ): Promise<EventResponse> => {
   const token = getAuthToken();
@@ -232,6 +249,177 @@ export const getEvent = async (eventId: number): Promise<EventResponse> => {
   }
 
   return response.json();
+};
+
+export interface MyPaymentRequest {
+  request_id: number;
+  status: "pending" | "accepted" | "rejected";
+  ticket_number: string | null;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface MyPaymentRequestResponse {
+  success: boolean;
+  data: MyPaymentRequest | null;
+}
+
+export const getMyPaymentRequest = async (
+  eventId: number,
+): Promise<MyPaymentRequestResponse> => {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error("Authentication required");
+  }
+  const response = await fetch(
+    `${API_BASE_URL}/events/${eventId}/my-payment-request`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      signal: AbortSignal.timeout(30000),
+    },
+  );
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      (errorData as { error?: string }).error ||
+        `HTTP ${response.status}: ${response.statusText}`,
+    );
+  }
+  return response.json();
+};
+
+/** attendeeAccountName = name on the attendee’s bank account (as on the transfer). */
+export const submitEventPaymentRequest = async (
+  eventId: number,
+  attendeeAccountName: string,
+): Promise<{ success: boolean; message?: string }> => {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error("Authentication required");
+  }
+  const response = await fetch(
+    `${API_BASE_URL}/events/${eventId}/payment-requests`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ attendee_account_name: attendeeAccountName }),
+      signal: AbortSignal.timeout(30000),
+    },
+  );
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(
+      (data as { error?: string }).error ||
+        `HTTP ${response.status}: ${response.statusText}`,
+    );
+  }
+  return data;
+};
+
+export interface CustomerPaymentRequestRow {
+  request_id: number;
+  event_id: number;
+  event_title: string;
+  event_price_naira: number;
+  buyer_user_id: number;
+  buyer_name: string;
+  buyer_email: string;
+  /** Attendee’s bank account name (as on transfer) */
+  buyer_confirmed_account_name: string;
+  status: string;
+  created_at: string;
+}
+
+export const getCustomerPaymentRequests = async (): Promise<{
+  success: boolean;
+  data: CustomerPaymentRequestRow[];
+}> => {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error("Authentication required");
+  }
+  const response = await fetch(
+    `${API_BASE_URL}/events/payment-requests/customers`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      signal: AbortSignal.timeout(30000),
+    },
+  );
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      (errorData as { error?: string }).error ||
+        `HTTP ${response.status}: ${response.statusText}`,
+    );
+  }
+  return response.json();
+};
+
+export const acceptEventPaymentRequest = async (
+  requestId: number,
+): Promise<{ success: boolean; message?: string }> => {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error("Authentication required");
+  }
+  const response = await fetch(
+    `${API_BASE_URL}/events/payment-requests/${requestId}/accept`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      signal: AbortSignal.timeout(30000),
+    },
+  );
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(
+      (data as { error?: string }).error ||
+        `HTTP ${response.status}: ${response.statusText}`,
+    );
+  }
+  return data;
+};
+
+export const rejectEventPaymentRequest = async (
+  requestId: number,
+): Promise<{ success: boolean; message?: string }> => {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error("Authentication required");
+  }
+  const response = await fetch(
+    `${API_BASE_URL}/events/payment-requests/${requestId}/reject`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      signal: AbortSignal.timeout(30000),
+    },
+  );
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(
+      (data as { error?: string }).error ||
+        `HTTP ${response.status}: ${response.statusText}`,
+    );
+  }
+  return data;
 };
 
 /**

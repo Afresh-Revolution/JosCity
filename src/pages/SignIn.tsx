@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import welcomeVideo from "../vid/welcome-vid.mp4";
 import primaryLogo from "../image/primary-logo.png";
 import {
@@ -25,6 +25,7 @@ import "../main.css";
 
 function SignIn() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,7 +136,13 @@ function SignIn() {
         localStorage.setItem("user", JSON.stringify(userData));
       }
 
-      navigate("/newsfeed");
+      const redirectTo =
+        (location.state as { redirectTo?: string } | null)?.redirectTo;
+      navigate(
+        typeof redirectTo === "string" && redirectTo.startsWith("/")
+          ? redirectTo
+          : "/newsfeed",
+      );
     } catch (err) {
       setError(
         err instanceof Error

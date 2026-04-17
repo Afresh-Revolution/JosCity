@@ -335,6 +335,35 @@
     }
   }
 
+  &__lightbox-actions {
+    margin-top: 18px;
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  &__lightbox-apply {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--color-primary, #34b86a);
+    color: #fff;
+    transition: background 0.2s ease, transform 0.15s ease;
+
+    &:hover {
+      background: var(--color-primary-hover, #2a9d5a);
+    }
+
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+
   // Responsive Styles
   @media screen and (max-width: 1024px) {
     padding: 60px 0;

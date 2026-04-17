@@ -17,20 +17,37 @@ import {
   Eye,
   EyeOff,
   Edit,
+  Copy,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 import SearchBar from "../../components/SearchBar";
 import {
   getProfileUsername,
   getUserId,
   isAuthenticated,
+  isBusinessUser,
 } from "../../utils/userUtils";
 import { pickEventCreatorUserId } from "../../utils/eventOwnership";
+import {
+  buildEventDateTimeIsoFromForm,
+  formatEventDateOnly,
+  formatEventTimeOnly,
+  getLagosFormPartsFromIso,
+} from "../../utils/eventDateDisplay";
 import {
   createEvent,
   updateEvent,
   deleteEvent,
   getEvents,
+  getMyPaymentRequest,
+  submitEventPaymentRequest,
+  getCustomerPaymentRequests,
+  acceptEventPaymentRequest,
+  rejectEventPaymentRequest,
   type Event,
+  type MyPaymentRequest,
+  type CustomerPaymentRequestRow,
 } from "../../api/events";
 import EventShareButton from "../../components/EventShareButton";
 import NewsFeedHeader from "../NewsFeed/NewsFeedHeader";
@@ -74,12 +91,20 @@ const normalizeEvent = (event: Event): Event => {
     event_cover: cover,
     capacity: event.event_capacity ?? event.capacity,
     event_capacity: event.event_capacity ?? event.capacity,
-    tickets_sold: event.tickets_sold,
+    tickets_sold:
+      event.tickets_sold ??
+      (event as Event).event_tickets_sold ??
+      0,
     user_picture: event.user_picture,
     source: event.source,
     ticket_url: event.ticket_url ?? null,
     event_admin: event.event_admin ?? creatorId ?? null,
     user_id: creatorId ?? event.user_id ?? undefined,
+    event_price_naira: event.event_price_naira ?? 0,
+    payment_contact_email: event.payment_contact_email ?? null,
+    payment_bank_name: event.payment_bank_name ?? null,
+    payment_account_name: event.payment_account_name ?? null,
+    payment_account_number: event.payment_account_number ?? null,
   };
 };
 
@@ -98,6 +123,22 @@ const EventsPage: React.FC = () => {
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
+  const [myPaymentByEventId, setMyPaymentByEventId] = useState<
+    Record<number, MyPaymentRequest | null>
+  >({});
+  const [payConfirmName, setPayConfirmName] = useState<Record<number, string>>(
+    {},
+  );
+  const [customerRows, setCustomerRows] = useState<
+    CustomerPaymentRequestRow[]
+  >([]);
+  const [customerLoading, setCustomerLoading] = useState(false);
+  const [customerError, setCustomerError] = useState<string | null>(null);
+  /** In-app toast for payment / Customers actions (replaces browser alert). */
+  const [eventsActionNotice, setEventsActionNotice] = useState<{
+    variant: "success" | "error";
+    message: string;
+  } | null>(null);
   const mainContentRef = useRef<HTMLElement>(null);
   const categoryMenuRef = useRef<HTMLDivElement>(null);
   const createEventModalRef = useRef<HTMLDivElement>(null);
@@ -118,6 +159,10 @@ const EventsPage: React.FC = () => {
     imagePreview: "",
     capacity: "",
     price: "",
+    payment_contact_email: "",
+    payment_bank_name: "",
+    payment_account_name: "",
+    payment_account_number: "",
     isPublic: true,
   });
 
@@ -207,6 +252,11 @@ const EventsPage: React.FC = () => {
 
   // Filter events based on selected category and active tab
   useEffect(() => {
+    if (activeTab === "Customers") {
+      setFilteredEvents([]);
+      return;
+    }
+
     let filtered = events;
 
     // Filter out events that have passed their start time
@@ -281,8 +331,15 @@ const EventsPage: React.FC = () => {
     });
   }, [events]);
 
-  // Navigation tabs
-  const tabs = ["Discover", "Going", "Interested", "Invited", "My Events"];
+  // Navigation tabs (Customers = paid-event requests for business accounts)
+  const tabs = [
+    "Discover",
+    "Going",
+    "Interested",
+    "Invited",
+    "My Events",
+    ...(isBusinessUser() ? (["Customers"] as const) : []),
+  ];
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -337,6 +394,10 @@ const EventsPage: React.FC = () => {
       imagePreview: "",
       capacity: "",
       price: "",
+      payment_contact_email: "",
+      payment_bank_name: "",
+      payment_account_name: "",
+      payment_account_number: "",
       isPublic: true,
     });
     setImageError("");
@@ -348,17 +409,13 @@ const EventsPage: React.FC = () => {
 
     setEditingEventId(eventId);
 
-    const eventDate = new Date(eventToEdit.date);
-    const validDate = !Number.isNaN(eventDate.getTime());
-    const dateStr = validDate
-      ? eventDate.toISOString().split("T")[0]
-      : "";
-    const hours = validDate ? eventDate.getHours() : 12;
-    const minutes = validDate ? eventDate.getMinutes() : 0;
-    const period = hours >= 12 ? "PM" : "AM";
-    const hour12 = hours % 12 || 12;
-    const minuteStr = minutes.toString().padStart(2, "0");
-    const timeDisplay = `${hour12}:${minuteStr} ${period}`;
+    const lagosParts = getLagosFormPartsFromIso(eventToEdit.date);
+    const dateStr = lagosParts?.dateStr ?? "";
+    const minuteStr =
+      lagosParts?.timeMinute ?? "00";
+    const timeDisplay = lagosParts
+      ? `${lagosParts.timeHour}:${minuteStr} ${lagosParts.timePeriod}`
+      : "12:00 PM";
 
     const existingCover = eventToEdit.event_cover || eventToEdit.image || "";
     const safePreview =
@@ -372,14 +429,22 @@ const EventsPage: React.FC = () => {
       category: eventToEdit.category || "All",
       date: dateStr,
       time: timeDisplay,
-      timeHour: hour12.toString(),
+      timeHour: lagosParts?.timeHour ?? "12",
       timeMinute: minuteStr,
-      timePeriod: period,
+      timePeriod: lagosParts?.timePeriod ?? "PM",
       location: eventToEdit.location || "",
       image: null,
       imagePreview: safePreview,
       capacity: eventToEdit.capacity?.toString() || "",
-      price: "",
+      price:
+        eventToEdit.event_price_naira != null &&
+        Number(eventToEdit.event_price_naira) > 0
+          ? String(eventToEdit.event_price_naira)
+          : "",
+      payment_contact_email: eventToEdit.payment_contact_email || "",
+      payment_bank_name: eventToEdit.payment_bank_name || "",
+      payment_account_name: eventToEdit.payment_account_name || "",
+      payment_account_number: eventToEdit.payment_account_number || "",
       isPublic: true,
     });
     setImageError("");
@@ -465,7 +530,10 @@ const EventsPage: React.FC = () => {
         eventForm.timeMinute,
         eventForm.timePeriod,
       );
-      const eventDate = `${eventForm.date}T${time24}`;
+      const eventDate = buildEventDateTimeIsoFromForm(
+        eventForm.date,
+        time24,
+      );
 
       let imageForApi: string | undefined;
       if (eventForm.image instanceof File) {
@@ -482,6 +550,9 @@ const EventsPage: React.FC = () => {
         }
       }
 
+      const priceNum = parseFloat(eventForm.price);
+      const hasPrice = Number.isFinite(priceNum) && priceNum > 0;
+
       const eventData = {
         title: eventForm.title,
         description: eventForm.description || undefined,
@@ -489,7 +560,16 @@ const EventsPage: React.FC = () => {
         date: eventDate,
         location: eventForm.location || undefined,
         ...(imageForApi !== undefined ? { image: imageForApi } : {}),
-        capacity: eventForm.capacity ? parseInt(eventForm.capacity) : undefined,
+        capacity: eventForm.capacity ? parseInt(eventForm.capacity, 10) : undefined,
+        ...(hasPrice
+          ? {
+              price_naira: priceNum,
+              payment_contact_email: eventForm.payment_contact_email.trim(),
+              payment_bank_name: eventForm.payment_bank_name.trim(),
+              payment_account_name: eventForm.payment_account_name.trim(),
+              payment_account_number: eventForm.payment_account_number.trim(),
+            }
+          : { price_naira: 0 }),
       };
 
       let savedEvent: Event;
@@ -617,6 +697,161 @@ const EventsPage: React.FC = () => {
     return !!(event.source === "gatewav" || event.ticket_url);
   };
 
+  const isPaidJosCityEvent = (event: Event): boolean => {
+    return (
+      !isExternalEvent(event) && (Number(event.event_price_naira) || 0) > 0
+    );
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated() || events.length === 0) return;
+    let cancelled = false;
+    const paid = events.filter(
+      (e) => !isExternalEvent(e) && (Number(e.event_price_naira) || 0) > 0,
+    );
+    if (paid.length === 0) return;
+    (async () => {
+      const entries = await Promise.all(
+        paid.map(async (e) => {
+          try {
+            const r = await getMyPaymentRequest(e.id);
+            return [e.id, r.data ?? null] as const;
+          } catch {
+            return [e.id, null] as const;
+          }
+        }),
+      );
+      if (cancelled) return;
+      setMyPaymentByEventId((prev) => {
+        const next = { ...prev };
+        for (const [id, data] of entries) {
+          next[id] = data;
+        }
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [events]);
+
+  useEffect(() => {
+    if (!eventsActionNotice) return;
+    const t = window.setTimeout(() => setEventsActionNotice(null), 5200);
+    return () => window.clearTimeout(t);
+  }, [eventsActionNotice]);
+
+  useEffect(() => {
+    if (activeTab !== "Customers" || !isBusinessUser()) return;
+    let cancelled = false;
+    setCustomerLoading(true);
+    setCustomerError(null);
+    getCustomerPaymentRequests()
+      .then((r) => {
+        if (!cancelled && r.success && r.data) setCustomerRows(r.data);
+      })
+      .catch((e) => {
+        if (!cancelled)
+          setCustomerError(
+            e instanceof Error ? e.message : "Failed to load customers",
+          );
+      })
+      .finally(() => {
+        if (!cancelled) setCustomerLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab]);
+
+  const copyPaymentField = async (text: string) => {
+    const t = String(text || "").trim();
+    if (!t) return;
+    try {
+      await navigator.clipboard.writeText(t);
+    } catch {
+      window.prompt("Copy:", t);
+    }
+  };
+
+  const refreshEventsFromApi = async () => {
+    try {
+      const response = await getEvents({ limit: 40, page: 1 });
+      if (response.success && response.data) {
+        setEvents(response.data.map(normalizeEvent));
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleFeePaid = async (event: Event) => {
+    const name = (payConfirmName[event.id] ?? "").trim();
+    if (!name) {
+      setEventsActionNotice({
+        variant: "error",
+        message:
+          "Enter your bank account name — the name on your account as it will appear on the transfer.",
+      });
+      return;
+    }
+    try {
+      await submitEventPaymentRequest(event.id, name);
+      const r = await getMyPaymentRequest(event.id);
+      setMyPaymentByEventId((prev) => ({
+        ...prev,
+        [event.id]: r.data ?? null,
+      }));
+      setEventsActionNotice({
+        variant: "success",
+        message: "Request sent. The organizer has been notified.",
+      });
+    } catch (e) {
+      setEventsActionNotice({
+        variant: "error",
+        message:
+          e instanceof Error
+            ? e.message
+            : "Could not submit payment request",
+      });
+    }
+  };
+
+  const handleAcceptCustomer = async (requestId: number) => {
+    try {
+      await acceptEventPaymentRequest(requestId);
+      const r = await getCustomerPaymentRequests();
+      if (r.success && r.data) setCustomerRows(r.data);
+      await refreshEventsFromApi();
+      setEventsActionNotice({
+        variant: "success",
+        message: "Accepted. Ticket email sent to the buyer.",
+      });
+    } catch (e) {
+      setEventsActionNotice({
+        variant: "error",
+        message: e instanceof Error ? e.message : "Failed to accept",
+      });
+    }
+  };
+
+  const handleRejectCustomer = async (requestId: number) => {
+    try {
+      await rejectEventPaymentRequest(requestId);
+      const r = await getCustomerPaymentRequests();
+      if (r.success && r.data) setCustomerRows(r.data);
+      setEventsActionNotice({
+        variant: "success",
+        message: "Rejected. The buyer has been notified.",
+      });
+    } catch (e) {
+      setEventsActionNotice({
+        variant: "error",
+        message: e instanceof Error ? e.message : "Failed to reject",
+      });
+    }
+  };
+
   // Handle event deletion
   const handleDeleteEvent = async (eventId: number) => {
     if (
@@ -696,6 +931,37 @@ const EventsPage: React.FC = () => {
           />
 
           <main className="newsfeed-main" ref={mainContentRef}>
+            {eventsActionNotice && (
+              <div
+                className={`eventspage-action-badge eventspage-action-badge--${eventsActionNotice.variant}`}
+                role="status"
+              >
+                {eventsActionNotice.variant === "success" ? (
+                  <CheckCircle
+                    size={20}
+                    className="eventspage-action-badge__icon"
+                    aria-hidden
+                  />
+                ) : (
+                  <AlertCircle
+                    size={20}
+                    className="eventspage-action-badge__icon"
+                    aria-hidden
+                  />
+                )}
+                <span className="eventspage-action-badge__text">
+                  {eventsActionNotice.message}
+                </span>
+                <button
+                  type="button"
+                  className="eventspage-action-badge__dismiss"
+                  onClick={() => setEventsActionNotice(null)}
+                  aria-label="Dismiss notification"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
             {/* Hero Section */}
             <section className="eventspage-hero">
               <div className="eventspage-hero__container">
@@ -799,7 +1065,9 @@ const EventsPage: React.FC = () => {
                                 ? "Invited Events"
                                 : activeTab === "My Events"
                                   ? "My Events"
-                                  : "Events"}
+                                  : activeTab === "Customers"
+                                    ? "Customers"
+                                    : "Events"}
                       </h2>
                       {/* Mobile Category Filter Button */}
                       <button
@@ -871,7 +1139,79 @@ const EventsPage: React.FC = () => {
                     </>
                   )}
                   <div className="eventspage-main__content">
-                    {eventsLoading ? (
+                    {activeTab === "Customers" ? (
+                      customerLoading ? (
+                        <div className="eventspage-main__empty">
+                          <Clock size={48} />
+                          <p className="eventspage-main__empty-text">
+                            Loading customers...
+                          </p>
+                        </div>
+                      ) : customerError ? (
+                        <div className="eventspage-main__empty">
+                          <p className="eventspage-main__empty-text">
+                            {customerError}
+                          </p>
+                        </div>
+                      ) : customerRows.length === 0 ? (
+                        <div className="eventspage-main__empty">
+                          <p className="eventspage-main__empty-text">
+                            No pending “I have paid” requests
+                          </p>
+                          <p className="eventspage-main__empty-subtext">
+                            When ticket buyers submit a payment, they will appear
+                            here for you to accept or reject.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="eventspage-customers-list">
+                          {customerRows.map((row) => (
+                            <div
+                              key={row.request_id}
+                              className="eventspage-customers-card"
+                            >
+                              <div className="eventspage-customers-card__head">
+                                <h3 className="eventspage-customers-card__title">
+                                  {row.event_title}
+                                </h3>
+                                <span className="eventspage-customers-card__fee">
+                                  ₦{Number(row.event_price_naira).toLocaleString()}
+                                </span>
+                              </div>
+                              <p className="eventspage-customers-card__buyer">
+                                {row.buyer_name} · {row.buyer_email}
+                              </p>
+                                <p className="eventspage-customers-card__meta">
+                                Attendee account (on transfer):{" "}
+                                <strong>
+                                  {row.buyer_confirmed_account_name}
+                                </strong>
+                              </p>
+                              <div className="eventspage-customers-card__actions">
+                                <button
+                                  type="button"
+                                  className="eventspage-event-card__action-btn eventspage-event-card__action-btn--primary"
+                                  onClick={() =>
+                                    handleAcceptCustomer(row.request_id)
+                                  }
+                                >
+                                  Accept
+                                </button>
+                                <button
+                                  type="button"
+                                  className="eventspage-event-card__remove-btn"
+                                  onClick={() =>
+                                    handleRejectCustomer(row.request_id)
+                                  }
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    ) : eventsLoading ? (
                       <div className="eventspage-main__empty">
                         <div className="eventspage-main__empty-illustration">
                           <div className="eventspage-main__empty-icon">
@@ -946,19 +1286,11 @@ const EventsPage: React.FC = () => {
                                 {event.date && (
                                   <span className="eventspage-event-card__date">
                                     <Calendar size={16} />
-                                    {new Date(event.date).toLocaleDateString()}
-                                    {event.date.includes("T") && (
-                                      <span className="eventspage-event-card__time">
-                                        {" "}
-                                        {new Date(
-                                          event.date,
-                                        ).toLocaleTimeString("en-US", {
-                                          hour: "numeric",
-                                          minute: "2-digit",
-                                          hour12: true,
-                                        })}
-                                      </span>
-                                    )}
+                                    {formatEventDateOnly(event.date)}
+                                    <span className="eventspage-event-card__time">
+                                      {" "}
+                                      {formatEventTimeOnly(event.date)}
+                                    </span>
                                   </span>
                                 )}
                                 {event.location && (
@@ -977,11 +1309,13 @@ const EventsPage: React.FC = () => {
                                 <div className="eventspage-event-card__capacity">
                                   <Users size={14} />
                                   <span>
-                                    {isExternalEvent(event)
+                                    {isExternalEvent(event) ||
+                                    isPaidJosCityEvent(event)
                                       ? `${event.tickets_sold ?? 0} / ${event.capacity} tickets`
                                       : `${getGoingCount(event.id)} / ${event.capacity} going`}
                                   </span>
-                                  {(isExternalEvent(event)
+                                  {(isExternalEvent(event) ||
+                                  isPaidJosCityEvent(event)
                                     ? (event.tickets_sold ?? 0) >=
                                       event.capacity
                                     : getGoingCount(event.id) >=
@@ -992,6 +1326,146 @@ const EventsPage: React.FC = () => {
                                   )}
                                 </div>
                               )}
+                              {isPaidJosCityEvent(event) &&
+                                !isCurrentUserEventOwner(event) &&
+                                event.payment_account_name && (
+                                  <div className="eventspage-event-card__payment">
+                                    <div className="eventspage-event-card__payment-fee">
+                                      <span>Fee</span>
+                                      <strong>
+                                        ₦
+                                        {Number(
+                                          event.event_price_naira,
+                                        ).toLocaleString()}
+                                      </strong>
+                                    </div>
+                                    <p className="eventspage-event-card__payment-hint">
+                                      Pay via bank transfer to the account
+                                      below. Then enter{" "}
+                                      <strong>your</strong> bank account name
+                                      (as on your transfer) and tap Fee Paid.
+                                    </p>
+                                    {(
+                                      [
+                                        [
+                                          "Email",
+                                          event.payment_contact_email,
+                                        ],
+                                        [
+                                          "Bank name",
+                                          event.payment_bank_name,
+                                        ],
+                                        [
+                                          "Account name",
+                                          event.payment_account_name,
+                                        ],
+                                        [
+                                          "Account number",
+                                          event.payment_account_number,
+                                        ],
+                                      ] as const
+                                    ).map(([label, val]) =>
+                                      val ? (
+                                        <div
+                                          key={label}
+                                          className="eventspage-event-card__pay-row"
+                                        >
+                                          <span className="eventspage-event-card__pay-label">
+                                            {label}
+                                          </span>
+                                          <span className="eventspage-event-card__pay-value">
+                                            {val}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            className="eventspage-event-card__pay-copy"
+                                            onClick={() =>
+                                              copyPaymentField(String(val))
+                                            }
+                                            aria-label={`Copy ${label}`}
+                                          >
+                                            <Copy size={16} />
+                                          </button>
+                                        </div>
+                                      ) : null,
+                                    )}
+                                    {isAuthenticated() &&
+                                      (() => {
+                                        const st =
+                                          myPaymentByEventId[event.id]?.status;
+                                        if (st === "pending") {
+                                          return (
+                                            <p className="eventspage-event-card__pay-status eventspage-event-card__pay-status--pending">
+                                              Payment pending — waiting for the
+                                              organizer to accept.
+                                            </p>
+                                          );
+                                        }
+                                        if (st === "accepted") {
+                                          return (
+                                            <p className="eventspage-event-card__pay-status eventspage-event-card__pay-status--ok">
+                                              Ticket:{" "}
+                                              <strong>
+                                                {
+                                                  myPaymentByEventId[event.id]
+                                                    ?.ticket_number
+                                                }
+                                              </strong>
+                                            </p>
+                                          );
+                                        }
+                                        if (st === "rejected") {
+                                          return (
+                                            <p className="eventspage-event-card__pay-status eventspage-event-card__pay-status--bad">
+                                              Your last request was not
+                                              accepted. You can submit again
+                                              after paying.
+                                            </p>
+                                          );
+                                        }
+                                        return (
+                                          <div className="eventspage-event-card__pay-confirm">
+                                            <label
+                                              className="eventspage-event-card__pay-confirm-label"
+                                              htmlFor={`pay-acc-${event.id}`}
+                                            >
+                                              Your account name (attendee)
+                                            </label>
+                                            <input
+                                              id={`pay-acc-${event.id}`}
+                                              className="eventspage-event-card__pay-confirm-input"
+                                              value={
+                                                payConfirmName[event.id] ?? ""
+                                              }
+                                              onChange={(e) =>
+                                                setPayConfirmName((p) => ({
+                                                  ...p,
+                                                  [event.id]: e.target.value,
+                                                }))
+                                              }
+                                              placeholder="Name on your bank account (as on the transfer)"
+                                              autoComplete="name"
+                                            />
+                                            <button
+                                              type="button"
+                                              className="eventspage-event-card__fee-paid-btn"
+                                              onClick={() =>
+                                                handleFeePaid(event)
+                                              }
+                                            >
+                                              Fee Paid
+                                            </button>
+                                          </div>
+                                        );
+                                      })()}
+                                    {!isAuthenticated() && (
+                                      <p className="eventspage-event-card__pay-signin">
+                                        Sign in to confirm your transfer and
+                                        notify the organizer.
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
                               {/* External event badge */}
                               {isExternalEvent(event) && (
                                 <div className="eventspage-event-card__source-badge">
@@ -1042,6 +1516,8 @@ const EventsPage: React.FC = () => {
 
                                 {/* Going button - show Add if not in list, Remove if in list (only for JOSCITY events) */}
                                 {!isExternalEvent(event) &&
+                                  (!isPaidJosCityEvent(event) ||
+                                    isCurrentUserEventOwner(event)) &&
                                   (isEventInList(event.id, "going") ? (
                                     <button
                                       className="eventspage-event-card__remove-btn"
@@ -1068,6 +1544,8 @@ const EventsPage: React.FC = () => {
 
                                 {/* Interested button - show Add if not in list, Remove if in list (only for JOSCITY events) */}
                                 {!isExternalEvent(event) &&
+                                  (!isPaidJosCityEvent(event) ||
+                                    isCurrentUserEventOwner(event)) &&
                                   (isEventInList(event.id, "interested") ? (
                                     <button
                                       className="eventspage-event-card__remove-btn"
@@ -1383,7 +1861,7 @@ const EventsPage: React.FC = () => {
                       className="eventspage-create-modal__label"
                     >
                       <DollarSign size={16} />
-                      Price
+                      Price (₦)
                     </label>
                     <input
                       type="number"
@@ -1392,12 +1870,94 @@ const EventsPage: React.FC = () => {
                       value={eventForm.price}
                       onChange={handleEventFormChange}
                       className="eventspage-create-modal__input"
-                      placeholder="0.00"
+                      placeholder="0"
                       min="0"
-                      step="0.01"
+                      step="1"
                     />
                   </div>
                 </div>
+
+                {Number(eventForm.price) > 0 && (
+                  <>
+                    <p className="eventspage-create-modal__paid-hint">
+                      Paid event (₦): add where you want payment notices sent and
+                      your bank details for transfers.
+                    </p>
+                    <div className="eventspage-create-modal__field">
+                      <label
+                        htmlFor="payment_contact_email"
+                        className="eventspage-create-modal__label"
+                      >
+                        Email *
+                      </label>
+                      <input
+                        type="email"
+                        id="payment_contact_email"
+                        name="payment_contact_email"
+                        value={eventForm.payment_contact_email}
+                        onChange={handleEventFormChange}
+                        className="eventspage-create-modal__input"
+                        placeholder="you@example.com"
+                        required={Number(eventForm.price) > 0}
+                      />
+                    </div>
+                    <div className="eventspage-create-modal__field">
+                      <label
+                        htmlFor="payment_bank_name"
+                        className="eventspage-create-modal__label"
+                      >
+                        Bank name *
+                      </label>
+                      <input
+                        type="text"
+                        id="payment_bank_name"
+                        name="payment_bank_name"
+                        value={eventForm.payment_bank_name}
+                        onChange={handleEventFormChange}
+                        className="eventspage-create-modal__input"
+                        required={Number(eventForm.price) > 0}
+                      />
+                    </div>
+                    <div className="eventspage-create-modal__row">
+                      <div className="eventspage-create-modal__field">
+                        <label
+                          htmlFor="payment_account_name"
+                          className="eventspage-create-modal__label"
+                        >
+                          Account name *
+                        </label>
+                        <input
+                          type="text"
+                          id="payment_account_name"
+                          name="payment_account_name"
+                          value={eventForm.payment_account_name}
+                          onChange={handleEventFormChange}
+                          className="eventspage-create-modal__input"
+                          required={Number(eventForm.price) > 0}
+                        />
+                      </div>
+                      <div className="eventspage-create-modal__field">
+                        <label
+                          htmlFor="payment_account_number"
+                          className="eventspage-create-modal__label"
+                        >
+                          Account number *
+                        </label>
+                        <input
+                          type="text"
+                          id="payment_account_number"
+                          name="payment_account_number"
+                          value={eventForm.payment_account_number}
+                          onChange={handleEventFormChange}
+                          className="eventspage-create-modal__input"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          required={Number(eventForm.price) > 0}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Privacy Setting */}
                 <div className="eventspage-create-modal__field">

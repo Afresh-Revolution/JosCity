@@ -1947,3 +1947,272 @@
     margin-top: 24px;
   }
 }
+
+// Paid events: bank transfer block on cards
+.eventspage-event-card__payment {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--card-bg, #fff);
+  border: 1px solid rgba(13, 74, 31, 0.15);
+  font-size: 14px;
+}
+
+.eventspage-event-card__payment-fee {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.eventspage-event-card__payment-hint {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-bottom: 10px;
+  line-height: 1.45;
+}
+
+.eventspage-event-card__pay-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.eventspage-event-card__pay-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.eventspage-event-card__pay-value {
+  word-break: break-word;
+  text-align: right;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.eventspage-event-card__pay-copy {
+  border: none;
+  background: transparent;
+  color: var(--color-primary, #0d4a1f);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.eventspage-event-card__pay-copy:hover {
+  background: rgba(13, 74, 31, 0.08);
+}
+
+.eventspage-event-card__pay-status {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.eventspage-event-card__pay-status--pending {
+  color: #b7791f;
+}
+
+.eventspage-event-card__pay-status--ok {
+  color: #0d4a1f;
+}
+
+.eventspage-event-card__pay-status--bad {
+  color: #c53030;
+}
+
+.eventspage-event-card__pay-confirm {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.eventspage-event-card__pay-confirm-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.eventspage-event-card__pay-confirm-input {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--bg-secondary, #f9f9f9);
+  color: var(--text-primary);
+}
+
+.eventspage-event-card__fee-paid-btn {
+  margin-top: 4px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--color-primary, #0d4a1f);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 15px;
+  font-family: inherit;
+}
+
+.eventspage-event-card__fee-paid-btn:hover {
+  filter: brightness(1.05);
+}
+
+.eventspage-event-card__pay-signin {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.eventspage-create-modal__paid-hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+
+// Business: Customers tab
+.eventspage-customers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.eventspage-customers-card {
+  background: var(--card-bg, #fff);
+  border-radius: 12px;
+  padding: 18px 20px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.eventspage-customers-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.eventspage-customers-card__title {
+  margin: 0;
+  font-size: 18px;
+  color: var(--text-primary);
+}
+
+.eventspage-customers-card__fee {
+  font-weight: 700;
+  color: var(--color-primary, #0d4a1f);
+  white-space: nowrap;
+}
+
+.eventspage-customers-card__buyer {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.eventspage-customers-card__meta {
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.eventspage-customers-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+// Floating pill badge for payment / customer actions (replaces browser alert)
+.eventspage-action-badge {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10060;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px 11px 18px;
+  border-radius: 999px;
+  max-width: min(440px, calc(100vw - 24px));
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  animation: eventspage-action-badge-in 0.28s ease;
+  pointer-events: auto;
+}
+
+@keyframes eventspage-action-badge-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.eventspage-action-badge--success {
+  background: linear-gradient(
+    135deg,
+    rgba(13, 74, 31, 0.98) 0%,
+    rgba(18, 95, 42, 0.98) 100%
+  );
+  color: #f4fcf6;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.eventspage-action-badge--error {
+  background: linear-gradient(
+    135deg,
+    rgba(130, 35, 35, 0.98) 0%,
+    rgba(90, 28, 28, 0.98) 100%
+  );
+  color: #fff5f5;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.eventspage-action-badge__icon {
+  flex-shrink: 0;
+  opacity: 0.95;
+}
+
+.eventspage-action-badge__text {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.eventspage-action-badge__dismiss {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: -4px -6px -4px 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.eventspage-action-badge__dismiss:hover {
+  background: rgba(255, 255, 255, 0.18);
+}

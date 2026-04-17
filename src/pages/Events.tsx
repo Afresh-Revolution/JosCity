@@ -12,10 +12,11 @@ import {
   getPublicLandingEvents,
   type Event,
 } from "../api/events";
-import { getProfileUsername } from "../utils/userUtils";
+import { getProfileUsername, isAuthenticated } from "../utils/userUtils";
 import { eventCoverForDisplay } from "../utils/mediaUrl";
 import eventPlaceholder from "../image/discover.jpg";
 import EventShareButton from "../components/EventShareButton";
+import { formatEventDateTimeDisplay } from "../utils/eventDateDisplay";
 
 const normalizeEvent = (event: Event) => {
   const rawCover = event.event_cover || event.image || "";
@@ -123,18 +124,6 @@ const Events: React.FC = () => {
     return () => window.removeEventListener("keydown", handleEscape);
   }, [selectedEvent]);
 
-  const formatEventDate = (dateString: string) => {
-    if (!dateString) return "";
-
-    return new Date(dateString).toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   const eventsContent = (
     <section id="events" className="events">
       <div className="events__container">
@@ -201,7 +190,7 @@ const Events: React.FC = () => {
                       {event.date && (
                         <div className="events__meta">
                           <Clock size={14} />
-                          <span>{formatEventDate(event.date)}</span>
+                          <span>{formatEventDateTimeDisplay(event.date)}</span>
                         </div>
                       )}
                       {event.location && (
@@ -244,6 +233,30 @@ const Events: React.FC = () => {
                 <h3>{selectedEvent.title}</h3>
                 {selectedEvent.description && (
                   <p>{selectedEvent.description}</p>
+                )}
+                {!isStandalonePage && (
+                  <div className="events__lightbox-actions">
+                    <button
+                      type="button"
+                      className="events__lightbox-apply"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const eventPath = `/events?event=${encodeURIComponent(
+                          String(selectedEvent.id),
+                        )}`;
+                        setSelectedEvent(null);
+                        if (!isAuthenticated()) {
+                          navigate("/signin", {
+                            state: { redirectTo: eventPath },
+                          });
+                        } else {
+                          navigate(eventPath);
+                        }
+                      }}
+                    >
+                      Attend
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

@@ -73,6 +73,7 @@ interface Post {
   userSaved?: boolean;
   originalPost?: EmbeddedPost;
   listingDetails?: ListingDetails | null;
+  isReel?: boolean;
 }
 
 interface PostCardProps {
@@ -433,6 +434,11 @@ const PostCard: React.FC<PostCardProps> = ({
 
   const handleShare = async () => {
     if (isLoading) return;
+
+    if (post.isReel) {
+      alert("Reels can only be reshared from the reels section on your profile page.");
+      return;
+    }
     
     // Check if user is authenticated
     if (!isAuthenticated()) {

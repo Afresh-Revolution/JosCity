@@ -332,10 +332,27 @@ const PostCard: React.FC<PostCardProps> = ({
         if (response.success && response.data) {
           const formattedComments: Comment[] = response.data.map((comment: ApiComment) => ({
             id: comment.comment_id ?? comment.id ?? Date.now(),
-            userName:
-              comment.author?.name ||
-              comment.user?.display_name ||
-              "Unknown User",
+            userName: (() => {
+              const backendName =
+                comment.author?.name || comment.user?.display_name;
+              if (backendName && String(backendName).trim()) {
+                return String(backendName).trim();
+              }
+
+              const currentUser = getUserData();
+              const currentUserId =
+                (currentUser?.user_id as number) ||
+                ((currentUser as { id?: number } | null)?.id as number) ||
+                null;
+              if (
+                currentUserId != null &&
+                Number(comment.user_id) === Number(currentUserId)
+              ) {
+                return getUserName();
+              }
+
+              return "Unknown User";
+            })(),
             userAvatar:
               comment.author?.picture ||
               comment.user?.profile_image_url ||
@@ -368,10 +385,14 @@ const PostCard: React.FC<PostCardProps> = ({
       if (response.success && response.data) {
         const newCommentData: Comment = {
           id: response.data.comment_id ?? response.data.id ?? Date.now(),
-          userName:
-            response.data.author?.name ||
-            response.data.user?.display_name ||
-            "You",
+          userName: (() => {
+            const backendName =
+              response.data.author?.name || response.data.user?.display_name;
+            if (backendName && String(backendName).trim()) {
+              return String(backendName).trim();
+            }
+            return getUserName();
+          })(),
           userAvatar:
             response.data.author?.picture ||
             response.data.user?.profile_image_url ||

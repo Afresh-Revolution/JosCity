@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, Send, Heart, Loader2 } from "lucide-react";
 import { reelsApi, ReelComment } from "../services/reelsApi";
+import { getUserData, getUserName } from "../utils/userUtils";
 
 interface LocalComment extends ReelComment {
   likes: number;
@@ -22,8 +23,28 @@ const normalizeComment = (comment: ReelComment): LocalComment => ({
   isLiked: false,
 });
 
-const getCommentAuthorName = (comment: LocalComment) =>
-  comment.author?.name || "Citizen";
+const getCommentAuthorName = (comment: LocalComment) => {
+  const authorName =
+    comment.author?.name ||
+    comment.user?.display_name ||
+    (comment as { business_name?: string }).business_name;
+
+  if (authorName && String(authorName).trim()) {
+    return String(authorName).trim();
+  }
+
+  const currentUser = getUserData();
+  const currentUserId =
+    (currentUser?.user_id as number) ||
+    ((currentUser as { id?: number } | null)?.id as number) ||
+    null;
+
+  if (currentUserId != null && Number(comment.user_id) === Number(currentUserId)) {
+    return getUserName();
+  }
+
+  return "Citizen";
+};
 
 const ReelCommentModal: React.FC<ReelCommentModalProps> = ({
   isOpen,
@@ -171,12 +192,18 @@ const ReelCommentModal: React.FC<ReelCommentModalProps> = ({
                 <p>No comments yet. Be the first to comment!</p>
               </div>
             ) : (
-              comments.map((comment) => {
+              comments.map((comment, index) => {
                 const commentId = comment.id || comment.comment_id || 0;
                 const authorName = getCommentAuthorName(comment);
+                const commentKey =
+                  commentId > 0
+                    ? `comment-${commentId}`
+                    : `comment-${comment.user_id || "anon"}-${
+                        comment.created_at || "now"
+                      }-${index}`;
 
                 return (
-                  <div key={commentId} className="reel-comment-modal__comment">
+                  <div key={commentKey} className="reel-comment-modal__comment">
                     <div className="reel-comment-modal__comment-avatar">
                       {authorName.charAt(0).toUpperCase()}
                     </div>

@@ -40,6 +40,11 @@ export interface ReelComment {
   created_at: string;
   time_ago?: string;
   author?: ReelAuthor;
+  user?: {
+    user_id?: number;
+    display_name?: string;
+    profile_image_url?: string | null;
+  };
 }
 
 export interface ReelItem {
@@ -61,6 +66,7 @@ export interface ReelItem {
   comments_count: number;
   shares_count: number;
   user_reacted: boolean;
+  user_reaction_id?: number | null;
   user_shared: boolean;
   user_saved: boolean;
   user_preference: ReelPreference;
@@ -105,6 +111,7 @@ interface FeedFallbackPost {
   comments_count?: number | string;
   shares_count?: number | string;
   user_reacted?: boolean;
+  user_reaction_id?: number | string | null;
   user_shared?: boolean;
   user_saved?: boolean;
   user_preference?: ReelPreference;
@@ -299,6 +306,10 @@ const mapFeedPostToReel = (post: FeedFallbackPost): ReelItem => {
     post.text?.trim() ||
     `Reel #${reelId}`;
 
+  const userReactionId = Number(post.user_reaction_id || 0) || null;
+  const userLiked =
+    userReactionId != null ? userReactionId === 1 : Boolean(post.user_reacted);
+
   return {
     id: reelId,
     post_id: reelId,
@@ -317,7 +328,8 @@ const mapFeedPostToReel = (post: FeedFallbackPost): ReelItem => {
     reactions_count: Number(post.reactions_count || 0),
     comments_count: Number(post.comments_count || 0),
     shares_count: Number(post.shares_count || 0),
-    user_reacted: Boolean(post.user_reacted),
+    user_reacted: userLiked,
+    user_reaction_id: userReactionId,
     user_shared: Boolean(post.user_shared),
     user_saved: Boolean(post.user_saved),
     user_preference:
@@ -334,6 +346,18 @@ const mapFeedPostToReel = (post: FeedFallbackPost): ReelItem => {
         url: item.url,
         type: item.type,
       })),
+  };
+};
+
+const normalizeReelReactionState = (reel: ReelItem): ReelItem => {
+  const userReactionId = Number((reel as { user_reaction_id?: number | string | null }).user_reaction_id || 0) || null;
+  const userLiked =
+    userReactionId != null ? userReactionId === 1 : Boolean(reel.user_reacted);
+
+  return {
+    ...reel,
+    user_reacted: userLiked,
+    user_reaction_id: userReactionId,
   };
 };
 
@@ -561,7 +585,9 @@ export const reelsApi = {
 
       return {
         success: true,
-        data: Array.isArray(response.data) ? response.data : [],
+        data: Array.isArray(response.data)
+          ? response.data.map(normalizeReelReactionState)
+          : [],
         categories: Array.isArray(response.categories)
           ? response.categories.map((category) => ({
               name: String(category.name || "Others"),

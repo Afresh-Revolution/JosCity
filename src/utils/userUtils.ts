@@ -14,6 +14,7 @@ export interface UserData {
   username?: string;
   user_name?: string;
   account_type?: string;
+  business_name?: string;
   created_at?: string;
   [key: string]: unknown;
 }
@@ -60,10 +61,20 @@ export const getUserName = (): string => {
   const user = getUserData();
   if (!user) return "User";
 
+  const accountType = String(user.account_type || "").trim().toLowerCase();
+  if (accountType === "business" && user.business_name) {
+    const businessName = String(user.business_name).trim();
+    if (businessName) return businessName;
+  }
+
   if (user.display_name) return user.display_name;
   if (user.name) return user.name;
   if (user.username) return user.username;
   if (user.user_name) return user.user_name;
+  if (user.business_name) {
+    const businessName = String(user.business_name).trim();
+    if (businessName) return businessName;
+  }
   if (user.user_firstname) {
     return user.user_lastname
       ? `${user.user_firstname} ${user.user_lastname}`

@@ -13,6 +13,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { normalizeAdminBroadcastType } from "../components/AdminBroadcastStrip";
+import { getUserAvatar, getUserData, getUserName } from "./userUtils";
 
 export interface FeedPanelNotification {
   id: number;
@@ -92,6 +93,18 @@ export function mapApiRowToFeedPanelNotification(n: {
       ? Number(n.node_id)
       : undefined;
 
+  const currentUser = getUserData();
+  const currentUserId =
+    (currentUser?.user_id as number) ||
+    ((currentUser as { id?: number } | null)?.id as number) ||
+    null;
+  const isCurrentUserActor =
+    currentUserId != null &&
+    n.from_user_id != null &&
+    Number(n.from_user_id) === Number(currentUserId);
+  const fallbackCurrentUserName = isCurrentUserActor ? getUserName() : undefined;
+  const fallbackCurrentUserAvatar = isCurrentUserActor ? (getUserAvatar() || "") : "";
+
   return {
     id: n.id,
     type: typeForFeed,
@@ -103,8 +116,9 @@ export function mapApiRowToFeedPanelNotification(n: {
     userId: n.from_user_id ?? 0,
     userName:
       n.from_user?.display_name ??
+      fallbackCurrentUserName ??
       (item.is_global || isAdminBroadcast ? "Admin" : "Someone"),
-    userAvatar: n.from_user?.profile_image_url ?? "",
+    userAvatar: n.from_user?.profile_image_url ?? fallbackCurrentUserAvatar,
     message: item.message || n.action || "",
     timestamp: n.time ?? "",
     isRead: !!n.is_read,

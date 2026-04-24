@@ -86,6 +86,10 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
                 id?: number;
                 name?: string;
                 display_name?: string;
+                user_firstname?: string;
+                user_lastname?: string;
+                account_type?: string;
+                business_name?: string;
                 picture?: string;
                 profile_image_url?: string;
               };
@@ -118,9 +122,22 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
                 userStoryGroup.stories &&
                 Array.isArray(userStoryGroup.stories)
               ) {
+                const userInfo = userStoryGroup.user;
+                const isBusinessAccount =
+                  String(userInfo?.account_type || "")
+                    .trim()
+                    .toLowerCase() === "business";
+                const fullName = `${userInfo?.user_firstname || ""} ${
+                  userInfo?.user_lastname || ""
+                }`.trim();
                 const storyUserName =
-                  userStoryGroup.user?.name ||
-                  userStoryGroup.user?.display_name ||
+                  (isBusinessAccount
+                    ? userInfo?.business_name || userInfo?.display_name || userInfo?.name
+                    : userInfo?.display_name ||
+                      userInfo?.name ||
+                      userInfo?.business_name ||
+                      fullName) ||
+                  fullName ||
                   "Unknown";
                 const userStories: Story[] = [];
 
@@ -294,6 +311,7 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
       const storyData: {
         type: "photo" | "video" | "text";
         src: string;
+        caption?: string;
         background_color?: string;
         text_color?: string;
         duration?: number;
@@ -303,6 +321,9 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
         src: content,
         duration: 24, // 24 hours
       };
+      if ((type === "photo" || type === "video") && caption?.trim()) {
+        storyData.caption = caption.trim();
+      }
       if (mediaFile != null) {
         storyData.mediaFile = mediaFile;
       }
@@ -322,7 +343,10 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
           expires_at?: string;
         };
         const storyUserName =
-          apiStory.user?.display_name || apiStory.user_name || userName;
+          apiStory.user?.display_name ||
+          apiStory.user_name ||
+          userName ||
+          currentUser;
         const newStory: Story = {
           id: apiStory.story_id || apiStory.id || Date.now(),
           userName: storyUserName,

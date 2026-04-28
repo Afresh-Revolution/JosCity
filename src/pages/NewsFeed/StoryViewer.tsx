@@ -435,6 +435,15 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
                 alt={currentStory.caption || "Story"}
                 className="story-viewer__image"
               />
+              {currentStory.caption && (
+                <div
+                  className="story-viewer__media-caption"
+                  onClick={(event) => event.stopPropagation()}
+                  title={currentStory.caption}
+                >
+                  <p>{currentStory.caption}</p>
+                </div>
+              )}
               {isPaused && (
                 <div
                   style={{
@@ -470,14 +479,18 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
                 onPlay={() => setIsPaused(false)}
                 onPause={() => setIsPaused(true)}
               />
+              {currentStory.caption && (
+                <div
+                  className="story-viewer__media-caption"
+                  onClick={(event) => event.stopPropagation()}
+                  title={currentStory.caption}
+                >
+                  <p>{currentStory.caption}</p>
+                </div>
+              )}
             </div>
           )}
 
-          {currentStory?.caption && (
-            <div className="story-viewer__caption">
-              <p>{currentStory.caption}</p>
-            </div>
-          )}
         </div>
 
         {/* Bottom actions (Instagram style) */}

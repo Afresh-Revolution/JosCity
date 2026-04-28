@@ -50,6 +50,7 @@ export interface CardPostShape {
   userSaved?: boolean;
   originalPost?: EmbeddedPostShape;
   listingDetails?: ListingDetails | null;
+  isReel?: boolean;
 }
 
 interface FeedItem {
@@ -114,6 +115,7 @@ interface FeedItem {
   account_type?: string;
   accountType?: string;
   listing_details?: unknown;
+  post_type?: string;
 }
 
 export function mapFeedApiItemToPost(feed: unknown): CardPostShape | null {
@@ -298,5 +300,8 @@ export function mapFeedApiItemToPost(feed: unknown): CardPostShape | null {
     userSaved: Boolean(f.user_saved),
     originalPost,
     listingDetails: listingDetails || undefined,
+    isReel:
+      typeof f.post_type === "string" &&
+      f.post_type.trim().toLowerCase() === "reel",
   };
 }

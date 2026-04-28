@@ -252,6 +252,7 @@ export const feedApi = {
   createStory: async (data: {
     type: "photo" | "video" | "text";
     src: string; // text content for text stories; ignored for photo/video (media sent as file)
+    caption?: string; // optional caption for photo/video stories
     background_color?: string;
     text_color?: string;
     duration?: number; // hours until expiration (default: 24)
@@ -270,6 +271,9 @@ export const feedApi = {
       const formData = new FormData();
       formData.append("type", data.type);
       formData.append("duration", String(data.duration ?? 24));
+      if (data.caption && data.caption.trim()) {
+        formData.append("caption", data.caption.trim());
+      }
       if (data.background_color) formData.append("background_color", data.background_color);
       if (data.text_color) formData.append("text_color", data.text_color);
       const file = data.mediaFile instanceof Blob ? new File([data.mediaFile], "media", { type: data.mediaFile.type }) : data.mediaFile;

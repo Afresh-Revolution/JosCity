@@ -19,6 +19,7 @@ import {
   requestPasswordResetOtp,
   verifyPasswordResetOtp,
   resetPasswordWithOtp,
+  getUserProfile,
 } from "../api/auth";
 // Citizen count is now fetched from API
 import "../main.css";
@@ -134,6 +135,19 @@ function SignIn() {
           account_type: accountType,
         };
         localStorage.setItem("user", JSON.stringify(userData));
+
+        // Hydrate local user with profile fields (business_name/display_name)
+        // so UI surfaces the correct identity immediately after sign-in.
+        const profileResponse = await getUserProfile();
+        if (profileResponse.success && profileResponse.data) {
+          const mergedUserData = {
+            ...userData,
+            ...profileResponse.data,
+            account_type:
+              String(profileResponse.data.account_type || userData.account_type || accountType),
+          };
+          localStorage.setItem("user", JSON.stringify(mergedUserData));
+        }
       }
 
       const redirectTo =

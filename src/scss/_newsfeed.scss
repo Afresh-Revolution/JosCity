@@ -6523,11 +6523,36 @@
       color: #ffffff !important;
     }
 
+    &__see-all {
+      color: #ffffff !important;
+    }
+
     &__see-all,
     &__modal-close,
-    &__add-btn,
+    &__add-btn {
+      background-color: #ffffff !important;
+      border-color: #ffffff !important;
+      color: #000000 !important;
+    }
+
+    &__see-all {
+      border: 1px solid #ffffff !important;
+      border-radius: 999px;
+      padding: 4px 10px;
+      text-decoration: none;
+    }
+
+    &__modal-close svg,
     &__add-btn svg {
-      color: #ffffff !important;
+      color: #000000 !important;
+      stroke: #000000 !important;
+    }
+
+    &__add-btn--added,
+    &__add-btn--cancel {
+      background-color: #ffffff !important;
+      color: #000000 !important;
+      border-color: #ffffff !important;
     }
 
     &__mutual {
@@ -6717,7 +6742,9 @@
       }
 
       &__see-all {
-        color: #7fe0a8;
+        background-color: #ffffff !important;
+        border: 1px solid #ffffff !important;
+        color: #000000 !important;
       }
 
       &__name {
@@ -6737,9 +6764,14 @@
       }
 
       &__add-btn {
-        background-color: var(--card-bg);
-        border-color: var(--border-color);
-        color: #7fe0a8;
+        background-color: #ffffff !important;
+        border-color: #ffffff !important;
+        color: #000000 !important;
+
+        svg {
+          color: #000000 !important;
+          stroke: #000000 !important;
+        }
       }
     }
   }

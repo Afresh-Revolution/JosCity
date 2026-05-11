@@ -4729,7 +4729,13 @@
       pointer-events: none;
       border: 1px solid transparent; // light theme: no border; dark theme overrides
       background: transparent;
+      z-index: 0;
     }
+  }
+
+  > * {
+    position: relative;
+    z-index: 1;
   }
 
   @media (max-width: 992px) {
@@ -6491,20 +6497,45 @@
     background-color: var(--bg-tertiary) !important;
     border: 1px solid var(--border-color) !important;
     color: #ffffff !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+
+    * {
+      color: #ffffff !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
 
     &__title,
     &__name,
+    &__info,
+    &__info *,
+    &__item,
+    &__list,
     &__empty,
-    p {
+    &__empty *,
+    &__modal-title,
+    &__modal-list,
+    &__modal-list *,
+    p,
+    span,
+    h3 {
+      color: #ffffff !important;
+    }
+
+    &__see-all,
+    &__modal-close,
+    &__add-btn,
+    &__add-btn svg {
       color: #ffffff !important;
     }
 
     &__mutual {
-      color: rgba(255, 255, 255, 0.78) !important;
+      color: #ffffff !important;
     }
 
     &__empty-subtitle {
-      color: rgba(255, 255, 255, 0.68) !important;
+      color: #ffffff !important;
     }
   }
 

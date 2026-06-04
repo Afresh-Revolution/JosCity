@@ -33,16 +33,41 @@ interface SuggestedBusinessesProps {
   onBusinessAdded?: (businessId: number, businessName: string) => void;
 }
 
+function cleanNameCandidate(name?: string | null): string | null {
+  const trimmed = name?.trim();
+  if (!trimmed) return null;
+  if (/^(user|business)\s*#?\s*\d+$/i.test(trimmed)) return null;
+  return trimmed;
+}
+
+function getBusinessDisplayName(user: UserWithBusinessFields): string {
+  const fullName = [user.user_firstname, user.user_lastname]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(" ");
+  const nameCandidates = [
+    user.business_name,
+    user.display_name,
+    user.full_name,
+    fullName,
+    user.user_name,
+    user.user_email,
+  ];
+
+  return (
+    nameCandidates
+      .map((name) => cleanNameCandidate(name))
+      .find((name): name is string => Boolean(name)) ||
+    user.user_email?.trim() ||
+    "Unnamed business account"
+  );
+}
+
 function userToBusiness(user: User): Business {
   const u = user as UserWithBusinessFields;
-  const name =
-    u.business_name?.trim() ||
-    (u.user_firstname && u.user_lastname
-      ? `${u.user_firstname} ${u.user_lastname}`
-      : u.user_email || `Business ${u.user_id}`);
   return {
     id: u.user_id,
-    name,
+    name: getBusinessDisplayName(u),
     avatar: u.user_picture || "",
     mutualFriends: 0,
     location: u.user_location,
@@ -54,7 +79,6 @@ function userToBusiness(user: User): Business {
 
 const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
   businesses,
-  onBusinessAdded: _onBusinessAdded,
 }) => {
   const [businessStatuses, setBusinessStatuses] = useState<
     Record<number, "none" | "sent" | "pending" | "friends">
@@ -90,13 +114,38 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
       setIsLoadingSuggestions(true);
       try {
         const rangeKm = userRange || 500;
-        const response = await userApi.getNearbyUsers({ rangeKm });
+        const [nearbyRes, friendsRes, requestsRes] = await Promise.all([
+          userApi.getNearbyUsers({ rangeKm }),
+          friendApi.getFriends().catch(() => ({ success: false as const, data: [] })),
+          friendApi
+            .getPendingRequests()
+            .catch(() => ({ success: false as const, data: { sent: [], received: [] } })),
+        ]);
         if (cancelled) return;
-        if (response.success && Array.isArray(response.data)) {
-          const onlyBusiness = response.data
+
+        if (nearbyRes.success && Array.isArray(nearbyRes.data)) {
+          const friendIds = new Set<number>();
+          if (friendsRes.success && Array.isArray(friendsRes.data)) {
+            friendsRes.data.forEach((friend: { user_id: number }) => {
+              friendIds.add(friend.user_id);
+            });
+          }
+
+          const sentIds = new Set<number>();
+          if (requestsRes.success && requestsRes.data?.sent) {
+            requestsRes.data.sent.forEach((request: { receiver_id: number }) => {
+              sentIds.add(request.receiver_id);
+            });
+          }
+
+          const excludeIds = new Set([currentUserId].filter(Boolean));
+          friendIds.forEach((id) => excludeIds.add(id));
+          sentIds.forEach((id) => excludeIds.add(id));
+
+          const onlyBusiness = nearbyRes.data
             .filter(
               (u: User) =>
-                u.user_id !== currentUserId &&
+                !excludeIds.has(u.user_id) &&
                 (u.account_type || "").toLowerCase() === "business"
             )
             .map((u: User) => userToBusiness(u));
@@ -186,7 +235,7 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
 
         // Must be within range
         const distance = calculateDistance(userLocation, business.location);
-        return distance <= userRange;
+        return distance <= (userRange || 500);
       });
     }
 

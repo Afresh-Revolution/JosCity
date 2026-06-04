@@ -6,7 +6,6 @@ import {
   getUserLocation,
   getUserRange,
 } from "../../utils/locationUtils";
-import { getUserAccountType } from "../../utils/userUtils";
 import { userApi, type User } from "../../services/userApi";
 import { friendApi } from "../../services/friendApi";
 
@@ -29,15 +28,51 @@ interface SuggestedFriendsProps {
   onFriendAdded?: (friendId: number, friendName: string) => void;
 }
 
+function cleanNameCandidate(name?: string | null): string | null {
+  const trimmed = name?.trim();
+  if (!trimmed) return null;
+  if (/^(user|business)\s*#?\s*\d+$/i.test(trimmed)) return null;
+  return trimmed;
+}
+
+function getSuggestedUserName(user: User): string {
+  const fullName = [user.user_firstname, user.user_lastname]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(" ");
+  const isBusiness = (user.account_type || "").toLowerCase() === "business";
+  const nameCandidates = isBusiness
+    ? [
+        user.business_name,
+        user.display_name,
+        user.full_name,
+        fullName,
+        user.user_name,
+        user.user_email,
+      ]
+    : [
+        user.display_name,
+        user.full_name,
+        fullName,
+        user.user_name,
+        user.business_name,
+        user.user_email,
+      ];
+
+  return (
+    nameCandidates
+      .map((name) => cleanNameCandidate(name))
+      .find((name): name is string => Boolean(name)) ||
+    user.user_email?.trim() ||
+    "Unnamed account"
+  );
+}
+
 // Map API User to local Friend (same as Add Friends modal)
 function userToFriend(user: User, mutualFriends = 0): Friend {
-  const name =
-    user.user_firstname && user.user_lastname
-      ? `${user.user_firstname} ${user.user_lastname}`
-      : user.user_email || `User ${user.user_id}`;
   return {
     id: user.user_id,
-    name,
+    name: getSuggestedUserName(user),
     avatar: user.user_picture || "",
     mutualFriends,
     distanceKm: user.distance,
@@ -49,7 +84,6 @@ function userToFriend(user: User, mutualFriends = 0): Friend {
 
 const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
   friends: propFriends,
-  onFriendAdded: _onFriendAdded,
 }) => {
   const [friendStatuses, setFriendStatuses] = useState<
     Record<number, "none" | "sent" | "pending" | "friends">
@@ -58,15 +92,12 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
   const [sentRequestIdsByReceiver, setSentRequestIdsByReceiver] = useState<
     Record<number, number>
   >({});
-  const [fetchedBusinesses, setFetchedBusinesses] = useState<Friend[]>([]);
   const [fetchedNearbyFriends, setFetchedNearbyFriends] = useState<Friend[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSeeAllModalOpen, setIsSeeAllModalOpen] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const userLocation = getUserLocation();
   const userRange = getUserRange();
-  const accountType = getUserAccountType().toLowerCase();
-  const isBusinessAccount = accountType === "business";
 
   // Current user id from localStorage (same as Add Friends modal)
   useEffect(() => {
@@ -121,35 +152,9 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
     void loadStatuses();
   }, []);
 
-  // Fetch nearby users: business accounts when business, else nearby users (same endpoint as Add Friends)
+  // Fetch nearby users for the news feed suggestions, including personal and business accounts.
   useEffect(() => {
     const rangeKm = userRange || 500;
-
-    if (isBusinessAccount) {
-      const fetchBusinessAccounts = async () => {
-        setIsLoading(true);
-        try {
-          const response = await userApi.getNearbyUsers({ rangeKm });
-          if (response.success && response.data) {
-            const businessAccounts: Friend[] = response.data
-              .filter((u: User) => (u.account_type || "").toLowerCase() === "business")
-              .map((u: User) => userToFriend(u));
-            setFetchedBusinesses(businessAccounts);
-          } else {
-            setFetchedBusinesses([]);
-          }
-        } catch (error) {
-          console.error("Error fetching business accounts:", error);
-          setFetchedBusinesses([]);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      fetchBusinessAccounts();
-      return;
-    }
-
-    // Personal account: same endpoint as Add Friends modal – nearby users
     const fetchNearby = async () => {
       setIsLoading(true);
       try {
@@ -191,18 +196,18 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
     };
 
     fetchNearby();
-  }, [isBusinessAccount, userRange, currentUserId]);
+  }, [userRange, currentUserId]);
 
-  // Use fetched list: businesses for business account, nearby for personal (same endpoint as Add Friends)
+  // Use fetched nearby list for the news feed; fall back to parent-provided suggestions.
   const friends =
-    isBusinessAccount ? fetchedBusinesses : (fetchedNearbyFriends.length > 0 ? fetchedNearbyFriends : propFriends);
+    fetchedNearbyFriends.length > 0 ? fetchedNearbyFriends : propFriends;
 
-  // Filter friends: when using API nearby list (personal) show all; else apply location/range
+  // Filter friends: when using API nearby list show all; else apply location/range.
   const filteredFriends = useMemo(() => {
     if (isLoading) {
       return [];
     }
-    const usingNearbyApi = !isBusinessAccount && fetchedNearbyFriends.length > 0;
+    const usingNearbyApi = fetchedNearbyFriends.length > 0;
     if (usingNearbyApi) {
       return friends; // Backend already applied range; show all returned
     }
@@ -214,7 +219,7 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
       if (!f.location) return false;
       return calculateDistance(userLocation, f.location) <= (userRange || 500);
     });
-  }, [friends, userLocation, userRange, isBusinessAccount, isLoading, fetchedNearbyFriends.length]);
+  }, [friends, userLocation, userRange, isLoading, fetchedNearbyFriends.length]);
 
   // Limit to 4 friends for main display
   const displayedFriends = useMemo(() => {
@@ -262,7 +267,7 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
     <div className="newsfeed-suggested-friends">
       <div className="newsfeed-suggested-friends__header">
         <h3 className="newsfeed-suggested-friends__title">
-          {isBusinessAccount ? "Suggested Businesses" : "Suggested Friends"}
+          Suggested Friends
         </h3>
         {filteredFriends.length > 4 && (
           <button
@@ -276,14 +281,14 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
       <div className="newsfeed-suggested-friends__list">
         {isLoading ? (
           <div className="newsfeed-suggested-friends__empty">
-            <p>Loading {isBusinessAccount ? "businesses" : "friends"}...</p>
+            <p>Loading friends...</p>
           </div>
         ) : filteredFriends.length === 0 ? (
           <div className="newsfeed-suggested-friends__empty">
-            <p>No suggested {isBusinessAccount ? "businesses" : "friends"} found</p>
+            <p>No suggested friends found</p>
             <p className="newsfeed-suggested-friends__empty-subtitle">
               {!userLocation
-                ? `Set your location to see nearby ${isBusinessAccount ? "businesses" : "friends"}`
+                ? "Set your location to see nearby friends"
                 : "Try adjusting your range settings"}
             </p>
           </div>
@@ -373,9 +378,7 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
           >
             <div className="newsfeed-suggested-friends__modal-header">
               <h3 className="newsfeed-suggested-friends__modal-title">
-                {isBusinessAccount
-                  ? "All Suggested Businesses"
-                  : "All Suggested Friends"}
+                All Suggested Friends
               </h3>
               <button
                 className="newsfeed-suggested-friends__modal-close"
@@ -388,10 +391,7 @@ const SuggestedFriends: React.FC<SuggestedFriendsProps> = ({
             <div className="newsfeed-suggested-friends__modal-list">
               {filteredFriends.length === 0 ? (
                 <div className="newsfeed-suggested-friends__empty">
-                  <p>
-                    No suggested {isBusinessAccount ? "businesses" : "friends"}{" "}
-                    found
-                  </p>
+                  <p>No suggested friends found</p>
                 </div>
               ) : (
                 filteredFriends.map((friend) => {

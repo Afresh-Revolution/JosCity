@@ -9,6 +9,8 @@ export interface User {
   user_cover?: string;
   account_type?: string;
   user_name?: string | null;
+  display_name?: string | null;
+  full_name?: string | null;
   address?: string | null;
   business_name?: string | null;
   business_type?: string | null;
@@ -27,6 +29,8 @@ export interface ApprovedDirectoryUser {
   user_picture?: string | null;
   account_type?: string;
   user_name?: string | null;
+  display_name?: string | null;
+  full_name?: string | null;
   address?: string | null;
   business_name?: string | null;
   business_type?: string | null;

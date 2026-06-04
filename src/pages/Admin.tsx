@@ -791,6 +791,12 @@ const Admin: React.FC = () => {
                           e.preventDefault();
                           setActiveView("developers");
                           setIsMobileMenuOpen(false);
+                          requestAnimationFrame(() => {
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                            document
+                              .querySelector(".admin-main")
+                              ?.scrollTo({ top: 0, behavior: "smooth" });
+                          });
                         }}
                         className={`admin-sidebar-section-container__item ${
                           activeView === "developers"

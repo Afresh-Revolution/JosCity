@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Phone, Mail, MapPin, Users, X } from "lucide-react";
+import { ExternalLink, Phone, Mail, MapPin, Users, X } from "lucide-react";
 import {
   DeveloperProfile,
   developersApi,
@@ -14,6 +14,9 @@ const developerImages: Record<string, string> = {
   david: davidImage,
   joseph: josephImage,
 };
+
+const developerImage = (developer: DeveloperProfile) =>
+  developer.imageUrl || developerImages[developer.imageKey] || developerImages.joseph;
 
 const Contact: React.FC = () => {
   const [visibleElements, setVisibleElements] = useState<Set<string>>(
@@ -346,10 +349,7 @@ const Contact: React.FC = () => {
                   >
                     <img
                       className="contact-developers-modal__avatar"
-                      src={
-                        developerImages[developer.imageKey] ||
-                        developerImages.joseph
-                      }
+                      src={developerImage(developer)}
                       alt={developer.fullName}
                     />
                     <div className="contact-developers-modal__body">
@@ -362,6 +362,16 @@ const Contact: React.FC = () => {
                       <p className="contact-developers-modal__description">
                         {developer.description}
                       </p>
+                      {developer.portfolioUrl && (
+                        <a
+                          className="contact-developers-modal__portfolio"
+                          href={developer.portfolioUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          View portfolio <ExternalLink size={14} />
+                        </a>
+                      )}
                     </div>
                   </article>
                 ))}

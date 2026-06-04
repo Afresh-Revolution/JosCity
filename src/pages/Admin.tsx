@@ -74,7 +74,8 @@ import AdminFunding from "./AdminFunding";
 import AdminMonetization from "./AdminMonetization";
 import AdminNotifications from "./AdminNotifications";
 import AdminNews from "./AdminNews";
-import { getDashboard, refreshAdminToken } from "../services/adminApi";
+import AdminDevelopers from "./AdminDevelopers";
+import { getDashboard, refreshAdminToken, type DashboardData } from "../services/adminApi";
 import { fetchPendingRegistrations } from "../utils/fetchWithTimeout";
 
 const Admin: React.FC = () => {
@@ -116,8 +117,9 @@ const Admin: React.FC = () => {
     | "monetization"
     | "notifications"
     | "news"
+    | "developers"
   >("dashboard");
-  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [dashboardData, setDashboardData] = useState<DashboardData["data"] | null>(null);
   const [pendingCount, setPendingCount] = useState<number>(0);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -784,12 +786,20 @@ const Admin: React.FC = () => {
                   </div>
                   {expandedSections.developers && (
                     <div className="admin-sidebar-section-container__list">
-                      <a
-                        href="#"
-                        className="admin-sidebar-section-container__item">
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setActiveView("developers");
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`admin-sidebar-section-container__item ${
+                          activeView === "developers"
+                            ? "admin-sidebar-section-container__item--active"
+                            : ""
+                        }`}>
                         <Code size={18} />
                         <span>Developers</span>
-                      </a>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1141,6 +1151,8 @@ const Admin: React.FC = () => {
               <AdminNotifications />
             ) : activeView === "news" ? (
               <AdminNews />
+            ) : activeView === "developers" ? (
+              <AdminDevelopers />
             ) : (
               <div className="admin-dashboard">
                 <div className="admin-dashboard__search">

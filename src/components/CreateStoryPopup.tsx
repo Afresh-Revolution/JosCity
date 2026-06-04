@@ -1,11 +1,17 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X, Image as ImageIcon, Video } from "lucide-react";
+import { Loader2, X, Image as ImageIcon, Video } from "lucide-react";
 
 interface CreateStoryPopupProps {
   isOpen: boolean;
   onClose: () => void;
-  onPublish?: (message: string, image?: string, video?: string) => void;
+  onPublish?: (
+    message: string,
+    image?: string,
+    video?: string,
+    imageFile?: File,
+    videoFile?: File
+  ) => void | Promise<void>;
 }
 
 const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
@@ -16,6 +22,9 @@ const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
   const [message, setMessage] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [mounted, setMounted] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -41,6 +50,7 @@ const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
   }
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isSubmitting) return;
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith("image/")) {
@@ -61,6 +71,7 @@ const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
       }
 
       setSelectedVideo(null);
+      setSelectedVideoFile(null);
       if (videoInputRef.current) {
         videoInputRef.current.value = "";
       }
@@ -68,6 +79,7 @@ const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
       const reader = new FileReader();
       reader.onloadend = () => {
         setSelectedImage(reader.result as string);
+        setSelectedImageFile(file);
       };
       reader.onerror = () => {
         alert("Error reading file. Please try again.");
@@ -80,6 +92,7 @@ const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
   };
 
   const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isSubmitting) return;
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith("video/")) {
@@ -91,6 +104,7 @@ const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
       }
 
       setSelectedImage(null);
+      setSelectedImageFile(null);
       if (imageInputRef.current) {
         imageInputRef.current.value = "";
       }
@@ -98,6 +112,7 @@ const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
       const reader = new FileReader();
       reader.onloadend = () => {
         setSelectedVideo(reader.result as string);
+        setSelectedVideoFile(file);
       };
       reader.onerror = () => {
         alert("Error reading file. Please try again.");
@@ -109,13 +124,35 @@ const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
     }
   };
 
-  const handlePublish = () => {
-    if (onPublish) {
-      onPublish(message, selectedImage || undefined, selectedVideo || undefined);
+  const handlePublish = async () => {
+    if (!canPublish || isSubmitting) return;
+    try {
+      setIsSubmitting(true);
+      if (onPublish) {
+        await onPublish(
+          message,
+          selectedImage || undefined,
+          selectedVideo || undefined,
+          selectedImageFile || undefined,
+          selectedVideoFile || undefined
+        );
+      }
+    } catch (error) {
+      console.error("Error publishing story:", error);
+      alert(
+        error instanceof Error
+          ? `Error creating story: ${error.message}`
+          : "Failed to create story. Please try again."
+      );
+      return;
+    } finally {
+      setIsSubmitting(false);
     }
     setMessage("");
     setSelectedImage(null);
     setSelectedVideo(null);
+    setSelectedImageFile(null);
+    setSelectedVideoFile(null);
     if (imageInputRef.current) {
       imageInputRef.current.value = "";
     }
@@ -126,9 +163,12 @@ const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
   };
 
   const handleClose = () => {
+    if (isSubmitting) return;
     setMessage("");
     setSelectedImage(null);
     setSelectedVideo(null);
+    setSelectedImageFile(null);
+    setSelectedVideoFile(null);
     if (imageInputRef.current) {
       imageInputRef.current.value = "";
     }
@@ -175,7 +215,12 @@ const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
       >
         <div className="create-story-popup__header">
           <h2 className="create-story-popup__title">Create a story</h2>
-          <button className="create-story-popup__close" onClick={handleClose} aria-label="Close">
+          <button
+            className="create-story-popup__close"
+            onClick={handleClose}
+            aria-label="Close"
+            disabled={isSubmitting}
+          >
             <X size={20} />
           </button>
         </div>
@@ -195,6 +240,7 @@ const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
               ref={imageInputRef}
               accept="image/*"
               onChange={handleImageSelect}
+              disabled={isSubmitting}
               style={{ display: "none" }}
               id="story-image-upload"
             />
@@ -215,6 +261,7 @@ const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
               ref={videoInputRef}
               accept="video/*"
               onChange={handleVideoSelect}
+              disabled={isSubmitting}
               style={{ display: "none" }}
               id="story-video-upload"
             />
@@ -237,7 +284,9 @@ const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
                   <button
                     className="create-story-popup__remove"
                     onClick={() => {
+                      if (isSubmitting) return;
                       setSelectedImage(null);
+                      setSelectedImageFile(null);
                       if (imageInputRef.current) {
                         imageInputRef.current.value = "";
                       }
@@ -254,7 +303,9 @@ const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
                   <button
                     className="create-story-popup__remove"
                     onClick={() => {
+                      if (isSubmitting) return;
                       setSelectedVideo(null);
+                      setSelectedVideoFile(null);
                       if (videoInputRef.current) {
                         videoInputRef.current.value = "";
                       }
@@ -273,9 +324,16 @@ const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
           <button
             className="create-story-popup__publish-btn"
             onClick={handlePublish}
-            disabled={!canPublish}
+            disabled={!canPublish || isSubmitting}
           >
-            Publish
+            {isSubmitting ? (
+              <>
+                <Loader2 size={18} className="create-story-popup__spinner" />
+                Publishing...
+              </>
+            ) : (
+              "Publish"
+            )}
           </button>
         </div>
       </div>

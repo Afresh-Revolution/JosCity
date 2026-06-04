@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import Avatar from "../../components/Avatar";
 import { getUserAvatar, getProfileUsername } from "../../utils/userUtils";
 
@@ -26,7 +26,7 @@ interface CreateForumModalProps {
     backgroundColor?: string;
     backgroundImage?: string;
     backgroundOpacity?: number;
-  }) => void;
+  }) => void | Promise<void>;
   onEdit?: (
     forumId: number,
     forum: {
@@ -37,7 +37,7 @@ interface CreateForumModalProps {
       backgroundImage?: string;
       backgroundOpacity?: number;
     }
-  ) => void;
+  ) => void | Promise<void>;
 }
 
 const CreateForumModal: React.FC<CreateForumModalProps> = ({
@@ -68,6 +68,7 @@ const CreateForumModal: React.FC<CreateForumModalProps> = ({
   );
   const [visibility, setVisibility] = useState<"public" | "private">("public");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const backgroundImageInputRef = useRef<HTMLInputElement>(null);
 
   // Update form when editingForum changes
@@ -90,7 +91,8 @@ const CreateForumModal: React.FC<CreateForumModalProps> = ({
     setError("");
   }, [editingForum]);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
+    if (isSubmitting) return;
     // Validation
     if (!forumName.trim()) {
       setError("Forum name is required");
@@ -114,30 +116,38 @@ const CreateForumModal: React.FC<CreateForumModalProps> = ({
 
     setError("");
 
-    // Call the appropriate callback
-    if (editingForum && onEdit) {
-      onEdit(editingForum.id, {
-        name: forumName.trim(),
-        description: description.trim(),
-        category: selectedCategory,
-        backgroundColor: backgroundColor.trim() || undefined,
-        backgroundImage: backgroundImage.trim() || undefined,
-        backgroundOpacity: backgroundImage.trim()
-          ? backgroundOpacity
-          : undefined,
-      });
-    } else if (onForum) {
-      onForum({
-        name: forumName.trim(),
-        description: description.trim(),
-        category: selectedCategory,
-        visibility,
-        backgroundColor: backgroundColor.trim() || undefined,
-        backgroundImage: backgroundImage.trim() || undefined,
-        backgroundOpacity: backgroundImage.trim()
-          ? backgroundOpacity
-          : undefined,
-      });
+    try {
+      setIsSubmitting(true);
+      // Call the appropriate callback
+      if (editingForum && onEdit) {
+        await onEdit(editingForum.id, {
+          name: forumName.trim(),
+          description: description.trim(),
+          category: selectedCategory,
+          backgroundColor: backgroundColor.trim() || undefined,
+          backgroundImage: backgroundImage.trim() || undefined,
+          backgroundOpacity: backgroundImage.trim()
+            ? backgroundOpacity
+            : undefined,
+        });
+      } else if (onForum) {
+        await onForum({
+          name: forumName.trim(),
+          description: description.trim(),
+          category: selectedCategory,
+          visibility,
+          backgroundColor: backgroundColor.trim() || undefined,
+          backgroundImage: backgroundImage.trim() || undefined,
+          backgroundOpacity: backgroundImage.trim()
+            ? backgroundOpacity
+            : undefined,
+        });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save forum");
+      return;
+    } finally {
+      setIsSubmitting(false);
     }
 
     // Reset form (only if not editing)
@@ -153,6 +163,7 @@ const CreateForumModal: React.FC<CreateForumModalProps> = ({
   };
 
   const handleClose = () => {
+    if (isSubmitting) return;
     setForumName("");
     setDescription("");
     setSelectedCategory("Others");
@@ -188,7 +199,11 @@ const CreateForumModal: React.FC<CreateForumModalProps> = ({
           <h2 className="newsfeed-modal__title">
             {editingForum ? "Edit Forum" : "Create Forum"}
           </h2>
-          <button className="newsfeed-modal__close" onClick={handleClose}>
+          <button
+            className="newsfeed-modal__close"
+            onClick={handleClose}
+            disabled={isSubmitting}
+          >
             <X size={24} />
           </button>
         </div>
@@ -557,15 +572,28 @@ const CreateForumModal: React.FC<CreateForumModalProps> = ({
         </div>
 
         <div className="newsfeed-modal__footer">
-          <button className="newsfeed-modal__cancel-btn" onClick={handleClose}>
+          <button
+            className="newsfeed-modal__cancel-btn"
+            onClick={handleClose}
+            disabled={isSubmitting}
+          >
             Cancel
           </button>
           <button
             className="newsfeed-modal__post-btn"
             onClick={handleCreate}
-            disabled={!forumName.trim() || !description.trim()}
+            disabled={isSubmitting || !forumName.trim() || !description.trim()}
           >
-            {editingForum ? "Save Changes" : "Create Forum"}
+            {isSubmitting ? (
+              <>
+                <Loader2 size={18} className="newsfeed-modal__spinner" />
+                {editingForum ? "Saving..." : "Creating..."}
+              </>
+            ) : editingForum ? (
+              "Save Changes"
+            ) : (
+              "Create Forum"
+            )}
           </button>
         </div>
       </div>

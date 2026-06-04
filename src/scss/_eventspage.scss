@@ -1850,7 +1850,7 @@
     color: var(--text-primary);
     border: 1px solid var(--border-color);
 
-    &:hover {
+    &:hover:not(:disabled) {
       background-color: var(--border-color);
     }
   }
@@ -1859,7 +1859,7 @@
     background-color: var(--color-primary);
     color: white;
 
-    &:hover {
+    &:hover:not(:disabled) {
       background-color: var(--color-primary-hover);
     }
 
@@ -1867,6 +1867,11 @@
       opacity: 0.6;
       cursor: not-allowed;
     }
+  }
+
+  &__spinner {
+    -webkit-animation: spin 0.9s linear infinite;
+    animation: spin 0.9s linear infinite;
   }
 }
 

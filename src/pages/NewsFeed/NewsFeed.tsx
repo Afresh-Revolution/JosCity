@@ -118,6 +118,40 @@ interface Post {
   listingDetails?: ListingDetails | null;
 }
 
+const FEED_PAGE_SIZE = 100;
+const RECENT_POST_MONTHS = 3;
+
+const getRecentPostsCutoff = () => {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - RECENT_POST_MONTHS);
+  return cutoff.getTime();
+};
+
+const getFeedCreatedTimestamp = (item: unknown): number | null => {
+  if (!item || typeof item !== "object") return null;
+  const feed = item as Record<string, unknown>;
+  const candidates = [
+    feed.created_at,
+    feed.createdAt,
+    feed.post_created_at,
+    feed.time,
+    feed.timestamp,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string" && typeof candidate !== "number") continue;
+    const timestamp = new Date(candidate).getTime();
+    if (Number.isFinite(timestamp)) return timestamp;
+  }
+
+  return null;
+};
+
+const isFeedItemWithinRecentMonths = (item: unknown, cutoff: number) => {
+  const timestamp = getFeedCreatedTimestamp(item);
+  return timestamp === null || timestamp >= cutoff;
+};
+
 const NewsFeed: React.FC = () => {
   const navigate = useNavigate();
 
@@ -303,7 +337,7 @@ const NewsFeed: React.FC = () => {
         setIsLoadingFeeds(false);
         setFeedError("Failed to load feeds. Please refresh the page.");
       }
-    }, 10000); // 10 second timeout
+    }, 30000); // Larger recent-feed fetches can take longer than the old 10s cap.
 
     return () => clearTimeout(timeoutId);
   }, [isLoadingFeeds]);
@@ -312,42 +346,74 @@ const NewsFeed: React.FC = () => {
   const fetchFeeds = useCallback(async () => {
     try {
       setIsLoadingFeeds(true);
+      setFeedError(null);
       console.log("Fetching feeds from API endpoint: /feed/feeds");
 
-      const response = await feedApi.getFeeds({ feedChannel: "main" });
-      console.log("Feeds API response:", response);
+      const cutoff = getRecentPostsCutoff();
+      const allRecentFeedItems: unknown[] = [];
+      let page = 1;
+      let hasMore = true;
 
-      if (
-        response &&
-        response.success &&
-        response.data &&
-        Array.isArray(response.data)
-      ) {
-        console.log(`Received ${response.data.length} feeds from API`);
+      while (hasMore) {
+        const response = await feedApi.getFeeds({
+          feedChannel: "main",
+          page,
+          limit: FEED_PAGE_SIZE,
+        });
+        console.log("Feeds API response:", response);
 
-        if (response.data.length === 0) {
-          console.log("API returned empty array - no posts available");
-          setPosts([]);
-        } else {
-          try {
-            const transformedPosts: Post[] = (response.data as unknown[])
-              .map((item) => mapFeedApiItemToPost(item))
-              .filter((p): p is Post => p != null);
-            console.log(
-              `Successfully transformed ${transformedPosts.length} posts`
-            );
-            setPosts(transformedPosts);
-          } catch (transformError) {
-            console.error("Error transforming posts:", transformError);
-            setPosts([]);
-          }
+        if (
+          !response ||
+          !response.success ||
+          !Array.isArray(response.data)
+        ) {
+          console.warn(
+            "API response missing success or data field, or data is not an array. Response:",
+            response
+          );
+          break;
         }
-      } else {
-        console.warn(
-          "API response missing success or data field, or data is not an array. Response:",
-          response
+
+        const recentItems = response.data.filter((item) =>
+          isFeedItemWithinRecentMonths(item, cutoff)
         );
+        allRecentFeedItems.push(...recentItems);
+
+        const pageHasMore =
+          response.pagination?.hasMore === true &&
+          response.data.length === FEED_PAGE_SIZE;
+        const oldestTimestamp = response.data
+          .map(getFeedCreatedTimestamp)
+          .filter((timestamp): timestamp is number => timestamp !== null)
+          .reduce<number | null>(
+            (oldest, timestamp) =>
+              oldest === null ? timestamp : Math.min(oldest, timestamp),
+            null
+          );
+        hasMore =
+          pageHasMore &&
+          (oldestTimestamp === null || oldestTimestamp >= cutoff);
+        page += 1;
+      }
+
+      console.log(`Received ${allRecentFeedItems.length} recent feeds from API`);
+
+      if (allRecentFeedItems.length === 0) {
+        console.log("API returned empty array - no posts available");
         setPosts([]);
+      } else {
+        try {
+          const transformedPosts: Post[] = allRecentFeedItems
+            .map((item) => mapFeedApiItemToPost(item))
+            .filter((p): p is Post => p != null);
+          console.log(
+            `Successfully transformed ${transformedPosts.length} posts`
+          );
+          setPosts(transformedPosts);
+        } catch (transformError) {
+          console.error("Error transforming posts:", transformError);
+          setPosts([]);
+        }
       }
     } catch (error) {
       console.error("Error fetching feeds:", error);
@@ -576,7 +642,7 @@ const NewsFeed: React.FC = () => {
         console.log("Feeds refreshed after post creation");
       } else {
         console.error("Failed to create post:", response);
-        alert("Failed to create post. Please try again.");
+        throw new Error("Failed to create post. Please try again.");
       }
     } catch (error) {
       console.error("Error creating post:", error);
@@ -585,6 +651,7 @@ const NewsFeed: React.FC = () => {
           ? `Error creating post: ${error.message}`
           : "Failed to create post. Please try again."
       );
+      throw error;
     }
   };
 
@@ -1176,10 +1243,34 @@ const NewsFeed: React.FC = () => {
     setIsStoryPopupOpen(true);
   };
 
-  const handleStoryPublish = (message: string, image?: string, video?: string) => {
-    // Handle story publishing logic here
+  const handleStoryPublish = async (
+    message: string,
+    image?: string,
+    video?: string,
+    imageFile?: File,
+    videoFile?: File
+  ) => {
     console.log("Publishing story:", { message, image, video });
-    // You can add your story publishing logic here
+    if (imageFile) {
+      await feedApi.createStory({
+        type: "photo",
+        src: "",
+        caption: message.trim() || undefined,
+        mediaFile: imageFile,
+      });
+    } else if (videoFile) {
+      await feedApi.createStory({
+        type: "video",
+        src: "",
+        caption: message.trim() || undefined,
+        mediaFile: videoFile,
+      });
+    } else {
+      await feedApi.createStory({
+        type: "text",
+        src: message.trim(),
+      });
+    }
     setIsStoryPopupOpen(false);
   };
 

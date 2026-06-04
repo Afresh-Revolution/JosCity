@@ -332,8 +332,7 @@ const Forums: React.FC = () => {
       backgroundOpacity: forumData.backgroundOpacity,
     });
     if (!res.success || !res.data) {
-      window.alert(res.message || "Could not create forum");
-      return;
+      throw new Error(res.message || "Could not create forum");
     }
     const mapped = mapApiSummaryToForum(res.data);
     setJoinedForumIds((prev) => new Set(prev).add(mapped.id));
@@ -492,8 +491,7 @@ const Forums: React.FC = () => {
       backgroundOpacity: forumData.backgroundOpacity,
     });
     if (!res.success || !res.data) {
-      window.alert(res.message || "Could not update forum");
-      return;
+      throw new Error(res.message || "Could not update forum");
     }
     const mapped = mapApiSummaryToForum(res.data);
     setForums((prev) =>

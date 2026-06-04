@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { X, Image as ImageIcon, Video, Mic } from "lucide-react";
+import { Loader2, X, Image as ImageIcon, Video, Mic } from "lucide-react";
 import Avatar from "../../components/Avatar";
 import { compressImage } from "../../utils/imageCompression";
 
@@ -100,6 +100,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [textOffer, setTextOffer] = useState<Offer>(() => emptyOffer());
   const [imageOffers, setImageOffers] = useState<Offer[]>([]);
   const [videoOffers, setVideoOffers] = useState<Offer[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
@@ -300,6 +301,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
   };
 
   const handlePost = async () => {
+    if (isSubmitting) return;
     // Validation: Allow posts with:
     // 1. Text only
     // 2. Text + Image(s)
@@ -320,6 +322,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
     // Call the onPost callback if provided
     if (onPost) {
       try {
+        setIsSubmitting(true);
         let listingDetails: CreatePostListingPayload | null = null;
         if (businessListingFields) {
           const textP = offerPayload(textOffer);
@@ -344,6 +347,8 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
         console.error("Error in onPost callback:", error);
         // Don't close modal if there's an error, let user retry
         return;
+      } finally {
+        setIsSubmitting(false);
       }
     }
 
@@ -366,6 +371,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
   };
 
   const handleClose = () => {
+    if (isSubmitting) return;
     setCaption("");
     setSelectedImages([]);
     setSelectedVideos([]);
@@ -402,7 +408,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
       <div className="newsfeed-modal" onClick={(e) => e.stopPropagation()}>
         <div className="newsfeed-modal__header">
           <h2 className="newsfeed-modal__title">Create Post</h2>
-          <button className="newsfeed-modal__close" onClick={handleClose}>
+          <button className="newsfeed-modal__close" onClick={handleClose} disabled={isSubmitting}>
             <X size={24} />
           </button>
         </div>
@@ -570,19 +576,31 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
         </div>
 
         <div className="newsfeed-modal__footer">
-          <button className="newsfeed-modal__cancel-btn" onClick={handleClose}>
+          <button
+            className="newsfeed-modal__cancel-btn"
+            onClick={handleClose}
+            disabled={isSubmitting}
+          >
             Cancel
           </button>
           <button
             className="newsfeed-modal__post-btn"
             onClick={handlePost}
             disabled={
+              isSubmitting ||
               !caption.trim() &&
               selectedImages.length === 0 &&
               selectedVideos.length === 0
             }
           >
-            Post
+            {isSubmitting ? (
+              <>
+                <Loader2 size={18} className="newsfeed-modal__spinner" />
+                Posting...
+              </>
+            ) : (
+              "Post"
+            )}
           </button>
         </div>
       </div>

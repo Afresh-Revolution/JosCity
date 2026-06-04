@@ -17,6 +17,7 @@ export function offerPayload(
   return { cost, location, contact };
 }
 
+
 export function BusinessOfferRow({
   title,
   value,

@@ -20,6 +20,7 @@ import {
   Copy,
   CheckCircle,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import SearchBar from "../../components/SearchBar";
 import {
@@ -121,6 +122,7 @@ const EventsPage: React.FC = () => {
   const [isCreateEventModalOpen, setIsCreateEventModalOpen] = useState(false);
   const [isEditEventModalOpen, setIsEditEventModalOpen] = useState(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
+  const [isSubmittingEvent, setIsSubmittingEvent] = useState(false);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [myPaymentByEventId, setMyPaymentByEventId] = useState<
@@ -375,7 +377,8 @@ const EventsPage: React.FC = () => {
     setIsCreateEventModalOpen(true);
   };
 
-  const handleCloseCreateEventModal = () => {
+  const handleCloseCreateEventModal = (force = false) => {
+    if (isSubmittingEvent && !force) return;
     setIsCreateEventModalOpen(false);
     setIsEditEventModalOpen(false);
     setEditingEventId(null);
@@ -521,9 +524,11 @@ const EventsPage: React.FC = () => {
 
   const handleSubmitEvent = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingEvent) return;
     setEventsError(null);
 
     try {
+      setIsSubmittingEvent(true);
       // Create new event object
       const time24 = convertTo24Hour(
         eventForm.timeHour,
@@ -620,7 +625,7 @@ const EventsPage: React.FC = () => {
       }
 
       // Close modal and reset form
-      handleCloseCreateEventModal();
+      handleCloseCreateEventModal(true);
     } catch (error) {
       console.error("Error saving event:", error);
       setEventsError(
@@ -631,6 +636,8 @@ const EventsPage: React.FC = () => {
           ? `Error: ${error.message}`
           : "Failed to save event. Please try again.",
       );
+    } finally {
+      setIsSubmittingEvent(false);
     }
   };
 
@@ -1593,7 +1600,7 @@ const EventsPage: React.FC = () => {
           <>
             <div
               className="eventspage-create-modal__backdrop"
-              onClick={handleCloseCreateEventModal}
+              onClick={() => handleCloseCreateEventModal()}
             />
             <div
               className="eventspage-create-modal"
@@ -1608,8 +1615,9 @@ const EventsPage: React.FC = () => {
                 </h2>
                 <button
                   className="eventspage-create-modal__close"
-                  onClick={handleCloseCreateEventModal}
+                  onClick={() => handleCloseCreateEventModal()}
                   aria-label="Close modal"
+                  disabled={isSubmittingEvent}
                 >
                   <X size={24} />
                 </button>
@@ -1636,6 +1644,7 @@ const EventsPage: React.FC = () => {
                         <button
                           type="button"
                           className="eventspage-create-modal__remove-image"
+                          disabled={isSubmittingEvent}
                           onClick={() =>
                             setEventForm((prev) => ({
                               ...prev,
@@ -1654,6 +1663,7 @@ const EventsPage: React.FC = () => {
                           accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
                           onChange={handleImageChange}
                           className="eventspage-create-modal__file-input"
+                          disabled={isSubmittingEvent}
                         />
                         <ImageIcon size={32} />
                         <span>Click to upload image</span>
@@ -1992,15 +2002,22 @@ const EventsPage: React.FC = () => {
                   <button
                     type="button"
                     className="eventspage-create-modal__cancel"
-                    onClick={handleCloseCreateEventModal}
+                    onClick={() => handleCloseCreateEventModal()}
+                    disabled={isSubmittingEvent}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     className="eventspage-create-modal__submit"
+                    disabled={isSubmittingEvent}
                   >
-                    {editingEventId ? (
+                    {isSubmittingEvent ? (
+                      <>
+                        <Loader2 size={18} className="eventspage-create-modal__spinner" />
+                        {editingEventId ? "Updating..." : "Creating..."}
+                      </>
+                    ) : editingEventId ? (
                       <>
                         <Edit size={18} />
                         Update Event

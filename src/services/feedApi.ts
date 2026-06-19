@@ -568,7 +568,7 @@ export const feedApi = {
     pagination?: { page: number; limit: number; hasMore: boolean };
   }> => {
     const page = params?.page ?? 1;
-    const limit = params?.limit ?? 10;
+    const limit = params?.limit ?? 100;
     const type = params?.type ?? "all";
     const feedChannel = params?.feedChannel ?? "main";
     const query = new URLSearchParams({

@@ -228,6 +228,13 @@
   }
 }
 
+.create-story-popup__spinner {
+  -webkit-animation: spin 0.9s linear infinite;
+  animation: spin 0.9s linear infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
 // Dark mode support
 [data-theme="dark"] {
   .create-story-popup {

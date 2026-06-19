@@ -1,11 +1,32 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Phone, Mail, MapPin } from "lucide-react";
+import { ExternalLink, Phone, Mail, MapPin, Users, X } from "lucide-react";
+import {
+  DeveloperProfile,
+  developersApi,
+  fallbackDevelopers,
+} from "../services/developersApi";
+import blessingImage from "../image/newsfeed/blessing.jpg";
+import davidImage from "../image/newsfeed/David.jpg";
+import josephImage from "../image/newsfeed/joseph.png";
+
+const developerImages: Record<string, string> = {
+  blessing: blessingImage,
+  david: davidImage,
+  joseph: josephImage,
+};
+
+const developerImage = (developer: DeveloperProfile) =>
+  developer.imageUrl || developerImages[developer.imageKey] || developerImages.joseph;
 
 const Contact: React.FC = () => {
   const [visibleElements, setVisibleElements] = useState<Set<string>>(
     new Set()
   );
   const [visibleCards, setVisibleCards] = useState<Set<number>>(new Set());
+  const [isDevelopersModalOpen, setIsDevelopersModalOpen] = useState(false);
+  const [developers, setDevelopers] = useState<DeveloperProfile[]>([]);
+  const [developersLoading, setDevelopersLoading] = useState(false);
+  const [developersNotice, setDevelopersNotice] = useState<string | null>(null);
   const badgeRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const subheadingRef = useRef<HTMLParagraphElement>(null);
@@ -13,6 +34,7 @@ const Contact: React.FC = () => {
   const badgeText = "Contact Us";
   const heading = "Get in Touch";
   const subheading = "Our support team is available 24/7 to assist you";
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -91,6 +113,19 @@ const Contact: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isDevelopersModalOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsDevelopersModalOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isDevelopersModalOpen]);
+
   const contactMethods = [
     {
       id: "phone",
@@ -135,6 +170,33 @@ const Contact: React.FC = () => {
       },
     },
   ];
+
+  const openDevelopersModal = async () => {
+    setIsDevelopersModalOpen(true);
+
+    if (developers.length > 0 || developersLoading) {
+      return;
+    }
+
+    setDevelopersLoading(true);
+    setDevelopersNotice(null);
+
+    try {
+      const developerProfiles = await developersApi.getDevelopers();
+      setDevelopers(developerProfiles);
+    } catch {
+      setDevelopers(fallbackDevelopers);
+      setDevelopersNotice(
+        "Showing saved developer profiles while the server is unavailable."
+      );
+    } finally {
+      setDevelopersLoading(false);
+    }
+  };
+
+  const closeDevelopersModal = () => {
+    setIsDevelopersModalOpen(false);
+  };
 
   return (
     <section id="contact" className="contact">
@@ -214,7 +276,118 @@ const Contact: React.FC = () => {
             );
           })}
         </div>
+
+        <div
+          className={`contact__developers-cta ${
+            visibleElements.has("contact-grid") ? "fade-in" : ""
+          }`}
+        >
+          <button
+            type="button"
+            className="contact__developers-link"
+            onClick={openDevelopersModal}
+          >
+            <Users size={18} />
+            <span>view developers</span>
+          </button>
+        </div>
       </div>
+
+      {isDevelopersModalOpen && (
+        <div
+          className="contact-developers-modal-overlay"
+          onClick={closeDevelopersModal}
+        >
+          <div
+            className="contact-developers-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="contact-developers-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="contact-developers-modal__close"
+              onClick={closeDevelopersModal}
+              aria-label="Close developers modal"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="contact-developers-modal__header">
+              <div className="contact-developers-modal__icon">
+                <Users size={24} />
+              </div>
+              <h2
+                id="contact-developers-modal-title"
+                className="contact-developers-modal__title"
+              >
+                Developers
+              </h2>
+            </div>
+
+            {developersNotice && (
+              <p className="contact-developers-modal__notice">
+                {developersNotice}
+              </p>
+            )}
+
+            {developersLoading ? (
+              <p className="contact-developers-modal__status">
+                Loading developers...
+              </p>
+            ) : developers.length === 0 ? (
+              <p className="contact-developers-modal__status">
+                No developer profiles are available yet.
+              </p>
+            ) : (
+              <div className="contact-developers-modal__grid">
+                {developers.map((developer) => (
+                  <article
+                    key={developer.id}
+                    className="contact-developers-modal__card"
+                  >
+                    <img
+                      className="contact-developers-modal__avatar"
+                      src={developerImage(developer)}
+                      alt={developer.fullName}
+                    />
+                    <div className="contact-developers-modal__body">
+                      <h3 className="contact-developers-modal__name">
+                        {developer.fullName}
+                      </h3>
+                      <p className="contact-developers-modal__role">
+                        {developer.role}
+                      </p>
+                      <p className="contact-developers-modal__description">
+                        {developer.description}
+                      </p>
+                      {developer.portfolioUrl && (
+                        <a
+                          className="contact-developers-modal__portfolio"
+                          href={developer.portfolioUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          View portfolio <ExternalLink size={14} />
+                        </a>
+                      )}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+
+            <button
+              type="button"
+              className="contact-developers-modal__cancel"
+              onClick={closeDevelopersModal}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 };

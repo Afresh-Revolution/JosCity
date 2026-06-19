@@ -5,6 +5,7 @@ import primaryLogo from "../image/primary-logo.png";
 import "../main.css";
 import LazyImage from "../components/LazyImage";
 import ScrollAnimate from "../components/ScrollAnimate";
+import PageBackButton from "../components/PageBackButton";
 
 function WelcomePage() {
   const navigate = useNavigate();
@@ -44,6 +45,7 @@ function WelcomePage() {
         className="registration-panel"
         aria-labelledby="registration-heading"
       >
+        <PageBackButton fallbackTo="/" ariaLabel="Go back" />
         <ScrollAnimate animationType="fade-up" delay={0.1}>
           <div className="logo-container">
             <LazyImage

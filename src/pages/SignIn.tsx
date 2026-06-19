@@ -21,6 +21,7 @@ import {
   resetPasswordWithOtp,
   getUserProfile,
 } from "../api/auth";
+import PageBackButton from "../components/PageBackButton";
 // Citizen count is now fetched from API
 import "../main.css";
 
@@ -271,6 +272,11 @@ function SignIn() {
 
       <div className="signin-container">
         <div className="signin-form-panel">
+          <PageBackButton
+            to="/"
+            disabled={isLoading}
+            ariaLabel="Go back to home"
+          />
           <div className="signin-logo-container">
             <img src={primaryLogo} alt="JOSCITY Logo" className="signin-logo" />
           </div>

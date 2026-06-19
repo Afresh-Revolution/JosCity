@@ -59,6 +59,11 @@
 .registration-panel {
   position: relative;
   z-index: 1;
+
+  .page-back-button {
+    top: 1.25rem;
+    left: 1.25rem;
+  }
   width: 90%;
   max-width: $panel-max-width;
   padding: 6rem $spacing-xl calc(10rem + 50px) $spacing-xl;

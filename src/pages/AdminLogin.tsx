@@ -9,10 +9,10 @@ import {
   EyeOff,
   ShieldCheck,
   AlertCircle,
-  ArrowLeft,
 } from "lucide-react";
 import API_BASE_URL from "../api/config";
 import { fetchWithTimeout } from "../utils/fetchWithTimeout";
+import PageBackButton from "../components/PageBackButton";
 import "../main.css";
 
 function AdminLogin() {
@@ -131,43 +131,11 @@ function AdminLogin() {
 
       <div className="signin-container">
         <div className="signin-form-panel">
-          <button
-            onClick={() => navigate("/")}
-            className="signin-back-button"
-            type="button"
-            aria-label="Go back to home"
+          <PageBackButton
+            to="/"
             disabled={isLoading}
-            style={{
-              position: "absolute",
-              top: "1rem",
-              left: "1rem",
-              background: "rgba(255, 255, 255, 0.1)",
-              backdropFilter: "blur(10px)",
-              border: "1px solid rgba(255, 255, 255, 0.2)",
-              borderRadius: "8px",
-              padding: "0.5rem",
-              cursor: isLoading ? "not-allowed" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#ffffff",
-              transition: "all 0.2s ease",
-              zIndex: 10,
-              opacity: isLoading ? 0.6 : 1,
-            }}
-            onMouseEnter={(e) => {
-              if (!isLoading) {
-                e.currentTarget.style.background = "rgba(255, 255, 255, 0.2)";
-                e.currentTarget.style.transform = "translateX(-2px)";
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
-              e.currentTarget.style.transform = "translateX(0)";
-            }}
-          >
-            <ArrowLeft size={20} />
-          </button>
+            ariaLabel="Go back to home"
+          />
           <div className="signin-logo-container">
             <img src={primaryLogo} alt="JOSCITY Logo" className="signin-logo" />
           </div>

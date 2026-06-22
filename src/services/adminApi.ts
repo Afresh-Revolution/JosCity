@@ -778,6 +778,30 @@ export const removeVerification = async (type: "user" | "page", id: string): Pro
 };
 
 // ==================== SETTINGS ====================
+export interface SystemOption {
+  option_id: number;
+  option_name: string;
+  option_value: string;
+  option_default: string;
+  option_type: string;
+  option_description: string;
+  option_group: string;
+  is_public: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface GroupedSettingsResponse {
+  success: boolean;
+  data: Record<string, SystemOption[]>;
+  groups: string[];
+}
+
+export interface SettingsUpdatePayload {
+  settings: Record<string, string>;
+}
+
+/** @deprecated Use GroupedSettingsResponse — kept for legacy callers */
 export interface Settings {
   site_name: string;
   site_title: string;
@@ -789,15 +813,27 @@ export interface Settings {
   [key: string]: any;
 }
 
-export const getSettings = async (): Promise<{ success: boolean; data: Settings }> => {
-  const response = await adminApiRequest("/settings");
+export const settingsMapFromOptions = (
+  options: SystemOption[]
+): Record<string, string> =>
+  Object.fromEntries(
+    options.map((option) => [option.option_name, option.option_value])
+  );
+
+export const getSettings = async (
+  group?: string
+): Promise<GroupedSettingsResponse> => {
+  const query = group ? `?group=${encodeURIComponent(group)}` : "";
+  const response = await adminApiRequest(`/settings${query}`);
   return response.json();
 };
 
-export const updateSettings = async (settings: Partial<Settings>): Promise<{ success: boolean; message: string }> => {
+export const updateSettings = async (
+  settings: Record<string, string>
+): Promise<{ success: boolean; message: string }> => {
   const response = await adminApiRequest("/settings", {
     method: "PUT",
-    body: JSON.stringify(settings),
+    body: JSON.stringify({ settings }),
   });
   return response.json();
 };

@@ -14,6 +14,7 @@ import {
   type ValidationError,
 } from "../utils/validationSchemas";
 import { registerPersonal, registerBusiness } from "../api/auth";
+import PageBackButton from "../components/PageBackButton";
 import "../main.css";
 
 function Register() {
@@ -186,6 +187,11 @@ function Register() {
 
       <div className="register-container">
         <div className="register-flip-container">
+          <PageBackButton
+            to="/welcome"
+            disabled={isLoading}
+            ariaLabel="Go back to registration options"
+          />
           <div
             className={`register-form-panel ${
               registrationType === "business" ? "flipped" : ""

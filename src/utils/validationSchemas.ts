@@ -180,13 +180,8 @@ export const validateBusinessForm = (
     }
   }
 
-  // CAC Number validation (required for business accounts)
-  if (!data.CAC_number || data.CAC_number.trim() === "") {
-    errors.push({
-      field: "CAC_number",
-      message: "CAC number is required for business accounts",
-    });
-  } else if (data.CAC_number.trim().length < 5) {
+  // CAC Number validation (optional)
+  if (data.CAC_number && data.CAC_number.trim() !== "" && data.CAC_number.trim().length < 5) {
     errors.push({
       field: "CAC_number",
       message: "CAC number must be at least 5 characters",

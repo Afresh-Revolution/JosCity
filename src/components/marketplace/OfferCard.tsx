@@ -1,8 +1,9 @@
-import React, { useRef, useEffect, useState } from "react";
+﻿import React, { useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MoreVertical, ChevronDown, ChevronUp } from "lucide-react";
 import LazyImage from "../LazyImage";
 import type { ApiMarketplaceListing } from "../../services/marketplaceApi";
+import { formatMarketplaceMoney } from "../../utils/marketplaceDisplay";
 
 export interface OfferCardProps {
   listing: ApiMarketplaceListing;
@@ -14,7 +15,7 @@ export interface OfferCardProps {
   onDelete?: () => void;
   /** Personal accounts: show add to cart when listing is purchasable */
   showCartActions: boolean;
-  /** Business dashboard: show ⋮ edit/delete */
+  /** Business dashboard: show Γï« edit/delete */
   showOwnerMenu: boolean;
 }
 
@@ -131,7 +132,7 @@ const OfferCard: React.FC<OfferCardProps> = ({
           <div className="marketplace-offer-card__row">
             <span className="marketplace-offer-card__price-wrap">
               <span className="marketplace-offer-card__price">
-                ₦{displayTotal.toLocaleString()}
+                {formatMarketplaceMoney(displayTotal)}
               </span>
               {selectedQty > 1 && (
                 <span className="marketplace-offer-card__multiplier">x{selectedQty}</span>
@@ -235,7 +236,7 @@ const OfferCard: React.FC<OfferCardProps> = ({
                     <span>Category</span> {listing.category}
                   </li>
                   <li>
-                    <span>Price</span> ₦{listing.price.toLocaleString()} (NGN)
+                    <span>Price</span> {formatMarketplaceMoney(listing.price)}
                   </li>
                   <li>
                     <span>Availability</span> {stockLabel}

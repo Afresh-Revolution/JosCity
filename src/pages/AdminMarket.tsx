@@ -1,145 +1,205 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   ShoppingBag,
-  Trash2,
   Loader2,
   AlertCircle,
   XCircle,
   CheckCircle,
   DollarSign,
-  Package,
-  Plus,
+  Eye,
 } from "lucide-react";
 import {
-  getProducts,
-  deleteProduct,
-  getOrders,
-  getMarketCategories,
-  deleteMarketCategory,
-  getMarketPayments,
-  approveMarketPayment,
-  type MarketProduct,
-  type MarketOrder,
-  type MarketCategory,
-} from "../services/adminApi";
+  adminMarketplaceApi,
+  normalizeOrderList,
+  normalizePaymentLogList,
+  type MarketplaceOrder,
+  type PaymentLog,
+  type OrderStatus,
+} from "../services/marketplaceApi";
+import {
+  OrderStatusBadge,
+  PaymentStatusBadge,
+} from "../components/marketplace/MarketplaceBadges";
+import { formatMarketplaceMoney } from "../utils/marketplaceDisplay";
 import "../main.css";
 import "../scss/_admin.scss";
 
+const DELIVERY_STATUSES: Exclude<OrderStatus, "awaiting_payment">[] = [
+  "processing",
+  "out_for_delivery",
+  "delivered",
+  "cancelled",
+];
+
 const AdminMarket: React.FC = () => {
-  const [products, setProducts] = useState<MarketProduct[]>([]);
-  const [orders, setOrders] = useState<MarketOrder[]>([]);
-  const [categories, setCategories] = useState<MarketCategory[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<"products" | "orders" | "categories" | "payments">("products");
-  const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"orders" | "payments">("orders");
+  const [orders, setOrders] = useState<MarketplaceOrder[]>([]);
+  const [paymentLogs, setPaymentLogs] = useState<PaymentLog[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<MarketplaceOrder | null>(null);
+
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [orderDetailLoading, setOrderDetailLoading] = useState(false);
+
+  const [processingPaymentId, setProcessingPaymentId] = useState<string | null>(null);
+  const [processingOrderId, setProcessingOrderId] = useState<string | null>(null);
+
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [rejectNote, setRejectNote] = useState<Record<string, string>>({});
+
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [ordersMeta, setOrdersMeta] = useState({ total: 0, total_pages: 1 });
+
+  const loadOrders = useCallback(async () => {
+    setOrdersLoading(true);
+    setError(null);
+    try {
+      const response = await adminMarketplaceApi.getOrders({ page: ordersPage, limit: 20 });
+      setOrders(normalizeOrderList(response.data));
+      setOrdersMeta({
+        total: response.meta?.total ?? 0,
+        total_pages: response.meta?.total_pages ?? 1,
+      });
+    } catch (err) {
+      setOrders([]);
+      setError(err instanceof Error ? err.message : "Failed to load orders");
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, [ordersPage]);
+
+  const loadPaymentLogs = useCallback(async () => {
+    setPaymentsLoading(true);
+    setError(null);
+    try {
+      const response = await adminMarketplaceApi.getPaymentLogs({ limit: 50 });
+      setPaymentLogs(normalizePaymentLogList(response.data));
+    } catch (err) {
+      setPaymentLogs([]);
+      setError(err instanceof Error ? err.message : "Failed to load payment logs");
+    } finally {
+      setPaymentsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, [activeTab]);
+    if (activeTab === "orders") void loadOrders();
+    else void loadPaymentLogs();
+  }, [activeTab, loadOrders, loadPaymentLogs]);
 
-  const loadData = async () => {
+  const loadOrderDetail = async (orderId: string) => {
+    setOrderDetailLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-      if (activeTab === "products") {
-        const response = await getProducts();
-        setProducts(response.data);
-      } else if (activeTab === "orders") {
-        const response = await getOrders();
-        setOrders(response.data);
-      } else if (activeTab === "categories") {
-        const response = await getMarketCategories();
-        setCategories(response.data);
-      } else if (activeTab === "payments") {
-        const response = await getMarketPayments();
-        setPayments(response.data);
-      }
+      const response = await adminMarketplaceApi.getOrder(orderId);
+      setSelectedOrder(response.data);
     } catch (err) {
-      console.error("Failed to load market data:", err);
-      setError(err instanceof Error ? err.message : "Failed to load data");
+      setError(err instanceof Error ? err.message : "Failed to load order");
     } finally {
-      setLoading(false);
+      setOrderDetailLoading(false);
     }
   };
 
-  const handleDelete = async (id: string, type: string) => {
+  const handleApprovePayment = async (log: PaymentLog) => {
+    setProcessingPaymentId(log.id);
+    setError(null);
+    setSuccess(null);
     try {
-      setProcessing(id);
-      setError(null);
-      setSuccess(null);
-      if (type === "product") {
-        await deleteProduct(id);
-      } else if (type === "category") {
-        await deleteMarketCategory(id);
+      const response = await adminMarketplaceApi.approvePayment(log.id);
+      const result = response.data;
+      setSuccess(
+        result.cbrixi_record_sent
+          ? "Payment approved and order moved to processing."
+          : "Payment approved. Warning: Cbrixi sync did not complete — review order details."
+      );
+      await loadPaymentLogs();
+      if (selectedOrder?.id === log.marketplace_order_id) {
+        await loadOrderDetail(log.marketplace_order_id);
       }
-      setSuccess(`${type} deleted successfully`);
-      await loadData();
+      if (activeTab === "orders") await loadOrders();
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to delete ${type}`);
+      setError(err instanceof Error ? err.message : "Failed to approve payment");
     } finally {
-      setProcessing(null);
+      setProcessingPaymentId(null);
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency: "NGN",
-    }).format(amount);
+  const handleRejectPayment = async (log: PaymentLog) => {
+    const note = rejectNote[log.id]?.trim();
+    if (!note) {
+      setError("Enter a rejection note for the administrator record.");
+      return;
+    }
+    setProcessingPaymentId(log.id);
+    setError(null);
+    setSuccess(null);
+    try {
+      await adminMarketplaceApi.rejectPayment(log.id, note);
+      setSuccess("Payment rejected. Customer was notified.");
+      await loadPaymentLogs();
+      if (selectedOrder?.id === log.marketplace_order_id) {
+        await loadOrderDetail(log.marketplace_order_id);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reject payment");
+    } finally {
+      setProcessingPaymentId(null);
+    }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
+  const handleOrderStatusUpdate = async (
+    orderId: string,
+    orderStatus: Exclude<OrderStatus, "awaiting_payment">
+  ) => {
+    setProcessingOrderId(orderId);
+    setError(null);
+    setSuccess(null);
+    try {
+      await adminMarketplaceApi.updateOrderStatus(orderId, orderStatus);
+      setSuccess(`Order status updated to ${orderStatus.replace(/_/g, " ")}.`);
+      await loadOrderDetail(orderId);
+      await loadOrders();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update order status");
+    } finally {
+      setProcessingOrderId(null);
+    }
+  };
+
+  const formatDate = (value: string) =>
+    new Date(value).toLocaleString("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
-  };
 
   return (
     <div className="admin-dashboard">
       <div className="admin-dashboard__header">
         <h1>
           <ShoppingBag size={20} />
-          Marketplace Management
+          Marketplace (Cbrixi)
         </h1>
-        {activeTab === "categories" && (
-          <button className="admin-action-btn admin-action-btn--primary">
-            <Plus size={16} />
-            Create Category
-          </button>
-        )}
       </div>
 
       <div className="admin-tabs">
         <button
-          className={`admin-tab ${activeTab === "products" ? "active" : ""}`}
-          onClick={() => setActiveTab("products")}
-        >
-          <Package size={16} />
-          Products
-        </button>
-        <button
+          type="button"
           className={`admin-tab ${activeTab === "orders" ? "active" : ""}`}
           onClick={() => setActiveTab("orders")}
         >
           Orders
         </button>
         <button
-          className={`admin-tab ${activeTab === "categories" ? "active" : ""}`}
-          onClick={() => setActiveTab("categories")}
-        >
-          Categories
-        </button>
-        <button
+          type="button"
           className={`admin-tab ${activeTab === "payments" ? "active" : ""}`}
           onClick={() => setActiveTab("payments")}
         >
           <DollarSign size={16} />
-          Payments
+          Payment logs
         </button>
       </div>
 
@@ -147,7 +207,7 @@ const AdminMarket: React.FC = () => {
         <div className="admin-dashboard__message admin-dashboard__message--error">
           <AlertCircle size={18} />
           <span>{error}</span>
-          <button onClick={() => setError(null)}>
+          <button type="button" onClick={() => setError(null)}>
             <XCircle size={18} />
           </button>
         </div>
@@ -157,155 +217,218 @@ const AdminMarket: React.FC = () => {
         <div className="admin-dashboard__message admin-dashboard__message--success">
           <CheckCircle size={18} />
           <span>{success}</span>
-          <button onClick={() => setSuccess(null)}>
+          <button type="button" onClick={() => setSuccess(null)}>
             <XCircle size={18} />
           </button>
         </div>
       )}
 
-      {loading ? (
-        <div className="admin-dashboard__loading">
-          <Loader2 size={32} className="spinner" />
-          <span>Loading marketplace data...</span>
-        </div>
-      ) : (
+      {activeTab === "orders" && (
         <>
-          {activeTab === "products" && (
-            <div className="admin-market-grid">
-              {products.length === 0 ? (
-                <div className="admin-dashboard__empty-state">
-                  <Package size={48} />
-                  <p>No products yet</p>
-                </div>
-              ) : (
-                products.map((product) => (
-                  <div key={product.product_id} className="admin-market-card">
-                    <h4>{product.title}</h4>
-                    <p>{product.description}</p>
-                    <div className="admin-market-card__price">
-                      {formatCurrency(product.price)}
-                    </div>
-                    <div className="admin-market-card__actions">
-                      <button
-                        onClick={() => handleDelete(product.product_id, "product")}
-                        disabled={processing === product.product_id}
-                        className="admin-action-btn admin-action-btn--delete"
-                      >
-                        {processing === product.product_id ? (
-                          <Loader2 size={16} className="spinner" />
-                        ) : (
-                          <Trash2 size={16} />
-                        )}
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
+          {ordersLoading ? (
+            <div className="admin-dashboard__loading">
+              <Loader2 size={32} className="spinner" />
+              <span>Loading orders…</span>
             </div>
-          )}
-
-          {activeTab === "orders" && (
+          ) : orders.length === 0 ? (
+            <div className="admin-dashboard__empty-state">
+              <ShoppingBag size={48} />
+              <p>No marketplace orders yet</p>
+            </div>
+          ) : (
             <div className="admin-market-list">
-              {orders.length === 0 ? (
-                <div className="admin-dashboard__empty-state">
-                  <ShoppingBag size={48} />
-                  <p>No orders yet</p>
-                </div>
-              ) : (
-                orders.map((order) => (
-                  <div key={order.order_id} className="admin-market-order-card">
-                    <h4>Order #{order.order_id}</h4>
-                    <p>Buyer ID: {order.buyer_id}</p>
-                    <p>Product ID: {order.product_id}</p>
-                    <p>Quantity: {order.quantity}</p>
-                    <p>Total: {formatCurrency(order.total_price)}</p>
-                    <p>Status: {order.status}</p>
-                    <p>Date: {formatDate(order.created_at)}</p>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-
-          {activeTab === "categories" && (
-            <div className="admin-market-categories-list">
-              {categories.length === 0 ? (
-                <div className="admin-dashboard__empty-state">
-                  <Package size={48} />
-                  <p>No categories yet</p>
-                </div>
-              ) : (
-                categories.map((category) => (
-                  <div key={category.category_id} className="admin-market-category-card">
-                    <h4>{category.name}</h4>
-                    <p>{category.description}</p>
-                    <span className={`badge ${category.active ? "badge--active" : "badge--inactive"}`}>
-                      {category.active ? "Active" : "Inactive"}
-                    </span>
-                    <div className="admin-market-category-card__actions">
-                      <button className="admin-action-btn admin-action-btn--edit">
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(category.category_id, "category")}
-                        disabled={processing === category.category_id}
-                        className="admin-action-btn admin-action-btn--delete"
-                      >
-                        {processing === category.category_id ? (
-                          <Loader2 size={16} className="spinner" />
-                        ) : (
-                          <Trash2 size={16} />
-                        )}
-                        Delete
-                      </button>
+              {orders.map((order) => (
+                <div key={order.id} className="admin-market-order-card">
+                  <div className="admin-market-order-card__header">
+                    <h4>{order.invoice_number}</h4>
+                    <div className="admin-market-order-card__badges">
+                      <PaymentStatusBadge status={order.payment_status} />
+                      <OrderStatusBadge status={order.order_status} />
                     </div>
                   </div>
-                ))
-              )}
+                  <p>{order.customer_name} · {order.customer_email}</p>
+                  <p>Total: {formatMarketplaceMoney(order.total_amount)}</p>
+                  <p>{formatDate(order.created_at)}</p>
+                  <button
+                    type="button"
+                    className="admin-action-btn admin-action-btn--view"
+                    onClick={() => void loadOrderDetail(order.id)}
+                  >
+                    <Eye size={16} /> View details
+                  </button>
+                </div>
+              ))}
             </div>
           )}
 
-          {activeTab === "payments" && (
-            <div className="admin-market-payments-list">
-              {payments.length === 0 ? (
-                <div className="admin-dashboard__empty-state">
-                  <DollarSign size={48} />
-                  <p>No payments yet</p>
-                </div>
-              ) : (
-                payments.map((payment: any) => (
-                  <div key={payment.payment_id} className="admin-market-payment-card">
-                    <h4>Payment #{payment.payment_id}</h4>
-                    <p>Amount: {formatCurrency(payment.amount)}</p>
-                    <p>Status: {payment.status}</p>
-                    {payment.status === "pending" && (
-                      <button
-                        onClick={async () => {
-                          try {
-                            await approveMarketPayment(payment.payment_id);
-                            setSuccess("Payment approved");
-                            await loadData();
-                          } catch (err) {
-                            setError(err instanceof Error ? err.message : "Failed to approve");
-                          }
-                        }}
-                        className="admin-action-btn admin-action-btn--approve"
-                      >
-                        <CheckCircle size={16} />
-                        Approve
-                      </button>
-                    )}
-                  </div>
-                ))
-              )}
+          {ordersMeta.total_pages > 1 && (
+            <div className="admin-pagination">
+              <button
+                type="button"
+                className="admin-pagination__btn"
+                disabled={ordersPage <= 1}
+                onClick={() => setOrdersPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </button>
+              <span>
+                Page {ordersPage} of {ordersMeta.total_pages} ({ordersMeta.total} orders)
+              </span>
+              <button
+                type="button"
+                className="admin-pagination__btn"
+                disabled={ordersPage >= ordersMeta.total_pages}
+                onClick={() => setOrdersPage((p) => p + 1)}
+              >
+                Next
+              </button>
             </div>
           )}
         </>
+      )}
+
+      {activeTab === "payments" && (
+        <>
+          {paymentsLoading ? (
+            <div className="admin-dashboard__loading">
+              <Loader2 size={32} className="spinner" />
+              <span>Loading payment logs…</span>
+            </div>
+          ) : paymentLogs.length === 0 ? (
+            <div className="admin-dashboard__empty-state">
+              <DollarSign size={48} />
+              <p>No payment submissions yet</p>
+            </div>
+          ) : (
+            <div className="admin-market-payments-list">
+              {paymentLogs.map((log) => (
+                <div key={log.id} className="admin-market-payment-card">
+                  <div className="admin-market-payment-card__header">
+                    <h4>{log.invoice_number}</h4>
+                    <PaymentStatusBadge status={log.status} />
+                  </div>
+                  <p>Amount: {formatMarketplaceMoney(log.amount)}</p>
+                  <p>Reference: {log.transfer_reference || "—"}</p>
+                  <p>Bank: {log.bank_name || "—"} · {log.account_name || "—"}</p>
+                  <p>{formatDate(log.created_at)}</p>
+
+                  {log.status === "pending" && (
+                    <div className="admin-market-payment-card__actions">
+                      <textarea
+                        className="admin-settings__textarea"
+                        placeholder="Rejection note (required to reject)"
+                        value={rejectNote[log.id] || ""}
+                        onChange={(e) =>
+                          setRejectNote((prev) => ({ ...prev, [log.id]: e.target.value }))
+                        }
+                        rows={2}
+                      />
+                      <button
+                        type="button"
+                        className="admin-action-btn admin-action-btn--approve"
+                        disabled={processingPaymentId === log.id}
+                        onClick={() => void handleApprovePayment(log)}
+                      >
+                        {processingPaymentId === log.id ? (
+                          <Loader2 size={16} className="spinner" />
+                        ) : (
+                          <CheckCircle size={16} />
+                        )}
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-action-btn admin-action-btn--delete"
+                        disabled={processingPaymentId === log.id}
+                        onClick={() => void handleRejectPayment(log)}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {selectedOrder && (
+        <div className="admin-modal-overlay" onClick={() => setSelectedOrder(null)}>
+          <div
+            className="admin-event-modal admin-market-order-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="admin-event-modal__header">
+              <h2>Order {selectedOrder.invoice_number}</h2>
+              <button type="button" onClick={() => setSelectedOrder(null)}>
+                <XCircle size={20} />
+              </button>
+            </div>
+
+            {orderDetailLoading ? (
+              <div className="admin-dashboard__loading">
+                <Loader2 size={28} className="spinner" />
+              </div>
+            ) : (
+              <div className="admin-market-order-modal__body">
+                <div className="admin-market-order-card__badges">
+                  <PaymentStatusBadge status={selectedOrder.payment_status} />
+                  <OrderStatusBadge status={selectedOrder.order_status} />
+                </div>
+
+                {!selectedOrder.cbrixi_record_sent && selectedOrder.payment_status === "approved" && (
+                  <div className="admin-dashboard__message admin-dashboard__message--error">
+                    Cbrixi sync warning: payment was approved but the Cbrixi record was not sent.
+                  </div>
+                )}
+
+                <p><strong>Customer:</strong> {selectedOrder.customer_name}</p>
+                <p><strong>Email:</strong> {selectedOrder.customer_email}</p>
+                <p><strong>Phone:</strong> {selectedOrder.customer_phone}</p>
+                <p><strong>Delivery:</strong> {selectedOrder.delivery_address}</p>
+                <p><strong>Total:</strong> {formatMarketplaceMoney(selectedOrder.total_amount)}</p>
+
+                {selectedOrder.items && selectedOrder.items.length > 0 && (
+                  <div className="admin-market-order-modal__items">
+                    <h3>Items</h3>
+                    <ul>
+                      {selectedOrder.items.map((item) => (
+                        <li key={item.id}>
+                          {item.product_name_snapshot} × {item.quantity} —{" "}
+                          {formatMarketplaceMoney(item.total_price)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="admin-market-order-modal__status">
+                  <h3>Update delivery status</h3>
+                  <div className="admin-market-order-modal__status-btns">
+                    {DELIVERY_STATUSES.map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        className="admin-action-btn admin-action-btn--edit"
+                        disabled={
+                          processingOrderId === selectedOrder.id ||
+                          selectedOrder.order_status === status
+                        }
+                        onClick={() => void handleOrderStatusUpdate(selectedOrder.id, status)}
+                      >
+                        {status.replace(/_/g, " ")}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
 };
 
 export default AdminMarket;
-

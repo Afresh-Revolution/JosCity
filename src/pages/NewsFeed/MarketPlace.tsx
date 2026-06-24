@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, ShoppingCart, Plus, Store } from "lucide-react";
+import { X, ShoppingCart, Plus, Store, Loader2 } from "lucide-react";
 import moviesBg from "../../image/movies-bg.jpg";
 import moviesImg from "../../image/movies-imgg.png";
 import "../../main.css";
@@ -11,6 +11,7 @@ import NewsFeedHeader from "./NewsFeedHeader";
 import FindFriendsModal from "../../components/FindFriendsModal";
 import ChatPanel from "../../components/ChatPanel";
 import OfferCard from "../../components/marketplace/OfferCard";
+import ProductCard from "../../components/marketplace/ProductCard";
 import CreateListingModal from "../../components/marketplace/CreateListingModal";
 import CheckoutModal from "../../components/marketplace/CheckoutModal";
 import {
@@ -23,11 +24,18 @@ import {
 } from "../../utils/userUtils";
 import {
   marketplaceApi,
+  listingMarketplaceApi,
+  normalizeProductList,
   type ApiCartItem,
   type ApiMarketplaceListing,
   type ApiMediaItem,
   type CheckoutBuyerPayload,
+  type MarketplaceCart,
+  type MarketplaceProduct,
 } from "../../services/marketplaceApi";
+import { formatMarketplaceMoney } from "../../utils/marketplaceDisplay";
+
+type MarketplaceTab = "market" | "my-offers" | "cbrixi" | "cart";
 
 interface CartRow {
   id: string;
@@ -56,10 +64,15 @@ const MarketPlace: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"market" | "my-offers" | "cart">("market");
+  const [activeTab, setActiveTab] = useState<MarketplaceTab>("market");
+  const [cartSource, setCartSource] = useState<"local" | "cbrixi">("local");
+
   const [marketListings, setMarketListings] = useState<ApiMarketplaceListing[]>([]);
   const [myListings, setMyListings] = useState<ApiMarketplaceListing[]>([]);
   const [cartItems, setCartItems] = useState<CartRow[]>([]);
+
+  const [cbrixiProducts, setCbrixiProducts] = useState<MarketplaceProduct[]>([]);
+  const [cbrixiCart, setCbrixiCart] = useState<MarketplaceCart | null>(null);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -70,18 +83,9 @@ const MarketPlace: React.FC = () => {
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
-  const [notifications] = useState<any[]>([]);
+  const [notifications] = useState<{ isRead: boolean }[]>([]);
 
   const unreadNotificationsCount = notifications.filter((n) => !n.isRead).length;
-
-  const handleProfileClick = () => {
-    const username = getProfileUsername();
-    navigate(`/profile/${encodeURIComponent(username)}`);
-  };
-
-  const handleNotificationClick = () => setIsNotificationPanelOpen(true);
-  const handleMessageClick = () => setIsChatPanelOpen(true);
-  const handleAddFriendClick = () => setIsAddFriendModalOpen(true);
 
   const [categories] = useState<string[]>([
     "All",
@@ -101,9 +105,18 @@ const MarketPlace: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [myOffersLoading, setMyOffersLoading] = useState(false);
   const [isCartLoading, setIsCartLoading] = useState(false);
+  const [cbrixiLoading, setCbrixiLoading] = useState(false);
+  const [cbrixiCartLoading, setCbrixiCartLoading] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
+  const [cbrixiError, setCbrixiError] = useState<string | null>(null);
+  const [cbrixiCartError, setCbrixiCartError] = useState<string | null>(null);
   const [cartSuccess, setCartSuccess] = useState<string | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const [pendingAddId, setPendingAddId] = useState<string | null>(null);
+  const [addFeedback, setAddFeedback] = useState<Record<string, { ok?: string; err?: string }>>({});
+  const [pendingCartItemId, setPendingCartItemId] = useState<string | null>(null);
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(searchQuery.trim()), 350);
@@ -114,13 +127,23 @@ const MarketPlace: React.FC = () => {
     setExpandedId(null);
   }, [activeTab]);
 
-  const loadCart = useCallback(async () => {
+  const cbrixiCategories = useMemo(() => {
+    const set = new Set<string>(["All"]);
+    cbrixiProducts.forEach((p) => {
+      if (p.category) set.add(String(p.category));
+    });
+    return Array.from(set);
+  }, [cbrixiProducts]);
+
+  const sidebarCategories = activeTab === "cbrixi" ? cbrixiCategories : categories;
+
+  const loadLocalCart = useCallback(async () => {
     if (!isAuthenticated() || !personalConsumer) {
       setCartItems([]);
       return;
     }
     setIsCartLoading(true);
-    const res = await marketplaceApi.getCart();
+    const res = await listingMarketplaceApi.getListingCart();
     setIsCartLoading(false);
     if (res.success && Array.isArray(res.data)) {
       setCartItems(res.data.map(mapApiCartItem));
@@ -131,13 +154,27 @@ const MarketPlace: React.FC = () => {
     }
   }, [personalConsumer]);
 
+  const loadCbrixiCart = useCallback(async () => {
+    setCbrixiCartLoading(true);
+    setCbrixiCartError(null);
+    try {
+      const response = await marketplaceApi.getCart();
+      setCbrixiCart(response.data);
+    } catch (err) {
+      setCbrixiCart(null);
+      setCbrixiCartError(err instanceof Error ? err.message : "Could not load cart.");
+    } finally {
+      setCbrixiCartLoading(false);
+    }
+  }, []);
+
   const loadMyListings = useCallback(async () => {
     if (!businessAccount || !isAuthenticated()) {
       setMyListings([]);
       return;
     }
     setMyOffersLoading(true);
-    const res = await marketplaceApi.myListings();
+    const res = await listingMarketplaceApi.myListings();
     setMyOffersLoading(false);
     if (res.success && Array.isArray(res.data)) {
       setMyListings(res.data);
@@ -146,12 +183,37 @@ const MarketPlace: React.FC = () => {
     }
   }, [businessAccount]);
 
+  const loadCbrixiProducts = useCallback(async () => {
+    setCbrixiLoading(true);
+    setCbrixiError(null);
+    try {
+      const response = await marketplaceApi.getProducts({
+        category: selectedCategory !== "All" ? selectedCategory : undefined,
+        search: debouncedSearch || undefined,
+        page: 1,
+        limit: 40,
+      });
+      setCbrixiProducts(normalizeProductList(response.data));
+    } catch (err) {
+      setCbrixiProducts([]);
+      setCbrixiError(err instanceof Error ? err.message : "Could not load Cbrixi products.");
+    } finally {
+      setCbrixiLoading(false);
+    }
+  }, [selectedCategory, debouncedSearch]);
+
+  useEffect(() => {
+    if (personalConsumer && isAuthenticated()) {
+      void loadLocalCart();
+    }
+  }, [personalConsumer, loadLocalCart]);
+
   useEffect(() => {
     if (activeTab !== "market") return;
     let cancelled = false;
     setIsLoading(true);
     setError(null);
-    void marketplaceApi
+    void listingMarketplaceApi
       .listProducts({
         category: selectedCategory,
         search: debouncedSearch,
@@ -172,21 +234,33 @@ const MarketPlace: React.FC = () => {
   }, [selectedCategory, debouncedSearch, activeTab]);
 
   useEffect(() => {
+    if (activeTab !== "cbrixi") return;
+    void loadCbrixiProducts();
+  }, [activeTab, loadCbrixiProducts]);
+
+  useEffect(() => {
     if (activeTab !== "my-offers") return;
     void loadMyListings();
   }, [activeTab, loadMyListings]);
 
   useEffect(() => {
     if (activeTab !== "cart") return;
-    void loadCart();
-  }, [activeTab, loadCart]);
+    if (cartSource === "cbrixi") void loadCbrixiCart();
+    else void loadLocalCart();
+  }, [activeTab, cartSource, loadCbrixiCart, loadLocalCart]);
+
+  useEffect(() => {
+    void loadCbrixiCart();
+  }, [loadCbrixiCart]);
 
   const handleCategoryClick = (category: string) => {
     setSelectedCategory(category);
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleTabChange = (tab: MarketplaceTab) => {
+    setActiveTab(tab);
+    if (tab === "cbrixi") setCartSource("cbrixi");
+    if (tab === "market" || tab === "my-offers") setCartSource("local");
   };
 
   const displayListings = useMemo(() => {
@@ -195,7 +269,7 @@ const MarketPlace: React.FC = () => {
     return [];
   }, [activeTab, marketListings, myListings]);
 
-  const handleAddToCart = async (listing: ApiMarketplaceListing, quantity = 1) => {
+  const handleAddToLocalCart = async (listing: ApiMarketplaceListing, quantity = 1) => {
     if (!isAuthenticated()) {
       setError("Please sign in to add items to your cart.");
       return;
@@ -208,8 +282,12 @@ const MarketPlace: React.FC = () => {
       setError("You cannot add your own offer to the cart.");
       return;
     }
+    setCartSource("local");
     setError(null);
-    const res = await marketplaceApi.addToCart(Number(listing.id), Math.max(1, quantity));
+    const res = await listingMarketplaceApi.addListingToCart(
+      Number(listing.id),
+      Math.max(1, quantity)
+    );
     if (!res.success) {
       setError(res.message ?? "Could not add to cart.");
       return;
@@ -217,26 +295,73 @@ const MarketPlace: React.FC = () => {
     setCartSuccess(
       `${quantity} × ${listing.title} added to cart. Continue shopping or go to checkout.`
     );
-    if (activeTab === "cart") void loadCart();
+    void loadLocalCart();
   };
 
-  const handleRemoveFromCart = async (cartItemId: string) => {
+  const handleRemoveFromLocalCart = async (cartItemId: string) => {
     if (!personalConsumer) return;
-    const res = await marketplaceApi.removeCartItem(Number(cartItemId));
-    if (res.success) void loadCart();
+    const res = await listingMarketplaceApi.removeListingCartItem(Number(cartItemId));
+    if (res.success) void loadLocalCart();
     else setError(res.message ?? "Could not remove item.");
   };
 
-  const handleUpdateQuantity = async (cartItemId: string, quantity: number) => {
+  const handleUpdateLocalQuantity = async (cartItemId: string, quantity: number) => {
     if (!personalConsumer) return;
     if (quantity <= 0) {
-      await handleRemoveFromCart(cartItemId);
+      await handleRemoveFromLocalCart(cartItemId);
       return;
     }
     setError(null);
-    const res = await marketplaceApi.updateCartItem(Number(cartItemId), quantity);
-    if (res.success) void loadCart();
+    const res = await listingMarketplaceApi.updateListingCartItem(
+      Number(cartItemId),
+      quantity
+    );
+    if (res.success) void loadLocalCart();
     else setError(res.message ?? "Could not update quantity.");
+  };
+
+  const handleAddToCbrixiCart = async (productId: string) => {
+    setCartSource("cbrixi");
+    setPendingAddId(productId);
+    setAddFeedback((prev) => ({ ...prev, [productId]: {} }));
+    try {
+      const response = await marketplaceApi.addToCart(productId, 1);
+      setCbrixiCart(response.data);
+      setAddFeedback((prev) => ({
+        ...prev,
+        [productId]: { ok: "Added to cart." },
+      }));
+    } catch (err) {
+      setAddFeedback((prev) => ({
+        ...prev,
+        [productId]: {
+          err: err instanceof Error ? err.message : "Could not add to cart.",
+        },
+      }));
+    } finally {
+      setPendingAddId(null);
+    }
+  };
+
+  const mutateCbrixiCartItem = async (
+    itemId: string,
+    action: "increase" | "decrease" | "remove"
+  ) => {
+    setPendingCartItemId(itemId);
+    setCbrixiCartError(null);
+    try {
+      const response =
+        action === "increase"
+          ? await marketplaceApi.increaseCartItem(itemId)
+          : action === "decrease"
+            ? await marketplaceApi.decreaseCartItem(itemId)
+            : await marketplaceApi.removeCartItem(itemId);
+      setCbrixiCart(response.data);
+    } catch (err) {
+      setCbrixiCartError(err instanceof Error ? err.message : "Cart update failed.");
+    } finally {
+      setPendingCartItemId(null);
+    }
   };
 
   const handleSaveListing = async (payload: {
@@ -257,7 +382,7 @@ const MarketPlace: React.FC = () => {
     sellerContactWhatsapp: string;
   }) => {
     if (editTarget) {
-      const res = await marketplaceApi.updateListing(Number(editTarget.id), {
+      const res = await listingMarketplaceApi.updateListing(Number(editTarget.id), {
         title: payload.title,
         description: payload.description,
         category: payload.category,
@@ -277,34 +402,54 @@ const MarketPlace: React.FC = () => {
       if (res.success) void loadMyListings();
       return { success: !!res.success, message: res.message };
     }
-    const res = await marketplaceApi.createListing(payload);
+    const res = await listingMarketplaceApi.createListing(payload);
     if (res.success) void loadMyListings();
     return { success: !!res.success, message: res.message };
   };
 
   const handleDeleteListing = async (listing: ApiMarketplaceListing) => {
-    if (!window.confirm(`Remove “${listing.title}” from your offers?`)) return;
-    const res = await marketplaceApi.deleteListing(Number(listing.id));
+    if (!window.confirm(`Remove "${listing.title}" from your offers?`)) return;
+    const res = await listingMarketplaceApi.deleteListing(Number(listing.id));
     if (res.success) void loadMyListings();
     else setError(res.message ?? "Could not delete.");
   };
 
-  const cartTotal = useMemo(
+  const localCartTotal = useMemo(
     () => cartItems.reduce((s, i) => s + i.price * i.quantity, 0),
     [cartItems]
   );
 
   const handleCheckoutSubmit = async (payload: CheckoutBuyerPayload) => {
-    const res = await marketplaceApi.checkout(payload);
+    const res = await listingMarketplaceApi.listingCheckout(payload);
     if (res.success && res.data) {
       setCartSuccess(null);
-      void loadCart();
-      void marketplaceApi.listProducts({ category: selectedCategory, search: debouncedSearch }).then((r) => {
-        if (r.success && r.data) setMarketListings(r.data);
-      });
+      void loadLocalCart();
+      void listingMarketplaceApi
+        .listProducts({ category: selectedCategory, search: debouncedSearch })
+        .then((r) => {
+          if (r.success && r.data) setMarketListings(r.data);
+        });
     }
     return { success: !!res.success, data: res.data, message: res.message };
   };
+
+  const handleProfileClick = () => {
+    const username = getProfileUsername();
+    navigate(`/profile/${encodeURIComponent(username)}`);
+  };
+
+  const showSidebar =
+    activeTab === "market" || activeTab === "cbrixi";
+
+  const localCartCount = useMemo(
+    () => cartItems.reduce((s, i) => s + i.quantity, 0),
+    [cartItems]
+  );
+
+  const cbrixiCartCount = cbrixiCart?.total_quantity ?? 0;
+
+  const cartTabBadge =
+    activeTab === "cbrixi" || cartSource === "cbrixi" ? cbrixiCartCount : localCartCount;
 
   return (
     <div className="marketplace-page">
@@ -312,9 +457,9 @@ const MarketPlace: React.FC = () => {
         isLeftSidebarOpen={isLeftSidebarOpen}
         onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
         onProfileClick={handleProfileClick}
-        onNotificationClick={handleNotificationClick}
-        onMessageClick={handleMessageClick}
-        onAddFriendClick={handleAddFriendClick}
+        onNotificationClick={() => setIsNotificationPanelOpen(true)}
+        onMessageClick={() => setIsChatPanelOpen(true)}
+        onAddFriendClick={() => setIsAddFriendModalOpen(true)}
         unreadNotificationsCount={unreadNotificationsCount}
         unreadMessagesCount={unreadMessagesCount}
       />
@@ -337,8 +482,13 @@ const MarketPlace: React.FC = () => {
             </div>
             <div className="marketplace-hero__text">
               <h1 className="marketplace-hero__title">MarketPlace</h1>
-              <p className="marketplace-hero__subtitle">Discover new products from local businesses</p>
-              <form onSubmit={handleSearch} className="marketplace-hero__search">
+              <p className="marketplace-hero__subtitle">
+                Discover new products from local businesses
+              </p>
+              <form
+                onSubmit={(e) => e.preventDefault()}
+                className="marketplace-hero__search"
+              >
                 <input
                   type="text"
                   placeholder="Search for products"
@@ -371,31 +521,56 @@ const MarketPlace: React.FC = () => {
         <div className="marketplace-tabs-card">
           <div className="marketplace-tabs marketplace-tabs--three">
             <button
+              type="button"
               className={`marketplace-tabs__item ${
                 activeTab === "market" ? "marketplace-tabs__item--active" : ""
               }`}
-              onClick={() => setActiveTab("market")}
+              onClick={() => handleTabChange("market")}
             >
               Market
             </button>
             {businessAccount && (
               <button
+                type="button"
                 className={`marketplace-tabs__item ${
                   activeTab === "my-offers" ? "marketplace-tabs__item--active" : ""
                 }`}
-                onClick={() => setActiveTab("my-offers")}
+                onClick={() => handleTabChange("my-offers")}
               >
                 <Store size={18} />
                 My offers
               </button>
             )}
             <button
+              type="button"
               className={`marketplace-tabs__item ${
+                activeTab === "cbrixi" ? "marketplace-tabs__item--active" : ""
+              }`}
+              onClick={() => handleTabChange("cbrixi")}
+            >
+              Cbrixi
+            </button>
+            <button
+              type="button"
+              className={`marketplace-tabs__item marketplace-tabs__item--cart ${
                 activeTab === "cart" ? "marketplace-tabs__item--active" : ""
               }`}
-              onClick={() => setActiveTab("cart")}
+              onClick={() => {
+                if (activeTab === "cbrixi") setCartSource("cbrixi");
+                else if (activeTab === "market" || activeTab === "my-offers") {
+                  setCartSource("local");
+                }
+                setActiveTab("cart");
+              }}
             >
-              <ShoppingCart size={18} />
+              <span className="marketplace-tabs__cart-wrap">
+                <ShoppingCart size={18} />
+                {cartTabBadge > 0 && (
+                  <span className="marketplace-tabs__badge" aria-label={`${cartTabBadge} items in cart`}>
+                    {cartTabBadge > 99 ? "99+" : cartTabBadge}
+                  </span>
+                )}
+              </span>
               Shopping cart
             </button>
             {businessAccount && isAuthenticated() && (
@@ -416,37 +591,43 @@ const MarketPlace: React.FC = () => {
 
         <div className="marketplace-content-section">
           <div className="marketplace-main-layout">
-            <aside
-              className={`marketplace-sidebar-container ${
-                isLeftSidebarOpen ? "marketplace-sidebar-container--open" : ""
-              }`}
-            >
-              <div className="marketplace-sidebar">
-                <div className="marketplace-sidebar__header">
-                  <h3>Categories</h3>
-                  <button
-                    className="marketplace-sidebar__close"
-                    onClick={() => setIsLeftSidebarOpen(false)}
-                    aria-label="Close sidebar"
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
-                <nav className="marketplace-sidebar__nav">
-                  {categories.map((category) => (
+            {showSidebar && (
+              <aside
+                className={`marketplace-sidebar-container ${
+                  isLeftSidebarOpen ? "marketplace-sidebar-container--open" : ""
+                }`}
+              >
+                <div className="marketplace-sidebar">
+                  <div className="marketplace-sidebar__header">
+                    <h3>Categories</h3>
                     <button
-                      key={category}
-                      className={`marketplace-sidebar__item ${
-                        selectedCategory === category ? "marketplace-sidebar__item--active" : ""
-                      }`}
-                      onClick={() => handleCategoryClick(category)}
+                      type="button"
+                      className="marketplace-sidebar__close"
+                      onClick={() => setIsLeftSidebarOpen(false)}
+                      aria-label="Close sidebar"
                     >
-                      {category}
+                      <X size={20} />
                     </button>
-                  ))}
-                </nav>
-              </div>
-            </aside>
+                  </div>
+                  <nav className="marketplace-sidebar__nav">
+                    {sidebarCategories.map((category) => (
+                      <button
+                        key={category}
+                        type="button"
+                        className={`marketplace-sidebar__item ${
+                          selectedCategory === category
+                            ? "marketplace-sidebar__item--active"
+                            : ""
+                        }`}
+                        onClick={() => handleCategoryClick(category)}
+                      >
+                        {category}
+                      </button>
+                    ))}
+                  </nav>
+                </div>
+              </aside>
+            )}
 
             <main className="marketplace-content-container">
               <div className="marketplace-content">
@@ -458,7 +639,7 @@ const MarketPlace: React.FC = () => {
                     </button>
                   </div>
                 )}
-                {error && (activeTab === "market" || activeTab === "cart") && (
+                {error && (activeTab === "market" || (activeTab === "cart" && cartSource === "local")) && (
                   <div className="marketplace-banner-error" role="alert">
                     {error}
                     <button type="button" onClick={() => setError(null)} aria-label="Dismiss">
@@ -468,7 +649,103 @@ const MarketPlace: React.FC = () => {
                 )}
 
                 {activeTab === "cart" ? (
-                  isCartLoading ? (
+                  cartSource === "cbrixi" ? (
+                    cbrixiCartLoading ? (
+                      <div className="marketplace-empty">
+                        <Loader2 size={32} className="spinner" />
+                        <h2 className="marketplace-empty__title">Loading cart…</h2>
+                      </div>
+                    ) : (
+                      <>
+                        {cbrixiCartError && (
+                          <div className="marketplace-banner-error">{cbrixiCartError}</div>
+                        )}
+                        {!cbrixiCart?.items?.length ? (
+                          <div className="marketplace-empty">
+                            <h2 className="marketplace-empty__title">Your Cbrixi cart is empty</h2>
+                            <p className="marketplace-empty__message">
+                              Browse the <strong>Cbrixi</strong> tab to add items.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="marketplace-cart-page">
+                            <div className="marketplace-cart-summary">
+                              <span>Subtotal</span>
+                              <strong>{formatMarketplaceMoney(cbrixiCart.subtotal)}</strong>
+                            </div>
+                            <div className="marketplace-cart">
+                              {cbrixiCart.items.map((item) => (
+                                <div key={item.id} className="marketplace-cart-item">
+                                  {item.product_image_snapshot ? (
+                                    <LazyImage
+                                      src={item.product_image_snapshot}
+                                      alt={item.product_name_snapshot}
+                                      className="marketplace-cart-item__image"
+                                    />
+                                  ) : (
+                                    <div className="marketplace-cart-item__image marketplace-cart-item__image--placeholder" />
+                                  )}
+                                  <div className="marketplace-cart-item__content">
+                                    <h3 className="marketplace-cart-item__title">
+                                      {item.product_name_snapshot}
+                                    </h3>
+                                    <p className="marketplace-cart-item__price">
+                                      {formatMarketplaceMoney(item.unit_price_snapshot)} each ·{" "}
+                                      {formatMarketplaceMoney(item.total_price)} total
+                                    </p>
+                                    <div className="marketplace-cart-item__actions-row">
+                                      <button
+                                        type="button"
+                                        className="marketplace-cart-item__action-link"
+                                        disabled={pendingCartItemId === item.id}
+                                        onClick={() => void mutateCbrixiCartItem(item.id, "remove")}
+                                      >
+                                        Remove
+                                      </button>
+                                      <div className="marketplace-cart-item__controls">
+                                        <button
+                                          type="button"
+                                          className="marketplace-cart-item__btn"
+                                          disabled={pendingCartItemId === item.id}
+                                          onClick={() =>
+                                            void mutateCbrixiCartItem(item.id, "decrease")
+                                          }
+                                        >
+                                          −
+                                        </button>
+                                        <span className="marketplace-cart-item__quantity">
+                                          {item.quantity}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          className="marketplace-cart-item__btn"
+                                          disabled={pendingCartItemId === item.id}
+                                          onClick={() =>
+                                            void mutateCbrixiCartItem(item.id, "increase")
+                                          }
+                                        >
+                                          +
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="marketplace-cart-checkout-wrap">
+                              <button
+                                type="button"
+                                className="marketplace-checkout-main-btn"
+                                onClick={() => navigate("/marketplace/checkout")}
+                              >
+                                Proceed to checkout
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )
+                  ) : isCartLoading ? (
                     <div className="marketplace-empty">
                       <h2 className="marketplace-empty__title">Loading…</h2>
                     </div>
@@ -476,8 +753,8 @@ const MarketPlace: React.FC = () => {
                     <div className="marketplace-empty">
                       <h2 className="marketplace-empty__title">Cart is for personal accounts</h2>
                       <p className="marketplace-empty__message">
-                        Business accounts publish offers under <strong>My offers</strong>. Switch to a personal
-                        profile to shop and checkout.
+                        Business accounts publish offers under <strong>My offers</strong>. Switch to
+                        a personal profile to shop and checkout.
                       </p>
                     </div>
                   ) : cartItems.length === 0 ? (
@@ -489,7 +766,7 @@ const MarketPlace: React.FC = () => {
                     <div className="marketplace-cart-page">
                       <div className="marketplace-cart-summary">
                         <span>Total</span>
-                        <strong>₦{cartTotal.toLocaleString()}</strong>
+                        <strong>₦{localCartTotal.toLocaleString()}</strong>
                       </div>
                       <div className="marketplace-cart">
                         {cartItems.map((item) => (
@@ -508,7 +785,7 @@ const MarketPlace: React.FC = () => {
                                 <button
                                   type="button"
                                   className="marketplace-cart-item__action-link"
-                                  onClick={() => void handleRemoveFromCart(item.id)}
+                                  onClick={() => void handleRemoveFromLocalCart(item.id)}
                                 >
                                   Remove from cart
                                 </button>
@@ -517,17 +794,19 @@ const MarketPlace: React.FC = () => {
                                     type="button"
                                     className="marketplace-cart-item__btn"
                                     onClick={() =>
-                                      void handleUpdateQuantity(item.id, item.quantity - 1)
+                                      void handleUpdateLocalQuantity(item.id, item.quantity - 1)
                                     }
                                   >
                                     −
                                   </button>
-                                  <span className="marketplace-cart-item__quantity">{item.quantity}</span>
+                                  <span className="marketplace-cart-item__quantity">
+                                    {item.quantity}
+                                  </span>
                                   <button
                                     type="button"
                                     className="marketplace-cart-item__btn marketplace-cart-item__btn--add-more"
                                     onClick={() =>
-                                      void handleUpdateQuantity(item.id, item.quantity + 1)
+                                      void handleUpdateLocalQuantity(item.id, item.quantity + 1)
                                     }
                                   >
                                     + Add more
@@ -583,6 +862,32 @@ const MarketPlace: React.FC = () => {
                       ))}
                     </div>
                   )
+                ) : activeTab === "cbrixi" ? (
+                  cbrixiLoading ? (
+                    <div className="marketplace-empty">
+                      <Loader2 size={32} className="spinner" />
+                      <h2 className="marketplace-empty__title">Loading Cbrixi products…</h2>
+                    </div>
+                  ) : cbrixiError ? (
+                    <div className="marketplace-banner-error">{cbrixiError}</div>
+                  ) : cbrixiProducts.length === 0 ? (
+                    <div className="marketplace-empty">
+                      <h2 className="marketplace-empty__title">No Cbrixi products found</h2>
+                    </div>
+                  ) : (
+                    <div className="marketplace-grid marketplace-grid--offers">
+                      {cbrixiProducts.map((product) => (
+                        <ProductCard
+                          key={product.id}
+                          product={product}
+                          onAddToCart={handleAddToCbrixiCart}
+                          addPending={pendingAddId === product.id}
+                          addMessage={addFeedback[product.id]?.ok}
+                          addError={addFeedback[product.id]?.err}
+                        />
+                      ))}
+                    </div>
+                  )
                 ) : isLoading ? (
                   <div className="marketplace-empty">
                     <h2 className="marketplace-empty__title">Loading…</h2>
@@ -607,7 +912,7 @@ const MarketPlace: React.FC = () => {
                         }
                         showCartActions={personalConsumer}
                         showOwnerMenu={false}
-                        onAddToCart={(l, qty) => void handleAddToCart(l, qty)}
+                        onAddToCart={(l, qty) => void handleAddToLocalCart(l, qty)}
                       />
                     ))}
                   </div>

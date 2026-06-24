@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { X } from "lucide-react";
 import type { CheckoutBuyerPayload, CheckoutResponseData } from "../../services/marketplaceApi";
+import { formatMarketplaceMoney } from "../../utils/marketplaceDisplay";
 
 export interface CheckoutModalProps {
   isOpen: boolean;
@@ -89,7 +90,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </p>
             {result.orders.map((ord) => (
               <div key={ord.id} className="marketplace-checkout-order">
-                <h3>Order #{ord.id} — ₦{ord.totalNaira.toLocaleString()}</h3>
+                <h3>Order #{ord.id} — {formatMarketplaceMoney(ord.totalNaira)}</h3>
                 <div className="marketplace-checkout-bank">
                   <h4>Pay to this account</h4>
                   <p>
@@ -105,7 +106,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <ul className="marketplace-checkout-items">
                   {ord.items.map((it) => (
                     <li key={`${ord.id}-${it.listingId}`}>
-                      {it.title} × {it.quantity} @ ₦{it.unitPriceNaira.toLocaleString()}
+                      {it.title} × {it.quantity} @ {formatMarketplaceMoney(it.unitPriceNaira)}
                     </li>
                   ))}
                 </ul>

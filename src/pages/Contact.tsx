@@ -6,17 +6,22 @@ import {
   fallbackDevelopers,
 } from "../services/developersApi";
 import blessingImage from "../image/newsfeed/blessing.jpg";
-import davidImage from "../image/newsfeed/David.jpg";
-import josephImage from "../image/newsfeed/joseph.png";
+import fallbackDeveloperImage from "../image/primary-logo.png";
+import olaImage from "../image/newsfeed/Ola.jpeg";
+import sandersonImage from "../image/newsfeed/Sanderson.jpeg";
+import williamImage from "../image/newsfeed/William.jpeg";
 
 const developerImages: Record<string, string> = {
   blessing: blessingImage,
-  david: davidImage,
-  joseph: josephImage,
+  ola: olaImage,
+  sanderson: sandersonImage,
+  william: williamImage,
 };
 
 const developerImage = (developer: DeveloperProfile) =>
-  developer.imageUrl || developerImages[developer.imageKey] || developerImages.joseph;
+  developer.imageUrl ||
+  developerImages[developer.imageKey] ||
+  fallbackDeveloperImage;
 
 const Contact: React.FC = () => {
   const [visibleElements, setVisibleElements] = useState<Set<string>>(

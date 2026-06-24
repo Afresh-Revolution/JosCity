@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { X, Upload, Trash2, Loader2 } from "lucide-react";
 import type { ApiMarketplaceListing, ApiMediaItem } from "../../services/marketplaceApi";
-import { marketplaceApi } from "../../services/marketplaceApi";
+import { listingMarketplaceApi } from "../../services/marketplaceApi";
 
 const CATEGORIES = [
   "Apparel & accessories",
@@ -132,7 +132,7 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
     const list = Array.from(files).slice(0, room);
     setUploading(true);
     for (const file of list) {
-      const res = await marketplaceApi.uploadListingMedia(file);
+      const res = await listingMarketplaceApi.uploadListingMedia(file);
       if (!res.success || !res.data?.url) {
         setError(res.message || "Upload failed. Try a smaller file or check your connection.");
         break;

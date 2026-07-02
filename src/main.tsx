@@ -35,6 +35,9 @@ import Maintenance from "./pages/Maintenance";
 import ComingSoonSection from "./pages/NewsFeed/ComingSoonSection";
 import Forums from "./pages/NewsFeed/Forums";
 import MarketPlace from "./pages/NewsFeed/MarketPlace";
+import MarketplaceProductPage from "./pages/marketplace/MarketplaceProductPage";
+import MarketplaceCheckoutPage from "./pages/marketplace/MarketplaceCheckoutPage";
+import MarketplacePaymentPage from "./pages/marketplace/MarketplacePaymentPage";
 import Scheduled from "./pages/NewsFeed/Scheduled";
 import Saved from "./pages/NewsFeed/Saved";
 import People from "./components/People";
@@ -222,13 +225,18 @@ if (rootElement) {
                     }
                   />
                   <Route path="/profile/:username" element={<UserProfile />} />
+                  <Route path="/marketplace" element={<MarketPlace />} />
                   <Route
-                    path="/marketplace"
-                    element={
-                      <UserRoute>
-                        <MarketPlace />
-                      </UserRoute>
-                    }
+                    path="/marketplace/products/:id"
+                    element={<MarketplaceProductPage />}
+                  />
+                  <Route
+                    path="/marketplace/checkout"
+                    element={<MarketplaceCheckoutPage />}
+                  />
+                  <Route
+                    path="/marketplace/orders/:orderId/payment"
+                    element={<MarketplacePaymentPage />}
                   />
                   <Route
                     path="/movies"

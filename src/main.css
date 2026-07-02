@@ -5777,6 +5777,274 @@ body {
   border-color: rgba(46, 204, 113, 0.4);
 }
 
+.marketplace-subpage {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 6rem 1.5rem 3rem;
+  min-height: 100vh;
+}
+
+.marketplace-subpage__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border: none;
+  background: transparent;
+  color: var(--text-primary, #111);
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.marketplace-product-card__image-btn {
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  display: block;
+  width: 100%;
+}
+
+.marketplace-product-card__feedback {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+}
+.marketplace-product-card__feedback--success {
+  color: #15803d;
+}
+.marketplace-product-card__feedback--error {
+  color: #b91c1c;
+}
+
+.marketplace-product-detail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+@media (max-width: 768px) {
+  .marketplace-product-detail {
+    grid-template-columns: 1fr;
+  }
+}
+.marketplace-product-detail__image {
+  width: 100%;
+  border-radius: 12px;
+  object-fit: cover;
+  min-height: 280px;
+}
+.marketplace-product-detail__image--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary, #f3f4f6);
+  color: var(--text-tertiary, #6b7280);
+}
+.marketplace-product-detail__price {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-primary, #1a5d3a);
+}
+.marketplace-product-detail__category {
+  color: var(--text-secondary, #6b7280);
+}
+.marketplace-product-detail__description {
+  line-height: 1.6;
+  color: var(--text-primary, #111);
+}
+.marketplace-product-detail__qty {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 120px;
+}
+.marketplace-product-detail__qty input {
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #d1d5db);
+}
+.marketplace-product-detail__actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.marketplace-checkout-form,
+.marketplace-checkout-summary,
+.marketplace-payment-form {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.marketplace-checkout-summary__note {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+.marketplace-invoice-card {
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.marketplace-invoice-card__lead {
+  color: var(--text-secondary, #6b7280);
+}
+.marketplace-invoice-card__highlight {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-radius: 10px;
+  background: rgba(26, 93, 58, 0.08);
+  font-size: 1.1rem;
+}
+.marketplace-invoice-card__details {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+.marketplace-invoice-card__details div {
+  display: grid;
+  gap: 0.25rem;
+}
+.marketplace-invoice-card__details dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--text-tertiary, #9ca3af);
+}
+.marketplace-invoice-card__details dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.marketplace-invoice-card__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--border-color, #d1d5db);
+  background: var(--bg-secondary, #f9fafb);
+  border-radius: 6px;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.marketplace-invoice-card__instruction {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #6b7280);
+}
+.marketplace-invoice-card__email-note {
+  font-size: 0.85rem;
+  color: #15803d;
+}
+
+.marketplace-payment-success {
+  padding: 1.5rem;
+  border-radius: 12px;
+  background: rgba(46, 204, 113, 0.1);
+  border: 1px solid rgba(46, 204, 113, 0.35);
+}
+.marketplace-payment-success__meta {
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.marketplace-payment-form__hint {
+  font-size: 0.8rem;
+  color: var(--text-tertiary, #9ca3af);
+}
+
+.marketplace-badge {
+  display: inline-flex;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.marketplace-badge--payment-pending {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.marketplace-badge--payment-approved {
+  background: #d1fae5;
+  color: #065f46;
+}
+.marketplace-badge--payment-rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.marketplace-badge--order-awaiting {
+  background: #fef3c7;
+  color: #92400e;
+}
+.marketplace-badge--order-processing {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+.marketplace-badge--order-delivery {
+  background: #cffafe;
+  color: #155e75;
+}
+.marketplace-badge--order-delivered {
+  background: #d1fae5;
+  color: #065f46;
+}
+.marketplace-badge--order-cancelled {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.marketplace-cart-item__image--placeholder {
+  background: var(--bg-secondary, #e5e7eb);
+}
+
+.admin-market-order-card__header,
+.admin-market-order-card__badges,
+.admin-market-payment-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.admin-market-order-card__badges {
+  margin-bottom: 0.75rem;
+}
+
+.admin-market-payment-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.admin-market-order-modal__body {
+  padding: 1.25rem 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-market-order-modal__status-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.admin-market-order-modal__items ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+}
+
 .navbar__overlay {
   display: none;
 }

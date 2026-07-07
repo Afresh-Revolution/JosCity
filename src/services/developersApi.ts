@@ -48,7 +48,7 @@ export const fallbackDevelopers: DeveloperProfile[] = [
   {
     id: "olayiwola-emmanuel-iyanu",
     fullName: "Olayiwola Emmanuel Iyanu",
-    role: "UI/UX Designer",
+    role: "UI/UX: UI/UX Designer",
     description:
       "Designs clean, intuitive interfaces and user experiences that make JOSCity easier to navigate, understand, and use.",
     imageUrl: "",
@@ -103,7 +103,7 @@ const buildDeveloperFormData = (payload: DeveloperPayload) => {
 
 const readDevelopersResponse = async (
   response: Response,
-  fallbackMessage: string
+  fallbackMessage: string,
 ): Promise<DeveloperProfile[]> => {
   const data = (await response.json().catch(() => ({}))) as DevelopersResponse;
   if (!response.ok || !data.success || !Array.isArray(data.data)) {
@@ -114,7 +114,7 @@ const readDevelopersResponse = async (
 
 const adminDeveloperRequest = async (
   endpoint = "",
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<Response> => {
   const token = getAdminToken();
   const headers = new Headers(options.headers);
@@ -143,7 +143,9 @@ export const developersApi = {
     return readDevelopersResponse(response, "Unable to load admin developers.");
   },
 
-  async createAdminDeveloper(payload: DeveloperPayload): Promise<DeveloperProfile> {
+  async createAdminDeveloper(
+    payload: DeveloperPayload,
+  ): Promise<DeveloperProfile> {
     const response = await adminDeveloperRequest("", {
       method: "POST",
       body: buildDeveloperFormData(payload),
@@ -161,7 +163,7 @@ export const developersApi = {
 
   async updateAdminDeveloper(
     id: string | number,
-    payload: DeveloperPayload
+    payload: DeveloperPayload,
   ): Promise<DeveloperProfile> {
     const response = await adminDeveloperRequest(`/${id}`, {
       method: "PUT",

@@ -23,7 +23,12 @@ export function getProductName(product: MarketplaceProduct): string {
 }
 
 export function getProductImage(product: MarketplaceProduct): string | null {
-  const image = product.image || product.image_url;
+  const image =
+    product.image ||
+    product.image_url ||
+    (Array.isArray(product.images) && typeof product.images[0] === "string"
+      ? product.images[0]
+      : null);
   return typeof image === "string" && image.trim() ? image : null;
 }
 

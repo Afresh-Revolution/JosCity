@@ -75,8 +75,8 @@ const Success: React.FC = () => {
           <div className="success-bottom-section">
             <div className="success-message">
               <p className="success-text">
-                Your request has been successfully submitted. you will receive a
-                second email when your details have been verified
+                Your account has been created successfully. Check your email for
+                your activation OTP, then sign in with your email and password.
               </p>
             </div>
 

@@ -128,9 +128,7 @@ export default defineConfig({
   server: {
     headers: securityHeaders,
     host: true, // Allow access from network devices
-    allowedHosts: [
-      "joscity-com.onrender.com",
-    ],
+    allowedHosts: true,
     // Forums microservice (New_Joscity/src/index.js) defaults to :3001; main API (server.js) :3000.
     // Sending all /api to the forums port broke login and admin (they 404 on the forums app).
     proxy: {
@@ -164,7 +162,13 @@ export default defineConfig({
     },
   },
   preview: {
-    headers: securityHeaders,
-  },
+  host: "0.0.0.0",
+  port: 5100,
+  headers: securityHeaders,
+  allowedHosts: [
+    "joscity.com",
+    "www.joscity.com",
+  ],
+},
   publicDir: "public",
 });

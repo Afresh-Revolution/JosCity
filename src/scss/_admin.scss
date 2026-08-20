@@ -4016,6 +4016,7 @@
     flex-direction: column;
     gap: 24px;
     max-width: 760px;
+    width: 100%;
   }
 
   &__section {
@@ -4033,6 +4034,9 @@
     font-size: 18px;
     font-weight: 600;
     color: var(--text-primary, #111827);
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   &__grid {
@@ -4232,11 +4236,100 @@
   &__toggle--on &__toggle-state {
     color: #1a5d3a;
   }
+
+  &__feature-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  &__feature-card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 12px;
+    background: var(--bg-secondary, #f9fafb);
+  }
+
+  &__feature-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  &__feature-label-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__feature-label-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  &__feature-preview {
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: #dceee3;
+    color: #0f3d26;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 10px;
+    white-space: nowrap;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__feature-loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-secondary, #6b7280);
+    font-size: 14px;
+  }
 }
 
 @media (max-width: 768px) {
   .admin-settings__grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-settings__form {
+    max-width: 100%;
+  }
+
+  .admin-settings__section {
+    padding: 16px;
+  }
+
+  .admin-settings__feature-header,
+  .admin-settings__feature-label-row,
+  .admin-settings__toggle-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-settings__toggle {
+    justify-content: space-between;
+  }
+
+  .admin-settings__feature-preview {
+    align-self: flex-start;
+  }
+
+  .admin-settings__actions--footer {
+    justify-content: stretch;
+
+    .admin-settings__button {
+      width: 100%;
+      justify-content: center;
+    }
   }
 }
 

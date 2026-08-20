@@ -13,6 +13,7 @@ import {
   settingsMapFromOptions,
   type SystemOption,
 } from "../services/adminApi";
+import AdminAppFeatures from "../components/AdminAppFeatures";
 import "../main.css";
 import "../scss/_admin.scss";
 
@@ -279,13 +280,16 @@ const AdminSettings: React.FC = () => {
         </div>
       )}
 
+      <div className="admin-settings__form">
+        <AdminAppFeatures onError={setError} onSuccess={setSuccess} />
+
       {loading ? (
         <div className="admin-dashboard__loading">
           <Loader2 size={32} className="spinner" />
           <span className="admin-dashboard__loading-text">Loading settings...</span>
         </div>
       ) : (
-        <div className="admin-settings__form">
+        <>
           {approvalOptions.length > 0 && (
             <section className="admin-settings__section">
               <h2 className="admin-settings__title">Account Approval</h2>
@@ -342,8 +346,9 @@ const AdminSettings: React.FC = () => {
               </button>
             </div>
           )}
-        </div>
+        </>
       )}
+      </div>
     </div>
   );
 };

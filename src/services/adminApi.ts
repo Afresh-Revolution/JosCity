@@ -851,6 +851,44 @@ export const updateRegistrationSettings = async (settings: any): Promise<{ succe
   return response.json();
 };
 
+// ==================== APP FEATURES (mobile coming soon) ====================
+export interface AppFeatureFlag {
+  feature_key: string;
+  enabled: boolean;
+  coming_soon_label: string;
+  title: string;
+  description: string;
+  sort_order?: number;
+}
+
+export const getAppFeatures = async (): Promise<{
+  success: boolean;
+  data: AppFeatureFlag[];
+}> => {
+  const response = await adminApiRequest("/app-features");
+  return response.json();
+};
+
+export const updateAppFeatures = async (
+  features: Array<Partial<AppFeatureFlag> & { feature_key: string }>
+): Promise<{ success: boolean; message: string; data: AppFeatureFlag[] }> => {
+  const response = await adminApiRequest("/app-features", {
+    method: "PUT",
+    body: JSON.stringify({ features }),
+  });
+  return response.json();
+};
+
+export const updateAppFeature = async (
+  feature: Partial<AppFeatureFlag> & { feature_key: string }
+): Promise<{ success: boolean; message: string; data: AppFeatureFlag[] }> => {
+  const response = await adminApiRequest("/app-features", {
+    method: "PUT",
+    body: JSON.stringify(feature),
+  });
+  return response.json();
+};
+
 // ==================== WALLET ====================
 export interface WalletPaymentRequest {
   request_id: string;

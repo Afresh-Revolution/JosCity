@@ -846,6 +846,64 @@ export const deleteReport = async (id: string): Promise<{ success: boolean; mess
   return response.json();
 };
 
+export interface SafetyReport {
+  report_id: number;
+  reporter_id: number;
+  reported_user_id: number | null;
+  content_type: string;
+  content_id: string | null;
+  reason: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  high_priority?: boolean;
+  admin_notes: string | null;
+  evidence_ref: string | null;
+  created_at: string;
+  reporter_name?: string;
+  reported_name?: string;
+}
+
+export const getSafetyReports = async (params?: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  priority?: string;
+}): Promise<{
+  success: boolean;
+  data: SafetyReport[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}> => {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.status) query.set("status", params.status);
+  if (params?.priority) query.set("priority", params.priority);
+  const suffix = query.toString() ? `?${query}` : "";
+  const response = await adminApiRequest(`/safety-reports${suffix}`);
+  return response.json();
+};
+
+export const updateSafetyReport = async (
+  id: number,
+  body: { status?: string; admin_notes?: string }
+): Promise<{ success: boolean; message: string }> => {
+  const response = await adminApiRequest(`/safety-reports/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+  return response.json();
+};
+
+export const escalateSafetyReport = async (
+  id: number
+): Promise<{ success: boolean; message: string }> => {
+  const response = await adminApiRequest(`/safety-reports/${id}/escalate`, {
+    method: "POST",
+  });
+  return response.json();
+};
+
 // ==================== VERIFICATION ====================
 export interface VerificationRequest {
   request_id: string;

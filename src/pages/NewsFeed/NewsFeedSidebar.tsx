@@ -14,8 +14,11 @@ import {
   Tag,
   Briefcase as Jobs,
   Video,
+  Flag,
   X,
 } from 'lucide-react';
+
+import ReportModal from "../../components/ReportModal";
 
 interface NewsFeedSidebarProps {
   isOpen?: boolean;
@@ -26,6 +29,7 @@ const NewsFeedSidebar: React.FC<NewsFeedSidebarProps> = ({ isOpen = false, onClo
   const navigate = useNavigate();
   const location = useLocation();
   const [activeItem, setActiveItem] = useState<string>('newsfeed');
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Update active item based on current route
   useEffect(() => {
@@ -282,8 +286,21 @@ const NewsFeedSidebar: React.FC<NewsFeedSidebarProps> = ({ isOpen = false, onClo
             <Film size={20} />
             <span>Movies</span>
           </a>
+          <button
+            type="button"
+            className="newsfeed-sidebar__item"
+            onClick={() => setReportOpen(true)}
+          >
+            <Flag size={20} />
+            <span>Report a safety concern</span>
+          </button>
         </div>
       </nav>
+      <ReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        contentType="general"
+      />
     </aside>
   );
 };

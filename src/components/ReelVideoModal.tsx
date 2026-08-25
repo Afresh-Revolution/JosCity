@@ -13,6 +13,7 @@ import {
 import ReelOptionsMenu from "./ReelOptionsMenu";
 import ReelCommentModal from "./ReelCommentModal";
 import { reelsApi, ReelItem } from "../services/reelsApi";
+import ReportModal from "./ReportModal";
 import { feedApi } from "../services/feedApi";
 
 interface ReelVideoModalProps {
@@ -49,6 +50,8 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
   const [closedCaptionsEnabled, setClosedCaptionsEnabled] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [commentModalOpen, setCommentModalOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReelId, setReportReelId] = useState<number | null>(null);
   const [selectedVideoForComments, setSelectedVideoForComments] = useState<
     number | null
   >(null);
@@ -465,23 +468,8 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
   };
 
   const handleReport = async (videoId: number) => {
-    const video = getVideoById(videoId);
-    const confirmed = window.confirm(
-      `Report "${video?.title || "this reel"}" for review?`
-    );
-    if (!confirmed) {
-      return;
-    }
-
-    const reason = window.prompt(
-      "Optional: tell us why you are reporting this reel.",
-      ""
-    );
-
-    await runWithVideoLock(videoId, async () => {
-      await reelsApi.reportReel(videoId, reason || undefined);
-      alert("Thanks. Your report has been submitted.");
-    });
+    setReportReelId(videoId);
+    setReportOpen(true);
   };
 
   const handleManagePreferences = () => {
@@ -766,6 +754,12 @@ const ReelVideoModal: React.FC<ReelVideoModalProps> = ({
           }
         }}
         onManagePreferences={handleManagePreferences}
+      />
+      <ReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        contentType="reel"
+        contentId={reportReelId}
       />
 
       <ReelCommentModal

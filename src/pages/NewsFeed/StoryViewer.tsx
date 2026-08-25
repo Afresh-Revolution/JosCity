@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { X, Heart, Eye, Trash2 } from "lucide-react";
+import { X, Heart, Eye, Trash2, Flag } from "lucide-react";
+import ReportModal from "../../components/ReportModal";
 import Avatar from "../../components/Avatar";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import { getUserName } from "../../utils/userUtils";
@@ -47,6 +48,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
   const [viewsCount, setViewsCount] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const autoSlideTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -342,6 +344,18 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
               </p>
             </div>
           </div>
+          {!currentStory?.isOwner ? (
+            <button
+              className="story-viewer__close-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                setReportOpen(true);
+              }}
+              title="Report"
+            >
+              <Flag size={22} />
+            </button>
+          ) : null}
           <button
             className="story-viewer__close-btn"
             onClick={(e) => {
@@ -698,6 +712,12 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
         cancelText="Cancel"
         type="delete"
         isLoading={isDeleting}
+      />
+      <ReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        contentType="story"
+        contentId={currentStory?.id}
       />
     </div>,
     document.body

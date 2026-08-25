@@ -74,9 +74,15 @@ const CommunityGuidelines: React.FC = () => {
             <h2>5. Reporting and enforcement</h2>
             <p>
               If you see something that breaks these guidelines, report it from
-              the app or email support@joscity.com. We may remove content, warn
-              a member, deactivate an account, or delete an account when these
-              rules are broken.
+              the app or email support@joscity.com. For child sexual abuse and
+              exploitation, use the in-app report flow or email{" "}
+              <a href="mailto:child-safety@joscity.com">
+                child-safety@joscity.com
+              </a>
+              . Read the{" "}
+              <a href="/child-safety">Joscity Child Safety Standards</a>.
+              We may remove content, warn a member, deactivate an account, or
+              delete an account when these rules are broken.
             </p>
           </section>
 

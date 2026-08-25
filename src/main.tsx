@@ -26,6 +26,7 @@ import DeleteAccount from "./pages/DeleteAccount";
 import TermsOfService from "./pages/TermsOfService";
 import CookiePolicy from "./pages/CookiePolicy";
 import CommunityGuidelines from "./pages/CommunityGuidelines";
+import ChildSafety from "./pages/ChildSafety";
 import Accessibility from "./pages/Accessibility";
 import About from "./pages/About";
 import ContactPage from "./pages/ContactPage";
@@ -153,6 +154,7 @@ if (rootElement) {
                   <Route path="/terms-of-service" element={<TermsOfService />} />
                   <Route path="/cookie-policy" element={<CookiePolicy />} />
                   <Route path="/community-guidelines" element={<CommunityGuidelines />} />
+                  <Route path="/child-safety" element={<ChildSafety />} />
                   <Route path="/accessibility" element={<Accessibility />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/contact" element={<ContactPage />} />

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X, Search, Send, Smile, CheckCircle, MessageCircle, ArrowLeft } from "lucide-react";
+import { X, Search, Send, Smile, CheckCircle, MessageCircle, ArrowLeft, Flag } from "lucide-react";
 import Avatar from "./Avatar";
 import EmojiPicker from "./EmojiPicker";
 import { getUserData } from "../utils/userUtils";
@@ -12,6 +12,7 @@ import chatService, {
 } from "../services/chatService";
 import { feedApi } from "../services/feedApi";
 import { formatChatPresenceLabel } from "../utils/presenceUtils";
+import ReportModal from "./ReportModal";
 import API_BASE_URL from "../api/config";
 import { startVisibleInterval } from "../utils/visibleInterval";
 
@@ -200,6 +201,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [isSending, setIsSending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const typingTimeoutRef = useRef<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1045,6 +1047,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                       <span className="newsfeed-chat-panel__chat-status-separator">•</span>
                       <p className="newsfeed-chat-panel__chat-status">{typingLabel}</p>
                     </div>
+                    <button
+                      type="button"
+                      className="newsfeed-chat-panel__back-btn"
+                      onClick={() => setReportOpen(true)}
+                      aria-label="Report conversation"
+                    >
+                      <Flag size={18} />
+                    </button>
                   </div>
                 </div>
 
@@ -1171,6 +1181,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           </div>
         </div>
       </div>
+      <ReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        contentType="conversation"
+        contentId={selectedConversationId}
+        reportedUserId={selectedConversation?.otherUserId}
+      />
     </div>
   );
 };

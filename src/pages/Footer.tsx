@@ -122,7 +122,9 @@ const Footer: React.FC = () => {
       section: "legal",
       links: [
         { text: "Privacy Policy", url: "/privacy-policy" },
+        { text: "Delete account", url: "/delete-account" },
         { text: "Terms of Service", url: "/terms-of-service" },
+        { text: "Community Guidelines", url: "/community-guidelines" },
         { text: "Cookie Policy", url: "/cookie-policy" },
         { text: "Accessibility", url: "/accessibility" },
       ],

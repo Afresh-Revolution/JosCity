@@ -8,13 +8,16 @@ export async function fetchWithTimeout(
     headers?: Record<string, string>;
     body?: string | object;
     timeout?: number;
+    signal?: AbortSignal;
   }
 ): Promise<Response> {
-  // Extract timeout from options with default value
-  const timeout = options?.timeout || 3000; // 8 seconds default
+  const timeout = options?.timeout ?? 15000;
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeout);
+  const onParentAbort = () => controller.abort();
+  options?.signal?.addEventListener("abort", onParentAbort);
   try {
-    // Create fetch options
-    const fetchOptions: RequestInit = {};
+    const fetchOptions: RequestInit = { signal: controller.signal };
 
     if (options?.method) {
       fetchOptions.method = options.method;
@@ -25,22 +28,24 @@ export async function fetchWithTimeout(
     }
 
     if (options?.body) {
-      // If body is an object, stringify it, otherwise use as-is
       fetchOptions.body =
         typeof options.body === "object"
           ? JSON.stringify(options.body)
           : options.body;
     }
 
-    const response = await fetch(url, fetchOptions);
-    // Don't throw on non-ok responses - let the caller handle them
-    // This allows proper error handling with response body parsing
-    return response;
+    return await fetch(url, fetchOptions);
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
+    if (
+      (error instanceof DOMException && error.name === "AbortError") ||
+      (error instanceof Error && error.name === "TimeoutError")
+    ) {
       throw new Error(`Request timeout after ${timeout}ms`);
     }
     throw error instanceof Error ? error : new Error("Unknown fetch error");
+  } finally {
+    window.clearTimeout(timer);
+    options?.signal?.removeEventListener("abort", onParentAbort);
   }
 }
 

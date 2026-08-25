@@ -1479,6 +1479,30 @@
   }
 }
 
+.business-offer-kind {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.business-offer-kind__btn {
+  min-height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  background: var(--card-bg, #fff);
+  color: var(--text-secondary, #555);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &.is-active {
+    border-color: #0d4a1f;
+    background: rgba(13, 74, 31, 0.08);
+    color: #0d4a1f;
+  }
+}
+
 .business-offer-fields {
   margin-top: 10px;
   padding: 10px 12px;
@@ -1504,7 +1528,8 @@
       grid-template-columns: 1fr;
     }
 
-    input {
+    input,
+    select {
       width: 100%;
       box-sizing: border-box;
       padding: 8px 10px;
@@ -1517,6 +1542,15 @@
       &:nth-child(3) {
         grid-column: 1 / -1;
       }
+    }
+
+    &.is-service input:nth-child(n) {
+      grid-column: auto;
+    }
+
+    &.is-service input:nth-child(4),
+    &.is-service input:nth-child(5) {
+      grid-column: 1 / -1;
     }
   }
 }

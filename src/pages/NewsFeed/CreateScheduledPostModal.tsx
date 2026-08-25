@@ -53,6 +53,7 @@ const CreateScheduledPostModal: React.FC<CreateScheduledPostModalProps> = ({
   const [imageEntries, setImageEntries] = useState<MediaEntry[]>([]);
   const [videoEntries, setVideoEntries] = useState<MediaEntry[]>([]);
   const [textOffer, setTextOffer] = useState<Offer>(() => emptyOffer());
+  const [listingKind, setListingKind] = useState<"goods" | "service">("goods");
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -212,7 +213,7 @@ const CreateScheduledPostModal: React.FC<CreateScheduledPostModalProps> = ({
           ];
           const hasMedia = byMediaIndex.some((x) => x !== null);
           if (textP || hasMedia) {
-            listingDetails = {};
+            listingDetails = { kind: listingKind };
             if (textP) listingDetails.text = textP;
             if (hasMedia) listingDetails.byMediaIndex = byMediaIndex;
           }
@@ -292,11 +293,34 @@ const CreateScheduledPostModal: React.FC<CreateScheduledPostModalProps> = ({
           </div>
 
           {businessListingFields && (
-            <BusinessOfferRow
-              title="Listing for caption / description (optional)"
-              value={textOffer}
-              onChange={setTextOffer}
-            />
+            <>
+              <div className="business-offer-kind" role="group" aria-label="Listing type">
+                <button
+                  type="button"
+                  className={`business-offer-kind__btn ${listingKind === "goods" ? "is-active" : ""}`}
+                  onClick={() => setListingKind("goods")}
+                >
+                  Product
+                </button>
+                <button
+                  type="button"
+                  className={`business-offer-kind__btn ${listingKind === "service" ? "is-active" : ""}`}
+                  onClick={() => setListingKind("service")}
+                >
+                  Service
+                </button>
+              </div>
+              <BusinessOfferRow
+                title={
+                  listingKind === "service"
+                    ? "Service details for caption (optional)"
+                    : "Listing for caption / description (optional)"
+                }
+                value={textOffer}
+                onChange={setTextOffer}
+                kind={listingKind}
+              />
+            </>
           )}
 
           {imageEntries.length > 0 && (
@@ -327,6 +351,7 @@ const CreateScheduledPostModal: React.FC<CreateScheduledPostModalProps> = ({
                       <BusinessOfferRow
                         title={`Image ${index + 1} (optional)`}
                         value={entry.offer}
+                        kind={listingKind}
                         onChange={(next) =>
                           setImageEntries((prev) => {
                             const copy = [...prev];
@@ -375,6 +400,7 @@ const CreateScheduledPostModal: React.FC<CreateScheduledPostModalProps> = ({
                       <BusinessOfferRow
                         title={`Video ${index + 1} (optional)`}
                         value={entry.offer}
+                        kind={listingKind}
                         onChange={(next) =>
                           setVideoEntries((prev) => {
                             const copy = [...prev];

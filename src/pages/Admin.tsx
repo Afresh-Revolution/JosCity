@@ -42,6 +42,7 @@ import {
   Tag,
   Newspaper,
   Heart,
+  HelpCircle,
   Smile,
   Image,
   History,
@@ -63,6 +64,8 @@ import AdminGroups from "./AdminGroups";
 import AdminForums from "./AdminForums";
 import AdminEvents from "./AdminEvents";
 import AdminReports from "./AdminReports";
+import AdminFeedback from "./AdminFeedback";
+import AdminFaqs from "./AdminFaqs";
 import AdminVerification from "./AdminVerification";
 import AdminWallet from "./AdminWallet";
 import AdminAds from "./AdminAds";
@@ -91,7 +94,7 @@ const Admin: React.FC = () => {
     money: true,
     payments: true,
     developers: true,
-    tools: false,
+    tools: true,
     plugins: false,
   });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -106,6 +109,8 @@ const Admin: React.FC = () => {
     | "forums"
     | "events"
     | "reports"
+    | "feedback"
+    | "faqs"
     | "verification"
     | "wallet"
     | "ads"
@@ -843,6 +848,30 @@ const Admin: React.FC = () => {
                       <button
                         onClick={(e) => {
                           e.preventDefault();
+                          setActiveView("feedback");
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`admin-sidebar-section-container__item ${
+                          activeView === "feedback" ? "admin-sidebar-section-container__item--active" : ""
+                        }`}>
+                        <MessageSquare size={18} />
+                        <span>Feedback</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setActiveView("faqs");
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`admin-sidebar-section-container__item ${
+                          activeView === "faqs" ? "admin-sidebar-section-container__item--active" : ""
+                        }`}>
+                        <HelpCircle size={18} />
+                        <span>Common questions</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
                           setIsMobileMenuOpen(false);
                         }}
                         className="admin-sidebar-section-container__item">
@@ -1135,6 +1164,10 @@ const Admin: React.FC = () => {
               <AdminEvents />
             ) : activeView === "reports" ? (
               <AdminReports />
+            ) : activeView === "feedback" ? (
+              <AdminFeedback />
+            ) : activeView === "faqs" ? (
+              <AdminFaqs />
             ) : activeView === "verification" ? (
               <AdminVerification />
             ) : activeView === "wallet" ? (

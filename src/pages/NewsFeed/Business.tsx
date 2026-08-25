@@ -162,7 +162,7 @@ const Business: React.FC = () => {
       const response = await feedApi.getFeeds({
         feedChannel: "business",
         page: 1,
-        limit: 50,
+        limit: 20,
         type: "all",
       });
 

@@ -22,8 +22,10 @@ import Admin from "./pages/Admin";
 import AdminLogin from "./pages/AdminLogin";
 import AdminProfile from "./pages/AdminProfile";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import DeleteAccount from "./pages/DeleteAccount";
 import TermsOfService from "./pages/TermsOfService";
 import CookiePolicy from "./pages/CookiePolicy";
+import CommunityGuidelines from "./pages/CommunityGuidelines";
 import Accessibility from "./pages/Accessibility";
 import About from "./pages/About";
 import ContactPage from "./pages/ContactPage";
@@ -147,8 +149,10 @@ if (rootElement) {
                   <Route path="/admin" element={<Admin />} />
                   <Route path="/admin/profile" element={<AdminProfile />} />
                   <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                  <Route path="/delete-account" element={<DeleteAccount />} />
                   <Route path="/terms-of-service" element={<TermsOfService />} />
                   <Route path="/cookie-policy" element={<CookiePolicy />} />
+                  <Route path="/community-guidelines" element={<CommunityGuidelines />} />
                   <Route path="/accessibility" element={<Accessibility />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/contact" element={<ContactPage />} />

@@ -20,10 +20,12 @@ import {
   rejectWalletPayment,
   type WalletPaymentRequest,
 } from "../services/adminApi";
+import AdminCacEdits from "./AdminCacEdits";
 import "../main.css";
 import "../scss/_admin.scss";
 
 const AdminWallet: React.FC = () => {
+  const [tab, setTab] = useState<"funding" | "cac">("funding");
   const [payments, setPayments] = useState<WalletPaymentRequest[]>([]);
   const [filteredPayments, setFilteredPayments] = useState<WalletPaymentRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -128,6 +130,30 @@ const AdminWallet: React.FC = () => {
 
   return (
     <div className="admin-dashboard">
+      <div className="admin-wallet-tabs" role="tablist" aria-label="Wallet sections">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "funding"}
+          className={`admin-wallet-tabs__btn ${tab === "funding" ? "admin-wallet-tabs__btn--active" : ""}`}
+          onClick={() => setTab("funding")}
+        >
+          <Wallet size={16} />
+          Wallet funding
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "cac"}
+          className={`admin-wallet-tabs__btn ${tab === "cac" ? "admin-wallet-tabs__btn--active" : ""}`}
+          onClick={() => setTab("cac")}
+        >
+          CAC edits
+        </button>
+      </div>
+
+      {tab === "cac" ? <AdminCacEdits /> : (
+        <>
       <div className="admin-dashboard__header">
         <h1>
           <Wallet size={20} />
@@ -323,6 +349,8 @@ const AdminWallet: React.FC = () => {
             </div>
           ))}
         </div>
+      )}
+        </>
       )}
     </div>
   );

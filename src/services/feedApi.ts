@@ -568,7 +568,7 @@ export const feedApi = {
     pagination?: { page: number; limit: number; hasMore: boolean };
   }> => {
     const page = params?.page ?? 1;
-    const limit = params?.limit ?? 100;
+    const limit = params?.limit ?? 20;
     const type = params?.type ?? "all";
     const feedChannel = params?.feedChannel ?? "main";
     const query = new URLSearchParams({
@@ -720,11 +720,20 @@ export const feedApi = {
     images?: File[];
     videos?: File[];
     listingDetails?: {
-      text?: { cost?: string; location?: string; contact?: string };
+      kind?: "goods" | "service";
+      text?: {
+        cost?: string;
+        location?: string;
+        contact?: string;
+        duration?: string;
+        availability?: string;
+      };
       byMediaIndex?: Array<{
         cost?: string;
         location?: string;
         contact?: string;
+        duration?: string;
+        availability?: string;
       } | null>;
     } | null;
   }): Promise<{
@@ -937,11 +946,20 @@ export const feedApi = {
     videos?: File[];
     scheduledAt: string;
     listingDetails?: {
-      text?: { cost?: string; location?: string; contact?: string };
+      kind?: "goods" | "service";
+      text?: {
+        cost?: string;
+        location?: string;
+        contact?: string;
+        duration?: string;
+        availability?: string;
+      };
       byMediaIndex?: Array<{
         cost?: string;
         location?: string;
         contact?: string;
+        duration?: string;
+        availability?: string;
       } | null>;
     } | null;
   }): Promise<{

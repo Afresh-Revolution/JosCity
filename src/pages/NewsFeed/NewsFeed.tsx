@@ -60,6 +60,7 @@ import "../../scss/_profilemodal.scss";
 import "../../scss/_messagepopup.scss";
 import "../../scss/_newsfeed.scss";
 import { feedApi } from "../../services/feedApi";
+import { startVisibleInterval } from "../../utils/visibleInterval";
 import AdminBroadcastStrip, {
   type AdminBroadcastItem,
   normalizeAdminBroadcastType,
@@ -118,7 +119,7 @@ interface Post {
   listingDetails?: ListingDetails | null;
 }
 
-const FEED_PAGE_SIZE = 100;
+const FEED_PAGE_SIZE = 20;
 const RECENT_POST_MONTHS = 3;
 
 const getRecentPostsCutoff = () => {
@@ -326,8 +327,14 @@ const NewsFeed: React.FC = () => {
   // Posts state - will be populated from API
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoadingFeeds, setIsLoadingFeeds] = useState(true);
+  const [isLoadingMoreFeeds, setIsLoadingMoreFeeds] = useState(false);
+  const [feedHasMore, setFeedHasMore] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
   const trending = useNewsfeedAsideTrending(posts);
+  const feedPageRef = useRef(1);
+  const feedHasMoreRef = useRef(false);
+  const loadingMoreRef = useRef(false);
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
 
   // Safety timeout to ensure loading state doesn't get stuck
   useEffect(() => {
@@ -337,105 +344,136 @@ const NewsFeed: React.FC = () => {
         setIsLoadingFeeds(false);
         setFeedError("Failed to load feeds. Please refresh the page.");
       }
-    }, 30000); // Larger recent-feed fetches can take longer than the old 10s cap.
+    }, 15000);
 
     return () => clearTimeout(timeoutId);
   }, [isLoadingFeeds]);
 
-  // Fetch feeds from API - extracted as a function so it can be called after creating posts
+  const mapRecentFeedItems = (items: unknown[], cutoff: number): Post[] =>
+    items
+      .filter((item) => isFeedItemWithinRecentMonths(item, cutoff))
+      .map((item) => mapFeedApiItemToPost(item))
+      .filter((p): p is Post => p != null);
+
+  const pageStillInWindow = (items: unknown[], cutoff: number, pageHasMore: boolean) => {
+    const oldestTimestamp = items
+      .map(getFeedCreatedTimestamp)
+      .filter((timestamp): timestamp is number => timestamp !== null)
+      .reduce<number | null>(
+        (oldest, timestamp) =>
+          oldest === null ? timestamp : Math.min(oldest, timestamp),
+        null
+      );
+    return pageHasMore && (oldestTimestamp === null || oldestTimestamp >= cutoff);
+  };
+
   const fetchFeeds = useCallback(async () => {
     try {
       setIsLoadingFeeds(true);
       setFeedError(null);
-      console.log("Fetching feeds from API endpoint: /feed/feeds");
 
       const cutoff = getRecentPostsCutoff();
-      const allRecentFeedItems: unknown[] = [];
-      let page = 1;
-      let hasMore = true;
+      const response = await feedApi.getFeeds({
+        feedChannel: "main",
+        page: 1,
+        limit: FEED_PAGE_SIZE,
+      });
 
-      while (hasMore) {
-        const response = await feedApi.getFeeds({
-          feedChannel: "main",
-          page,
-          limit: FEED_PAGE_SIZE,
-        });
-        console.log("Feeds API response:", response);
-
-        if (
-          !response ||
-          !response.success ||
-          !Array.isArray(response.data)
-        ) {
-          console.warn(
-            "API response missing success or data field, or data is not an array. Response:",
-            response
-          );
-          break;
-        }
-
-        const recentItems = response.data.filter((item) =>
-          isFeedItemWithinRecentMonths(item, cutoff)
-        );
-        allRecentFeedItems.push(...recentItems);
-
-        const pageHasMore =
-          response.pagination?.hasMore === true &&
-          response.data.length === FEED_PAGE_SIZE;
-        const oldestTimestamp = response.data
-          .map(getFeedCreatedTimestamp)
-          .filter((timestamp): timestamp is number => timestamp !== null)
-          .reduce<number | null>(
-            (oldest, timestamp) =>
-              oldest === null ? timestamp : Math.min(oldest, timestamp),
-            null
-          );
-        hasMore =
-          pageHasMore &&
-          (oldestTimestamp === null || oldestTimestamp >= cutoff);
-        page += 1;
-      }
-
-      console.log(`Received ${allRecentFeedItems.length} recent feeds from API`);
-
-      if (allRecentFeedItems.length === 0) {
-        console.log("API returned empty array - no posts available");
+      if (!response || !response.success || !Array.isArray(response.data)) {
         setPosts([]);
-      } else {
-        try {
-          const transformedPosts: Post[] = allRecentFeedItems
-            .map((item) => mapFeedApiItemToPost(item))
-            .filter((p): p is Post => p != null);
-          console.log(
-            `Successfully transformed ${transformedPosts.length} posts`
-          );
-          setPosts(transformedPosts);
-        } catch (transformError) {
-          console.error("Error transforming posts:", transformError);
-          setPosts([]);
-        }
+        feedPageRef.current = 1;
+        feedHasMoreRef.current = false;
+        setFeedHasMore(false);
+        return;
       }
+
+      const transformedPosts = mapRecentFeedItems(response.data, cutoff);
+      setPosts(transformedPosts);
+
+      const pageHasMore =
+        response.pagination?.hasMore === true &&
+        response.data.length === FEED_PAGE_SIZE;
+      const hasMore = pageStillInWindow(response.data, cutoff, pageHasMore);
+      feedPageRef.current = 1;
+      feedHasMoreRef.current = hasMore;
+      setFeedHasMore(hasMore);
     } catch (error) {
       console.error("Error fetching feeds:", error);
-      // Extract user-friendly error message (already formatted by apiRequest)
       const errorMessage =
         error instanceof Error
           ? error.message
           : "Failed to load news feed. Please try again later.";
       setFeedError(errorMessage);
-      // Always set posts to empty array on error to ensure component renders
       setPosts([]);
+      feedHasMoreRef.current = false;
+      setFeedHasMore(false);
     } finally {
-      // Always set loading to false to ensure UI renders
       setIsLoadingFeeds(false);
-      console.log("Finished loading feeds, isLoadingFeeds set to false");
     }
-  }, []); // Empty dependency array - fetchFeeds doesn't depend on any props/state
+  }, []);
+
+  const loadMoreFeeds = useCallback(async () => {
+    if (
+      loadingMoreRef.current ||
+      !feedHasMoreRef.current ||
+      isLoadingFeeds
+    ) {
+      return;
+    }
+    loadingMoreRef.current = true;
+    setIsLoadingMoreFeeds(true);
+    try {
+      const nextPage = feedPageRef.current + 1;
+      const cutoff = getRecentPostsCutoff();
+      const response = await feedApi.getFeeds({
+        feedChannel: "main",
+        page: nextPage,
+        limit: FEED_PAGE_SIZE,
+      });
+      if (!response || !response.success || !Array.isArray(response.data)) {
+        feedHasMoreRef.current = false;
+        setFeedHasMore(false);
+        return;
+      }
+      const transformedPosts = mapRecentFeedItems(response.data, cutoff);
+      setPosts((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        return [...prev, ...transformedPosts.filter((p) => !seen.has(p.id))];
+      });
+      const pageHasMore =
+        response.pagination?.hasMore === true &&
+        response.data.length === FEED_PAGE_SIZE;
+      const hasMore = pageStillInWindow(response.data, cutoff, pageHasMore);
+      feedPageRef.current = nextPage;
+      feedHasMoreRef.current = hasMore;
+      setFeedHasMore(hasMore);
+    } catch {
+      feedHasMoreRef.current = false;
+      setFeedHasMore(false);
+    } finally {
+      loadingMoreRef.current = false;
+      setIsLoadingMoreFeeds(false);
+    }
+  }, [isLoadingFeeds]);
 
   // Fetch feeds on component mount
   useEffect(() => {
     fetchFeeds();
   }, [fetchFeeds]);
+
+  useEffect(() => {
+    if (!feedHasMore || isLoadingFeeds) return;
+    const el = loadMoreSentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) void loadMoreFeeds();
+      },
+      { rootMargin: "240px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [feedHasMore, isLoadingFeeds, loadMoreFeeds, posts.length]);
 
   const fetchFeedsByHashtag = useCallback((hashtag: string) => {
     setFilteredHashtag(hashtag);
@@ -702,8 +740,7 @@ const NewsFeed: React.FC = () => {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+    return startVisibleInterval(fetchNotifications, 30000);
   }, [fetchNotifications]);
 
   // Calculate unread notifications count
@@ -1522,6 +1559,15 @@ const NewsFeed: React.FC = () => {
                 {!filteredHashtag && posts.length === 0 && (
                   <div className="newsfeed-no-posts">
                     <p>No posts available</p>
+                  </div>
+                )}
+                {!filteredHashtag && feedHasMore && (
+                  <div
+                    ref={loadMoreSentinelRef}
+                    className="newsfeed-no-posts"
+                    style={{ minHeight: 48 }}
+                  >
+                    {isLoadingMoreFeeds ? <p>Loading more posts...</p> : null}
                   </div>
                 )}
               </>

@@ -31,9 +31,11 @@ import {
   getUserId,
 } from "../utils/userUtils";
 import { userApi } from "../services/userApi";
+import { cacEditApi, type CacEditState } from "../services/cacEditApi";
 import { getUserProfile, uploadProfilePicture } from "../api/auth";
 import LazyImage from "../components/LazyImage";
 import ConfirmationModal from "../components/ConfirmationModal";
+import CacEditUnlock from "../components/CacEditUnlock";
 import { formatMemberDisplayId } from "../utils/memberDisplayId";
 
 /** Numeric id from profile API or stored user object */
@@ -76,8 +78,11 @@ const UserProfile: React.FC = () => {
   const [uploadStatus, setUploadStatus] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [userIdCopied, setUserIdCopied] = useState(false);
+  const [cacEdit, setCacEdit] = useState<CacEditState | null>(null);
+  const [cacEditLoading, setCacEditLoading] = useState(false);
   const accountType = getUserAccountType().toLowerCase();
   const isBusinessAccount = accountType === "business";
+  const canEditCac = cacEdit ? cacEdit.can_edit : !Boolean(userData?.cac_verified);
 
   // Load user data on mount
   useEffect(() => {
@@ -213,6 +218,16 @@ const UserProfile: React.FC = () => {
     fetchUserProfile();
   }, [username]);
 
+  useEffect(() => {
+    if (!isBusinessAccount) return;
+    setCacEditLoading(true);
+    void cacEditApi
+      .getState()
+      .then((state) => setCacEdit(state))
+      .catch(() => setCacEdit(null))
+      .finally(() => setCacEditLoading(false));
+  }, [isBusinessAccount]);
+
   const handleEdit = () => {
     setIsEditing(true);
   };
@@ -282,7 +297,7 @@ const UserProfile: React.FC = () => {
               business_email: editedData.business_email,
               business_phone: editedData.business_phone,
               business_location: editedData.business_location,
-              CAC_number: editedData.CAC_number,
+              ...(canEditCac ? { CAC_number: editedData.CAC_number } : {}),
               user_phone: editedData.user_phone,
               address: editedData.address,
             }
@@ -742,7 +757,7 @@ const UserProfile: React.FC = () => {
                             <IdCard size={18} />
                             <span>CAC Number</span>
                           </div>
-                          {isEditing ? (
+                          {isEditing && canEditCac ? (
                             <input
                               type="text"
                               name="CAC_number"
@@ -754,8 +769,20 @@ const UserProfile: React.FC = () => {
                           ) : (
                             <div className="user-profile__info-value">
                               {(userData?.CAC_number as string) || "Not set"}
+                              {userData?.cac_verified
+                                ? " · CAC VERIFIED"
+                                : userData?.CAC_number
+                                  ? " · CAC pending"
+                                  : " · No CAC"}
                             </div>
                           )}
+                        </div>
+                        <div className="user-profile__info-item user-profile__info-item--full">
+                          <CacEditUnlock
+                            state={cacEdit}
+                            loading={cacEditLoading}
+                            onUpdated={setCacEdit}
+                          />
                         </div>
                       </>
                     ) : (

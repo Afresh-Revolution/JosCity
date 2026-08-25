@@ -180,7 +180,7 @@ const AdminAppFeatures = ({ onError, onSuccess }: Props) => {
                       className="admin-settings__label"
                       htmlFor={`coming-soon-${feature.feature_key}`}
                     >
-                      Coming soon text
+                      badge text
                     </label>
                     <div className="admin-settings__feature-label-row">
                       <input
@@ -192,7 +192,7 @@ const AdminAppFeatures = ({ onError, onSuccess }: Props) => {
                         onChange={(event) =>
                           handleLabelChange(feature.feature_key, event.target.value)
                         }
-                        placeholder="Coming soon"
+                        placeholder="badge text"
                         disabled={saving}
                       />
                       <span className="admin-settings__feature-preview" aria-hidden="true">
@@ -220,7 +220,7 @@ const AdminAppFeatures = ({ onError, onSuccess }: Props) => {
               ) : (
                 <>
                   <Save size={16} />
-                  Save coming soon text
+                  Save text
                 </>
               )}
             </button>

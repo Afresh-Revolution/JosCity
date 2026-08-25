@@ -46,6 +46,7 @@ import {
   getUserId,
 } from "../../utils/userUtils";
 import { feedApi } from "../../services/feedApi";
+import { startVisibleInterval } from "../../utils/visibleInterval";
 import { forumsApi } from "../../services/forumsApi";
 import { CHAT_UI_REFRESH_EVENT } from "../../services/chatService";
 import {
@@ -685,8 +686,7 @@ const Forums: React.FC = () => {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+    return startVisibleInterval(fetchNotifications, 30000);
   }, [fetchNotifications]);
 
   const unreadNotificationsCount = notifications.filter(

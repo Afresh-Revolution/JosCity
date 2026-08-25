@@ -14,6 +14,8 @@ import {
   type SystemOption,
 } from "../services/adminApi";
 import AdminAppFeatures from "../components/AdminAppFeatures";
+import AdminAppLanguages from "../components/AdminAppLanguages";
+import AdminMembership from "../components/AdminMembership";
 import "../main.css";
 import "../scss/_admin.scss";
 
@@ -282,6 +284,8 @@ const AdminSettings: React.FC = () => {
 
       <div className="admin-settings__form">
         <AdminAppFeatures onError={setError} onSuccess={setSuccess} />
+        <AdminAppLanguages onError={setError} onSuccess={setSuccess} />
+        <AdminMembership onError={setError} onSuccess={setSuccess} />
 
       {loading ? (
         <div className="admin-dashboard__loading">

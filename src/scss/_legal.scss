@@ -340,6 +340,69 @@
     }
   }
 
+  &__form {
+    display: grid;
+    gap: 14px;
+    max-width: 420px;
+    margin: 0 0 1rem;
+  }
+
+  &__field {
+    display: grid;
+    gap: 6px;
+    font-weight: 600;
+    color: var(--text-primary);
+
+    input,
+    select {
+      min-height: 44px;
+      padding: 8px 12px;
+      border: 1px solid var(--border-color, #d7e3d8);
+      border-radius: 8px;
+      background: var(--card-bg, #fff);
+      color: inherit;
+      font: inherit;
+      font-weight: 500;
+    }
+  }
+
+  &__check {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-weight: 500;
+    color: var(--text-primary);
+
+    input {
+      margin-top: 3px;
+    }
+  }
+
+  &__form-error {
+    color: #b42318;
+    margin: 0;
+    font-weight: 600;
+  }
+
+  &__delete-button {
+    min-height: 48px;
+    border: 0;
+    border-radius: 8px;
+    background: #b42318;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    &:not(:disabled):hover {
+      background: #912018;
+    }
+  }
+
   &__footer {
     padding: 2.5rem;
     background: var(--bg-tertiary);
@@ -496,5 +559,65 @@
       }
     }
   }
+}
+
+.common-questions {
+  margin-top: 1.5rem;
+
+  &__title {
+    margin: 0 0 1rem;
+    font-size: 1.35rem;
+    color: var(--text-primary, #122018);
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__item {
+    border: 1px solid var(--border-color, #d7e3d8);
+    border-radius: 12px;
+    background: var(--card-bg, #fff);
+    overflow: hidden;
+  }
+
+  &__question {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+
+    svg {
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+    }
+  }
+
+  &__item.is-open &__question svg {
+    transform: rotate(180deg);
+  }
+
+  &__answer {
+    margin: 0;
+    padding: 0 16px 16px;
+    color: var(--text-secondary, #4b5c50);
+    line-height: 1.55;
+    white-space: pre-wrap;
+  }
+}
+
+.contact__faqs {
+  margin-top: 48px;
 }
 

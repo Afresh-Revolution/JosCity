@@ -5,6 +5,26 @@ import LazyImage from "../LazyImage";
 import type { ApiMarketplaceListing } from "../../services/marketplaceApi";
 import { formatMarketplaceMoney } from "../../utils/marketplaceDisplay";
 
+const SERVICE_LOCATION_LABELS: Record<string, string> = {
+  studio: "At the studio",
+  client_site: "At the client's location",
+  both: "Studio or client location",
+  remote: "Online / remote",
+};
+
+function listingMetaLabel(listing: ApiMarketplaceListing): string {
+  if (listing.listing_kind === "service") {
+    const bits = [
+      listing.unit,
+      listing.duration_note,
+      listing.service_area || SERVICE_LOCATION_LABELS[listing.service_location || ""],
+    ].filter(Boolean);
+    return bits.join(" · ") || listing.availability_note || "Bookable service";
+  }
+  if (listing.quantity_tracked) return `${listing.stock ?? 0} in stock`;
+  return listing.quantity_note || "Available";
+}
+
 export interface OfferCardProps {
   listing: ApiMarketplaceListing;
   variant: "market" | "mine";
@@ -53,9 +73,8 @@ const OfferCard: React.FC<OfferCardProps> = ({
       ? `${listing.description.slice(0, 100).trim()}…`
       : listing.description || "";
 
-  const stockLabel = listing.quantity_tracked
-    ? `${listing.stock ?? 0} in stock`
-    : listing.quantity_note || "Service / custom — not sold by unit";
+  const stockLabel = listingMetaLabel(listing);
+  const isService = listing.listing_kind === "service";
   const contact = listing.contact;
   const hasContact =
     !!contact && !!(contact.name || contact.phone || contact.email || contact.whatsapp);
@@ -139,7 +158,7 @@ const OfferCard: React.FC<OfferCardProps> = ({
               )}
             </span>
             {canAdjustQty && (
-              <div className="marketplace-offer-card__qty" aria-label="Choose quantity">
+              <div className="marketplace-offer-card__qty" aria-label={isService ? "Choose sessions" : "Choose quantity"}>
                 <button
                   type="button"
                   className="marketplace-offer-card__qty-btn"
@@ -183,7 +202,7 @@ const OfferCard: React.FC<OfferCardProps> = ({
                   className="marketplace-offer-card__add-btn"
                   onClick={() => onAddToCart?.(listing, selectedQty)}
                 >
-                  Add to cart
+                  {isService ? "Book" : "Add to cart"}
                 </button>
               )}
             </div>
@@ -237,10 +256,30 @@ const OfferCard: React.FC<OfferCardProps> = ({
                   </li>
                   <li>
                     <span>Price</span> {formatMarketplaceMoney(listing.price)}
+                    {listing.unit ? ` ${listing.unit}` : ""}
                   </li>
-                  <li>
-                    <span>Availability</span> {stockLabel}
-                  </li>
+                  {isService && listing.duration_note ? (
+                    <li>
+                      <span>Duration</span> {listing.duration_note}
+                    </li>
+                  ) : null}
+                  {isService && (listing.service_area || listing.service_location) ? (
+                    <li>
+                      <span>Where</span>{" "}
+                      {listing.service_area ||
+                        SERVICE_LOCATION_LABELS[listing.service_location || ""] ||
+                        listing.service_location}
+                    </li>
+                  ) : null}
+                  {isService && listing.availability_note ? (
+                    <li>
+                      <span>Availability</span> {listing.availability_note}
+                    </li>
+                  ) : (
+                    <li>
+                      <span>Availability</span> {stockLabel}
+                    </li>
+                  )}
                 </ul>
               </div>
               {hasContact && (
@@ -285,7 +324,7 @@ const OfferCard: React.FC<OfferCardProps> = ({
                   className="marketplace-offer-card__add-btn marketplace-offer-card__add-btn--wide"
                   onClick={() => onAddToCart?.(listing, selectedQty)}
                 >
-                  Add to cart
+                  {isService ? "Book" : "Add to cart"}
                 </button>
               )}
             </div>

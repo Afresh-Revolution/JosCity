@@ -140,8 +140,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         <form className="marketplace-modal__form" onSubmit={(e) => void handleSubmit(e)}>
           {error && <div className="marketplace-modal__error">{error}</div>}
           <p className="marketplace-checkout-intro">
-            Enter your contact and delivery details. After confirming, you will see each seller&apos;s bank
-            details for payment.
+            Enter your contact and delivery or service location. After confirming, you will see each
+            seller&apos;s bank details for payment.
           </p>
           <label className="marketplace-modal__label">
             Full name <span className="marketplace-modal__req">*</span>
@@ -172,7 +172,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
             />
           </label>
           <label className="marketplace-modal__label">
-            Receiving address <span className="marketplace-modal__req">*</span>
+            Receiving / service address <span className="marketplace-modal__req">*</span>
             <textarea
               className="marketplace-modal__textarea"
               value={address}
@@ -216,6 +216,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
+              placeholder="For services, add the date, time, and where you need them."
             />
           </label>
           <div className="marketplace-modal__actions">

@@ -125,6 +125,7 @@ const Footer: React.FC = () => {
         { text: "Delete account", url: "/delete-account" },
         { text: "Terms of Service", url: "/terms-of-service" },
         { text: "Community Guidelines", url: "/community-guidelines" },
+        { text: "Child Safety", url: "/child-safety" },
         { text: "Cookie Policy", url: "/cookie-policy" },
         { text: "Accessibility", url: "/accessibility" },
       ],

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import LazyImage from "../../components/LazyImage";
+import ReportModal from "../../components/ReportModal";
 import {
   marketplaceApi,
   type MarketplaceProduct,
@@ -23,6 +24,7 @@ const MarketplaceProductPage: React.FC = () => {
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -134,9 +136,22 @@ const MarketplaceProductPage: React.FC = () => {
             >
               View cart
             </button>
+            <button
+              type="button"
+              className="marketplace-offer-card__ghost-btn"
+              onClick={() => setReportOpen(true)}
+            >
+              Report listing
+            </button>
           </div>
         </div>
       </div>
+      <ReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        contentType="listing"
+        contentId={product.id}
+      />
     </div>
   );
 };

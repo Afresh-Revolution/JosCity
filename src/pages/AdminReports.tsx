@@ -1,52 +1,45 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Search,
   Flag,
   CheckCircle,
   XCircle,
-  Trash2,
   Loader2,
   AlertCircle,
-  Eye,
 } from "lucide-react";
 import {
-  getReports,
-  markReportSeen,
-  deleteReport,
-  type Report,
-  type ReportsResponse,
+  getSafetyReports,
+  updateSafetyReport,
+  escalateSafetyReport,
+  type SafetyReport,
 } from "../services/adminApi";
 import "../main.css";
 import "../scss/_admin.scss";
 
 const AdminReports: React.FC = () => {
-  const [reports, setReports] = useState<Report[]>([]);
-  const [filteredReports, setFilteredReports] = useState<Report[]>([]);
+  const [reports, setReports] = useState<SafetyReport[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState<string | null>(null);
+  const [processing, setProcessing] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-
-  useEffect(() => {
-    loadReports();
-  }, [page]);
+  const [notes, setNotes] = useState<Record<number, string>>({});
 
   const loadReports = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response: ReportsResponse = await getReports({
-        page,
-        limit: 20,
-      });
-      setReports(response.data);
-      setFilteredReports(response.data);
-      setTotalPages(response.pagination.totalPages);
+      const response = await getSafetyReports({ page, limit: 20 });
+      setReports(response.data || []);
+      setTotalPages(response.pagination?.totalPages || 1);
+      const nextNotes: Record<number, string> = {};
+      for (const row of response.data || []) {
+        nextNotes[row.report_id] = row.admin_notes || "";
+      }
+      setNotes(nextNotes);
     } catch (err) {
-      console.error("Failed to load reports:", err);
       setError(err instanceof Error ? err.message : "Failed to load reports");
     } finally {
       setLoading(false);
@@ -54,58 +47,32 @@ const AdminReports: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredReports(reports);
-    } else {
-      const query = searchQuery.toLowerCase();
-      setFilteredReports(
-        reports.filter(
-          (report) =>
-            report.reason?.toLowerCase().includes(query) ||
-            report.node_id?.includes(query)
-        )
-      );
-    }
-  }, [searchQuery, reports]);
+    void loadReports();
+  }, [page]);
 
-  const handleMarkSeen = async (reportId: string) => {
+  const filtered = reports.filter((report) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      report.reason?.toLowerCase().includes(q) ||
+      report.content_type?.toLowerCase().includes(q) ||
+      String(report.content_id || "").includes(q) ||
+      report.reporter_name?.toLowerCase().includes(q)
+    );
+  });
+
+  const act = async (id: number, fn: () => Promise<{ success: boolean; message: string }>) => {
     try {
-      setProcessing(reportId);
+      setProcessing(id);
       setError(null);
-      setSuccess(null);
-      await markReportSeen(reportId);
-      setSuccess("Report marked as seen");
+      const result = await fn();
+      setSuccess(result.message);
       await loadReports();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to mark report as seen");
+      setError(err instanceof Error ? err.message : "Action failed");
     } finally {
       setProcessing(null);
     }
-  };
-
-  const handleDelete = async (reportId: string) => {
-    try {
-      setProcessing(reportId);
-      setError(null);
-      setSuccess(null);
-      await deleteReport(reportId);
-      setSuccess("Report deleted successfully");
-      await loadReports();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete report");
-    } finally {
-      setProcessing(null);
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   };
 
   return (
@@ -113,7 +80,7 @@ const AdminReports: React.FC = () => {
       <div className="admin-dashboard__header">
         <h1>
           <Flag size={20} />
-          Reports Management
+          Safety reports
         </h1>
       </div>
 
@@ -152,7 +119,7 @@ const AdminReports: React.FC = () => {
           <Loader2 size={32} className="spinner" />
           <span>Loading reports...</span>
         </div>
-      ) : filteredReports.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="admin-dashboard__empty-state">
           <Flag size={48} />
           <p>No reports yet</p>
@@ -160,66 +127,116 @@ const AdminReports: React.FC = () => {
       ) : (
         <>
           <div className="admin-reports-list">
-            {filteredReports.map((report) => (
+            {filtered.map((report) => (
               <div
                 key={report.report_id}
-                className={`admin-report-card ${report.seen === "0" ? "unseen" : ""}`}
+                className={`admin-report-card ${
+                  report.priority === "high" ? "admin-report-card--high" : ""
+                }`}
               >
                 <div className="admin-report-card__header">
                   <div className="admin-report-card__info">
                     <h4>Report #{report.report_id}</h4>
                     <span className="admin-report-card__date">
-                      {formatDate(report.time)}
+                      {new Date(report.created_at).toLocaleString()}
                     </span>
                   </div>
-                  {report.seen === "0" && (
-                    <span className="badge badge--pending">New</span>
-                  )}
+                  {report.priority === "high" ? (
+                    <span className="admin-report-card__priority">HIGH PRIORITY</span>
+                  ) : null}
+                  <span className="badge">{report.status}</span>
                 </div>
 
                 <div className="admin-report-card__content">
-                  <p className="admin-report-card__reason">
-                    <strong>Reason:</strong> {report.reason}
+                  <p>
+                    <strong>Reason:</strong> {report.reason.replace("_", " ")}
                   </p>
                   <div className="admin-report-card__meta">
-                    <span>Type: {report.node_type}</span>
-                    <span>Node ID: {report.node_id}</span>
-                    <span>Reporter ID: {report.reporter_id}</span>
+                    <span>Type: {report.content_type}</span>
+                    <span>Reference: {report.evidence_ref || report.content_id || "general"}</span>
+                    <span>Reporter: {report.reporter_name || report.reporter_id}</span>
+                    {report.reported_user_id ? (
+                      <span>Reported account: {report.reported_name || report.reported_user_id}</span>
+                    ) : null}
                   </div>
+                  {report.description ? (
+                    <p>
+                      <strong>Details:</strong> {report.description}
+                    </p>
+                  ) : null}
+                  <p className="admin-report-card__date">
+                    Media is not shown here. Use the content reference in a secure review process.
+                  </p>
+                  <textarea
+                    rows={3}
+                    value={notes[report.report_id] || ""}
+                    onChange={(e) =>
+                      setNotes((prev) => ({ ...prev, [report.report_id]: e.target.value }))
+                    }
+                    placeholder="Internal notes"
+                  />
                 </div>
 
                 <div className="admin-report-card__actions">
-                  {report.seen === "0" && (
-                    <button
-                      onClick={() => handleMarkSeen(report.report_id)}
-                      disabled={processing === report.report_id}
-                      className="admin-action-btn admin-action-btn--view"
-                    >
-                      {processing === report.report_id ? (
-                        <Loader2 size={16} className="spinner" />
-                      ) : (
-                        <Eye size={16} />
-                      )}
-                      Mark Seen
-                    </button>
-                  )}
                   <button
-                    onClick={() => handleDelete(report.report_id)}
+                    className="admin-action-btn"
                     disabled={processing === report.report_id}
-                    className="admin-action-btn admin-action-btn--delete"
+                    onClick={() =>
+                      void act(report.report_id, () =>
+                        updateSafetyReport(report.report_id, {
+                          status: "reviewing",
+                          admin_notes: notes[report.report_id],
+                        })
+                      )
+                    }
                   >
-                    {processing === report.report_id ? (
-                      <Loader2 size={16} className="spinner" />
-                    ) : (
-                      <Trash2 size={16} />
-                    )}
-                    Delete
+                    Review
                   </button>
+                  <button
+                    className="admin-action-btn"
+                    disabled={processing === report.report_id}
+                    onClick={() =>
+                      void act(report.report_id, () =>
+                        updateSafetyReport(report.report_id, {
+                          status: "actioned",
+                          admin_notes: notes[report.report_id],
+                        })
+                      )
+                    }
+                  >
+                    Record action
+                  </button>
+                  <button
+                    className="admin-action-btn"
+                    disabled={processing === report.report_id}
+                    onClick={() =>
+                      void act(report.report_id, () =>
+                        updateSafetyReport(report.report_id, {
+                          status: "dismissed",
+                          admin_notes: notes[report.report_id],
+                        })
+                      )
+                    }
+                  >
+                    Dismiss
+                  </button>
+                  {report.priority === "high" ? (
+                    <button
+                      className="admin-action-btn"
+                      disabled={processing === report.report_id}
+                      onClick={() =>
+                        void act(report.report_id, () =>
+                          escalateSafetyReport(report.report_id)
+                        )
+                      }
+                    >
+                      Escalate internally
+                    </button>
+                  ) : null}
                 </div>
               </div>
             ))}
           </div>
-
           {totalPages > 1 && (
             <div className="admin-pagination">
               <button
@@ -248,4 +265,3 @@ const AdminReports: React.FC = () => {
 };
 
 export default AdminReports;
-

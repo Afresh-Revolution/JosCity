@@ -10,6 +10,7 @@ import {
   Edit,
   Trash2,
   Pin,
+  Flag,
   X,
   ChevronLeft,
   ChevronRight,
@@ -17,6 +18,7 @@ import {
 import LazyImage from "../../components/LazyImage";
 import Avatar from "../../components/Avatar";
 import ConfirmationModal from "../../components/ConfirmationModal";
+import ReportModal from "../../components/ReportModal";
 import {
   feedApi,
   type Comment as ApiComment,
@@ -90,6 +92,7 @@ function ListingOfferRows({
 
 interface Comment {
   id: number;
+  userId?: number;
   userName: string;
   userAvatar: string;
   text: string;
@@ -162,6 +165,11 @@ const PostCard: React.FC<PostCardProps> = ({
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [showMenu, setShowMenu] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{
+    type: "post" | "comment" | "profile";
+    id: number;
+    userId?: number;
+  } | null>(null);
   const [isPinned, setIsPinned] = useState(!!post.pinned);
   const [isLoading, setIsLoading] = useState(false);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
@@ -393,6 +401,7 @@ const PostCard: React.FC<PostCardProps> = ({
         if (response.success && response.data) {
           const formattedComments: Comment[] = response.data.map((comment: ApiComment) => ({
             id: comment.comment_id ?? comment.id ?? Date.now(),
+            userId: Number(comment.user_id) || undefined,
             userName: (() => {
               const backendName =
                 comment.author?.name || comment.user?.display_name;
@@ -701,7 +710,7 @@ const PostCard: React.FC<PostCardProps> = ({
             <span className="newsfeed-post__time">{post.timeAgo}</span>
           </div>
         </div>
-        {isOwnPost && (
+        {(isOwnPost || variant === "feed") && (
           <div className="newsfeed-post__menu-wrapper" ref={menuRef}>
             <button
               className="newsfeed-post__menu-btn"
@@ -713,6 +722,8 @@ const PostCard: React.FC<PostCardProps> = ({
             </button>
             {showMenu && (
               <div className="newsfeed-post__menu-dropdown">
+                {isOwnPost ? (
+                  <>
                 {variant === "feed" && (
                   <>
                     <button className="newsfeed-post__menu-item" onClick={handleEdit}>
@@ -741,6 +752,37 @@ const PostCard: React.FC<PostCardProps> = ({
                       : "Delete Post"}
                   </span>
                 </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      className="newsfeed-post__menu-item"
+                      onClick={() => {
+                        setShowMenu(false);
+                        setReportTarget({ type: "post", id: post.id, userId: post.userId });
+                      }}
+                    >
+                      <Flag size={18} />
+                      <span>Report post</span>
+                    </button>
+                    {post.userId ? (
+                      <button
+                        className="newsfeed-post__menu-item"
+                        onClick={() => {
+                          setShowMenu(false);
+                          setReportTarget({
+                            type: "profile",
+                            id: post.userId as number,
+                            userId: post.userId,
+                          });
+                        }}
+                      >
+                        <Flag size={18} />
+                        <span>Report profile</span>
+                      </button>
+                    ) : null}
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -1103,6 +1145,21 @@ const PostCard: React.FC<PostCardProps> = ({
                         <p className="newsfeed-post__comment-text">
                           {comment.text}
                         </p>
+                        {comment.userId && comment.userId !== currentUserId ? (
+                          <button
+                            type="button"
+                            className="newsfeed-post__see-more"
+                            onClick={() =>
+                              setReportTarget({
+                                type: "comment",
+                                id: comment.id,
+                                userId: comment.userId,
+                              })
+                            }
+                          >
+                            Report
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   ))
@@ -1148,6 +1205,13 @@ const PostCard: React.FC<PostCardProps> = ({
         cancelText="Cancel"
         type="delete"
         isLoading={isDeleting}
+      />
+      <ReportModal
+        open={Boolean(reportTarget)}
+        onClose={() => setReportTarget(null)}
+        contentType={reportTarget?.type || "post"}
+        contentId={reportTarget?.id}
+        reportedUserId={reportTarget?.userId}
       />
     </article>
   );

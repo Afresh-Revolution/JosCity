@@ -22,10 +22,15 @@ import {
   unbanUser,
   verifyUser,
   deleteUser,
+  activateUser,
+  setUserBadgeColor,
   type User,
   type UsersResponse,
 } from "../services/adminApi";
 import ConfirmationModal from "../components/ConfirmationModal";
+import AdminBadgeColorField, {
+  PURPLE_BADGE,
+} from "../components/AdminBadgeColorField";
 import { fetchRegisteredCitizensCount } from "../utils/citizenCountUtils";
 import "../main.css";
 import "../scss/_admin.scss";
@@ -299,6 +304,18 @@ const AdminUsers: React.FC = () => {
         >
           Rejected
         </button>
+        <button
+          className={`admin-filter-btn ${statusFilter === "deactivated" ? "active" : ""}`}
+          onClick={() => setStatusFilter("deactivated")}
+        >
+          Deactivated
+        </button>
+        <button
+          className={`admin-filter-btn ${statusFilter === "deleted" ? "active" : ""}`}
+          onClick={() => setStatusFilter("deleted")}
+        >
+          Deleted
+        </button>
       </div>
 
       {error && (
@@ -340,7 +357,16 @@ const AdminUsers: React.FC = () => {
       ) : (
         <>
           <div className="admin-users-grid">
-            {filteredUsers.map((user) => (
+            {filteredUsers.map((user) => {
+              const isDeleted = user.account_status === "deleted";
+              const displayEmail =
+                user.deletion_email_masked || user.user_email || user.business_email;
+              const displayPhone = isDeleted
+                ? user.deletion_phone_last4
+                  ? `•••• ${user.deletion_phone_last4}`
+                  : null
+                : user.user_phone;
+              return (
               <div key={user.user_id} className="admin-user-card">
                 <div className="admin-user-card__header">
                   <div className="admin-user-card__avatar">
@@ -357,7 +383,14 @@ const AdminUsers: React.FC = () => {
                     </h3>
                     <div className="admin-user-card__badges">
                       {user.user_verified && (
-                        <span className="badge badge--verified">
+                        <span
+                          className="badge badge--verified"
+                          style={
+                            user.badge_color
+                              ? { background: user.badge_color, color: "#fff", borderColor: user.badge_color }
+                              : undefined
+                          }
+                        >
                           <Shield size={12} /> Verified
                         </span>
                       )}
@@ -371,7 +404,13 @@ const AdminUsers: React.FC = () => {
                           <XCircle size={12} /> Rejected
                         </span>
                       )}
-                      {!user.user_activated && (
+                      {user.account_status === "deactivated" && (
+                        <span className="badge badge--inactive">Deactivated</span>
+                      )}
+                      {isDeleted && (
+                        <span className="badge badge--inactive">Deleted</span>
+                      )}
+                      {!user.user_activated && user.account_status !== "deactivated" && !isDeleted && (
                         <span className="badge badge--inactive">Not Activated</span>
                       )}
                     </div>
@@ -381,20 +420,62 @@ const AdminUsers: React.FC = () => {
                 <div className="admin-user-card__details">
                   <div className="admin-user-card__detail-item">
                     <Mail size={16} />
-                    <span>{user.user_email || user.business_email}</span>
+                    <span>{displayEmail}</span>
                   </div>
-                  {user.user_phone && (
+                  {displayPhone && (
                     <div className="admin-user-card__detail-item">
                       <Phone size={16} />
-                      <span>{user.user_phone}</span>
+                      <span>{displayPhone}</span>
                     </div>
                   )}
                   <div className="admin-user-card__detail-item">
+                    <span>ID: {user.user_id}</span>
+                  </div>
+                  <div className="admin-user-card__detail-item">
                     <span>Joined: {formatDate(user.user_registered)}</span>
                   </div>
+                  {isDeleted && user.deleted_at && (
+                    <div className="admin-user-card__detail-item">
+                      <span>
+                        Deleted: {formatDate(user.deleted_at)}
+                        {user.deleted_via ? ` (${user.deleted_via})` : ""}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
+                {!isDeleted && (
+                <UserBadgeColorEditor
+                  user={user}
+                  disabled={processing === user.user_id}
+                  onSaved={(color) => {
+                    setUsers((current) =>
+                      current.map((row) =>
+                        row.user_id === user.user_id ? { ...row, badge_color: color } : row
+                      )
+                    );
+                    setFilteredUsers((current) =>
+                      current.map((row) =>
+                        row.user_id === user.user_id ? { ...row, badge_color: color } : row
+                      )
+                    );
+                    setSuccess(
+                      color === PURPLE_BADGE
+                        ? "Purple badge set for this account"
+                        : color
+                          ? "Badge color saved"
+                          : "Badge color cleared"
+                    );
+                  }}
+                  onError={setError}
+                />
+                )}
+
                 <div className="admin-user-card__actions">
+                  {isDeleted ? (
+                    <span className="badge badge--inactive">Security record kept</span>
+                  ) : (
+                    <>
                   {user.account_status === "rejected" && (
                     <button
                       onClick={() => handleApprove(user.user_id)}
@@ -410,7 +491,7 @@ const AdminUsers: React.FC = () => {
                       Approve
                     </button>
                   )}
-                  {!user.user_approved && user.account_status !== "rejected" && (
+                  {!user.user_approved && user.account_status !== "rejected" && user.account_status !== "deactivated" && (
                     <button
                       onClick={() => handleApprove(user.user_id)}
                       disabled={processing === user.user_id}
@@ -424,7 +505,7 @@ const AdminUsers: React.FC = () => {
                       Approve
                     </button>
                   )}
-                  {(!user.user_approved || user.account_status === "pending") && user.account_status !== "rejected" && (
+                  {(!user.user_approved || user.account_status === "pending") && user.account_status !== "rejected" && user.account_status !== "deactivated" && (
                     <button
                       onClick={() => handleReject(user.user_id)}
                       disabled={processing === user.user_id}
@@ -450,6 +531,21 @@ const AdminUsers: React.FC = () => {
                         <UserCheck size={16} />
                       )}
                       Verify
+                    </button>
+                  )}
+                  {user.account_status === "deactivated" && (
+                    <button
+                      onClick={() => handleAction(user.user_id, "activate", activateUser)}
+                      disabled={processing === user.user_id}
+                      className="admin-action-btn admin-action-btn--approve"
+                      title="Activate this deactivated account"
+                    >
+                      {processing === user.user_id ? (
+                        <Loader2 size={16} className="spinner" />
+                      ) : (
+                        <CheckCircle size={16} />
+                      )}
+                      Activate
                     </button>
                   )}
                   {!user.user_banned ? (
@@ -513,9 +609,12 @@ const AdminUsers: React.FC = () => {
                     )}
                     Delete
                   </button>
+                    </>
+                  )}
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
 
           {totalPages > 1 && (
@@ -553,15 +652,9 @@ const AdminUsers: React.FC = () => {
         title="Delete User Account"
         message={
           pendingAction
-            ? `⚠️ WARNING: This will permanently delete ${pendingAction.userName} and ALL their data from the database and website.\n\n` +
-              `This includes:\n` +
-              `• All posts, comments, and reactions\n` +
-              `• All friends, followers, and messages\n` +
-              `• All groups, pages, and events they created\n` +
-              `• All payment and transaction history\n` +
-              `• All other user-related data\n\n` +
-              `This action CANNOT be undone!\n\n` +
-              `Are you absolutely sure you want to delete this user?`
+            ? `This will delete ${pendingAction.userName}'s profile, posts, messages, and login access.\n\n` +
+              `A limited security record (account ID and hashed identifiers) is kept for fraud and abuse investigation.\n\n` +
+              `The member will not be able to sign in again. Continue?`
             : ""
         }
         confirmText="Delete User"
@@ -592,6 +685,56 @@ const AdminUsers: React.FC = () => {
     </div>
   );
 };
+
+function UserBadgeColorEditor({
+  user,
+  disabled,
+  onSaved,
+  onError,
+}: {
+  user: User;
+  disabled: boolean;
+  onSaved: (color: string | null) => void;
+  onError: (message: string | null) => void;
+}) {
+  const [value, setValue] = useState(user.badge_color || "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setValue(user.badge_color || "");
+  }, [user.badge_color]);
+
+  const save = async () => {
+    try {
+      setSaving(true);
+      onError(null);
+      const result = await setUserBadgeColor(user.user_id, value);
+      if (!result.success) {
+        throw new Error(result.message || "Failed to save badge color");
+      }
+      onSaved(result.data?.badge_color ?? (value.trim() ? value : null));
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Failed to save badge color");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="admin-user-card__badge-color">
+      <span className="admin-user-card__badge-color-label">Name badge color</span>
+      <AdminBadgeColorField
+        value={value}
+        onChange={setValue}
+        onSave={() => void save()}
+        saving={saving}
+        disabled={disabled}
+        showSave
+        hint="Set purple for special accounts. Members with a package keep the membership color unless you override it here."
+      />
+    </div>
+  );
+}
 
 export default AdminUsers;
 

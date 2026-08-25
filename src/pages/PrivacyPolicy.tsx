@@ -134,7 +134,24 @@ const PrivacyPolicy: React.FC = () => {
           </section>
 
           <section className="legal-page__section">
-            <h2>7. Cookies and Tracking</h2>
+            <h2>7. Account deletion</h2>
+            <p>
+              You can delete your account in the JOSCITY app (Profile or Manage
+              → Account settings → Delete account) or on the web at{" "}
+              <a href="/delete-account">joscity.com/delete-account</a>. Deletion
+              is immediate: your profile, posts, messages, and login credentials
+              are removed and cannot be restored.
+            </p>
+            <p>
+              We retain a limited security record (account ID, hashed identifiers,
+              and masked contact details) for fraud prevention, abuse
+              investigation, and legal obligations. That record is not a live
+              profile and cannot be used to sign in.
+            </p>
+          </section>
+
+          <section className="legal-page__section">
+            <h2>8. Cookies and Tracking</h2>
             <p>
               We use cookies and similar tracking technologies to enhance your
               experience. You can control cookies through your browser settings.
@@ -143,7 +160,7 @@ const PrivacyPolicy: React.FC = () => {
           </section>
 
           <section className="legal-page__section">
-            <h2>8. Contact Us</h2>
+            <h2>9. Contact Us</h2>
             <p>
               If you have questions about this Privacy Policy, please contact us
               at:

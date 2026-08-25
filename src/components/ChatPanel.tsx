@@ -13,6 +13,7 @@ import chatService, {
 import { feedApi } from "../services/feedApi";
 import { formatChatPresenceLabel } from "../utils/presenceUtils";
 import API_BASE_URL from "../api/config";
+import { startVisibleInterval } from "../utils/visibleInterval";
 
 export interface ChatPanelPopupPayload {
   messageId?: number;
@@ -592,7 +593,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     chatService.initializeSocket();
     void loadConversations();
 
-    const pollInterval = window.setInterval(() => {
+    const stopPoll = startVisibleInterval(() => {
       void loadConversations();
     }, 30000);
 
@@ -728,7 +729,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     ];
 
     return () => {
-      window.clearInterval(pollInterval);
+      stopPoll();
       detachHandlers.forEach((detach) => detach());
       if (typingTimeoutRef.current) {
         window.clearTimeout(typingTimeoutRef.current);

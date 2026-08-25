@@ -3,6 +3,18 @@ import { apiUrl } from "../api/config";
 const SESSION_STORAGE_KEY = "joscity_marketplace_session_id";
 export const CHECKOUT_STORAGE_KEY = "joscity_marketplace_checkout_result";
 
+function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs = 15000
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() =>
+    window.clearTimeout(timer)
+  );
+}
+
 export type PaymentStatus = "pending" | "approved" | "rejected";
 export type OrderStatus =
   | "awaiting_payment"
@@ -206,7 +218,7 @@ async function request<T>(
   if (sessionId) headers.set("x-marketplace-session-id", sessionId);
 
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  const response = await fetch(apiUrl(normalizedPath), {
+  const response = await fetchWithTimeout(apiUrl(normalizedPath), {
     ...options,
     headers,
   });
@@ -469,7 +481,7 @@ async function listingRequest<T>(
   if (token) {
     (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
   }
-  const res = await fetch(apiUrl(`/marketplace${path}`), {
+  const res = await fetchWithTimeout(apiUrl(`/marketplace${path}`), {
     ...options,
     headers,
   });
@@ -514,11 +526,15 @@ async function uploadListingMedia(
   if (token) {
     (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
   }
-  const res = await fetch(apiUrl(`/marketplace/upload-media`), {
-    method: "POST",
-    headers,
-    body: fd,
-  });
+  const res = await fetchWithTimeout(
+    apiUrl(`/marketplace/upload-media`),
+    {
+      method: "POST",
+      headers,
+      body: fd,
+    },
+    60000
+  );
   let body: unknown = {};
   try {
     const text = await res.text();
@@ -554,6 +570,14 @@ export interface ApiMarketplaceListing {
   stock?: number | null;
   quantity_tracked: boolean;
   quantity_note?: string | null;
+  unit?: string | null;
+  listing_status?: "draft" | "published";
+  listing_kind?: "goods" | "service";
+  pricing_model?: string | null;
+  duration_note?: string | null;
+  service_location?: string | null;
+  service_area?: string | null;
+  availability_note?: string | null;
   is_sold_out: boolean;
   can_purchase: boolean;
   media: ApiMediaItem[];
@@ -635,10 +659,16 @@ export const listingMarketplaceApi = {
     title: string;
     description?: string;
     category: string;
+    listingKind?: "goods" | "service";
     priceNaira: number;
     quantityTracked: boolean;
     stockQuantity?: number | null;
     quantityNote?: string | null;
+    unit?: string | null;
+    durationNote?: string | null;
+    serviceLocation?: string | null;
+    serviceArea?: string | null;
+    availabilityNote?: string | null;
     media: ApiMediaItem[];
     imageUrl?: string;
     bankName: string;
@@ -661,10 +691,16 @@ export const listingMarketplaceApi = {
       title: string;
       description: string;
       category: string;
+      listingKind: "goods" | "service";
       priceNaira: number;
       quantityTracked: boolean;
       stockQuantity: number;
       quantityNote: string | null;
+      unit: string | null;
+      durationNote: string | null;
+      serviceLocation: string | null;
+      serviceArea: string | null;
+      availabilityNote: string | null;
       media: ApiMediaItem[];
       imageUrl: string;
       bankName: string;

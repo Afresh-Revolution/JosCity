@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Phone, Mail, MapPin } from "lucide-react";
+import CommonQuestions from "../components/CommonQuestions";
 import "../main.css";
 
 const ContactPage: React.FC = () => {
@@ -98,6 +99,10 @@ const ContactPage: React.FC = () => {
               <strong>Saturday:</strong> 10:00 AM - 4:00 PM<br />
               <strong>Sunday:</strong> Closed
             </p>
+          </section>
+
+          <section className="legal-page__section">
+            <CommonQuestions heading="Common questions" />
           </section>
 
           <section className="legal-page__section">

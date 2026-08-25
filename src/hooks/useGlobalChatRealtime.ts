@@ -6,6 +6,7 @@ import chatService, {
 } from "../services/chatService";
 import type { ChatPanelPopupPayload } from "../components/ChatPanel";
 import { isAuthenticated, getUserData } from "../utils/userUtils";
+import { startVisibleInterval } from "../utils/visibleInterval";
 
 /**
  * Keeps chat socket alive, syncs unread count, presence heartbeats, and routes
@@ -82,18 +83,16 @@ export function useGlobalChatRealtime(
 
     chatService.initializeSocket();
     void refreshChatUnreadCount();
+    chatService.sendPresenceHeartbeat();
 
-    const pollUnread = window.setInterval(
+    const stopUnread = startVisibleInterval(
       () => void refreshChatUnreadCount(),
       25000
     );
-    const heartbeat = window.setInterval(
+    const stopHeartbeat = startVisibleInterval(
       () => chatService.sendPresenceHeartbeat(),
       25000
     );
-    const onVis = () => chatService.sendPresenceHeartbeat();
-    document.addEventListener("visibilitychange", onVis);
-    chatService.sendPresenceHeartbeat();
 
     const offPresence = chatService.onUserPresence((p) => {
       const lastFromPayload = p.lastSeenAt ?? p.last_seen_at;
@@ -213,9 +212,8 @@ export function useGlobalChatRealtime(
     window.addEventListener(CHAT_UI_REFRESH_EVENT, onChatUiRefresh);
 
     return () => {
-      window.clearInterval(pollUnread);
-      window.clearInterval(heartbeat);
-      document.removeEventListener("visibilitychange", onVis);
+      stopUnread();
+      stopHeartbeat();
       window.removeEventListener(CHAT_UI_REFRESH_EVENT, onChatUiRefresh);
       offPresence();
       offNew();

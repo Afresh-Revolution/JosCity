@@ -11,36 +11,66 @@ const CATEGORIES = [
   "Computers & peripherals",
   "Consumers & Electronics",
   "Dating Services",
+  "Events & entertainment",
   "Financial service",
   "Gifts & Occasions",
   "Home & Garden",
+  "Home & repair services",
+  "Photography & video",
+  "Tailoring & fashion",
+  "Services",
   "Other",
 ];
 
+const SERVICE_UNITS = [
+  "per session",
+  "per hour",
+  "per day",
+  "per outfit",
+  "starting from",
+];
+
+const SERVICE_PLACES = [
+  { id: "studio", label: "At my studio" },
+  { id: "client_site", label: "At the client's location" },
+  { id: "both", label: "Studio or client location" },
+  { id: "remote", label: "Online / remote" },
+] as const;
+
 const MAX_MEDIA = 8;
+
+export type ListingKind = "goods" | "service";
+
+export interface CreateListingPayload {
+  title: string;
+  description: string;
+  category: string;
+  listingKind: ListingKind;
+  priceNaira: number;
+  quantityTracked: boolean;
+  stockQuantity: number | null;
+  quantityNote: string | null;
+  unit: string | null;
+  durationNote: string | null;
+  serviceLocation: string | null;
+  serviceArea: string | null;
+  availabilityNote: string | null;
+  media: ApiMediaItem[];
+  bankName: string;
+  bankAccountNumber: string;
+  bankAccountName: string;
+  sellerContactName: string;
+  sellerContactPhone: string;
+  sellerContactEmail: string;
+  sellerContactWhatsapp: string;
+}
 
 export interface CreateListingModalProps {
   isOpen: boolean;
   onClose: () => void;
   categories: string[];
   initialListing?: ApiMarketplaceListing | null;
-  onSubmit: (payload: {
-    title: string;
-    description: string;
-    category: string;
-    priceNaira: number;
-    quantityTracked: boolean;
-    stockQuantity: number | null;
-    quantityNote: string | null;
-    media: ApiMediaItem[];
-    bankName: string;
-    bankAccountNumber: string;
-    bankAccountName: string;
-    sellerContactName: string;
-    sellerContactPhone: string;
-    sellerContactEmail: string;
-    sellerContactWhatsapp: string;
-  }) => Promise<{ success: boolean; message?: string }>;
+  onSubmit: (payload: CreateListingPayload) => Promise<{ success: boolean; message?: string }>;
 }
 
 const CreateListingModal: React.FC<CreateListingModalProps> = ({
@@ -53,10 +83,16 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Home & Garden");
+  const [listingKind, setListingKind] = useState<ListingKind>("goods");
   const [priceNaira, setPriceNaira] = useState("");
   const [quantityTracked, setQuantityTracked] = useState(true);
   const [stockQuantity, setStockQuantity] = useState("");
   const [quantityNote, setQuantityNote] = useState("");
+  const [unit, setUnit] = useState("");
+  const [durationNote, setDurationNote] = useState("");
+  const [serviceLocation, setServiceLocation] = useState("");
+  const [serviceArea, setServiceArea] = useState("");
+  const [availabilityNote, setAvailabilityNote] = useState("");
   const [bankName, setBankName] = useState("");
   const [bankAccountNumber, setBankAccountNumber] = useState("");
   const [bankAccountName, setBankAccountName] = useState("");
@@ -69,20 +105,28 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isService = listingKind === "service";
 
   useEffect(() => {
     if (!isOpen) return;
     setError(null);
     if (initialListing) {
+      const kind = initialListing.listing_kind === "service" ? "service" : "goods";
       setTitle(initialListing.title);
       setDescription(initialListing.description || "");
       setCategory(initialListing.category || "Other");
+      setListingKind(kind);
       setPriceNaira(String(initialListing.price ?? ""));
-      setQuantityTracked(!!initialListing.quantity_tracked);
+      setQuantityTracked(kind === "goods" && !!initialListing.quantity_tracked);
       setStockQuantity(
-        initialListing.quantity_tracked ? String(initialListing.stock ?? "") : ""
+        kind === "goods" && initialListing.quantity_tracked ? String(initialListing.stock ?? "") : ""
       );
       setQuantityNote(initialListing.quantity_note || "");
+      setUnit(initialListing.unit || "");
+      setDurationNote(initialListing.duration_note || "");
+      setServiceLocation(initialListing.service_location || "");
+      setServiceArea(initialListing.service_area || "");
+      setAvailabilityNote(initialListing.availability_note || initialListing.quantity_note || "");
       setBankName(initialListing.bank?.bank_name || "");
       setBankAccountNumber(initialListing.bank?.bank_account_number || "");
       setBankAccountName(initialListing.bank?.bank_account_name || "");
@@ -100,10 +144,16 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
       setTitle("");
       setDescription("");
       setCategory(categories.find((c) => c !== "All") || "Home & Garden");
+      setListingKind("goods");
       setPriceNaira("");
       setQuantityTracked(true);
       setStockQuantity("");
       setQuantityNote("");
+      setUnit("");
+      setDurationNote("");
+      setServiceLocation("");
+      setServiceArea("");
+      setAvailabilityNote("");
       setBankName("");
       setBankAccountNumber("");
       setBankAccountName("");
@@ -148,12 +198,23 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
     setMediaItems((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleKindChange = (next: ListingKind) => {
+    setListingKind(next);
+    setUnit("");
+    if (next === "service") {
+      setQuantityTracked(false);
+      setStockQuantity("");
+    } else {
+      setQuantityTracked(true);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     const price = Number(priceNaira.replace(/,/g, ""));
     if (!title.trim()) {
-      setError("Title is required.");
+      setError(isService ? "Service name is required." : "Title is required.");
       return;
     }
     if (!Number.isFinite(price) || price < 0) {
@@ -169,7 +230,7 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
       return;
     }
     let stock: number | null = null;
-    if (quantityTracked) {
+    if (!isService && quantityTracked) {
       const s = Number(stockQuantity);
       if (!Number.isFinite(s) || s < 1) {
         setError("Enter how many units you have in stock.");
@@ -182,10 +243,20 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
       title: title.trim(),
       description: description.trim(),
       category,
+      listingKind,
       priceNaira: price,
-      quantityTracked,
+      quantityTracked: isService ? false : quantityTracked,
       stockQuantity: stock,
-      quantityNote: quantityTracked ? null : quantityNote.trim() || null,
+      quantityNote: isService
+        ? availabilityNote.trim() || null
+        : quantityTracked
+          ? null
+          : quantityNote.trim() || null,
+      unit: unit.trim() || null,
+      durationNote: isService ? durationNote.trim() || null : null,
+      serviceLocation: isService ? serviceLocation || null : null,
+      serviceArea: isService ? serviceArea.trim() || null : null,
+      availabilityNote: isService ? availabilityNote.trim() || null : null,
       media: mediaItems.slice(0, MAX_MEDIA),
       bankName: bankName.trim(),
       bankAccountNumber: bankAccountNumber.trim(),
@@ -216,7 +287,13 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
       >
         <div className="marketplace-modal__header">
           <h2 id="create-listing-title">
-            {initialListing ? "Edit offer" : "Create marketplace offer"}
+            {initialListing
+              ? isService
+                ? "Edit service"
+                : "Edit offer"
+              : isService
+                ? "List a service"
+                : "Create marketplace offer"}
           </h2>
           <button type="button" className="marketplace-modal__close" onClick={onClose} aria-label="Close">
             <X size={22} />
@@ -224,13 +301,37 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
         </div>
         <form className="marketplace-modal__form marketplace-modal__form--create" onSubmit={(e) => void handleSubmit(e)}>
           {error && <div className="marketplace-modal__error">{error}</div>}
+
+          <div className="marketplace-modal__kind" role="group" aria-label="Listing type">
+            <button
+              type="button"
+              className={`marketplace-modal__kind-btn ${!isService ? "is-active" : ""}`}
+              onClick={() => handleKindChange("goods")}
+            >
+              Product
+            </button>
+            <button
+              type="button"
+              className={`marketplace-modal__kind-btn ${isService ? "is-active" : ""}`}
+              onClick={() => handleKindChange("service")}
+            >
+              Service
+            </button>
+          </div>
+          <p className="marketplace-modal__hint">
+            {isService
+              ? "For photography, tailoring, repairs, and other booked work. No stock count needed."
+              : "For items you sell by quantity, like food, clothes, or farm produce."}
+          </p>
+
           <label className="marketplace-modal__label">
-            Title
+            {isService ? "Service name" : "Title"}
             <input
               className="marketplace-modal__input"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={255}
+              placeholder={isService ? "e.g. Wedding photography, Native wear tailoring" : ""}
               required
             />
           </label>
@@ -241,6 +342,11 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
+              placeholder={
+                isService
+                  ? "What is included, how booking works, and what customers should prepare."
+                  : ""
+              }
             />
           </label>
           <div className="marketplace-modal__grid2 marketplace-modal__grid2--tight">
@@ -259,7 +365,7 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
               </select>
             </label>
             <label className="marketplace-modal__label">
-              Price (₦ Naira)
+              {isService ? "Rate (₦ Naira)" : "Price (₦ Naira)"}
               <input
                 className="marketplace-modal__input"
                 type="number"
@@ -272,44 +378,114 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
             </label>
           </div>
 
-          <div className="marketplace-modal__toggle">
-            <label>
-              <input
-                type="checkbox"
-                checked={quantityTracked}
-                onChange={(e) => setQuantityTracked(e.target.checked)}
-              />
-              Track quantity in stock
-            </label>
-          </div>
-          {quantityTracked ? (
-            <label className="marketplace-modal__label">
-              Quantity in stock
-              <input
-                className="marketplace-modal__input"
-                type="number"
-                min={1}
-                value={stockQuantity}
-                onChange={(e) => setStockQuantity(e.target.value)}
-                required={quantityTracked}
-              />
-            </label>
+          {isService ? (
+            <>
+              <div className="marketplace-modal__grid2 marketplace-modal__grid2--tight">
+                <label className="marketplace-modal__label">
+                  Priced as
+                  <select
+                    className="marketplace-modal__input"
+                    value={unit}
+                    onChange={(e) => setUnit(e.target.value)}
+                  >
+                    <option value="">Select</option>
+                    {SERVICE_UNITS.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="marketplace-modal__label">
+                  Duration or package
+                  <input
+                    className="marketplace-modal__input"
+                    value={durationNote}
+                    onChange={(e) => setDurationNote(e.target.value)}
+                    placeholder="e.g. 2 hours, 3 outfits, full-day shoot"
+                  />
+                </label>
+              </div>
+              <div className="marketplace-modal__grid2 marketplace-modal__grid2--tight">
+                <label className="marketplace-modal__label">
+                  Where you work
+                  <select
+                    className="marketplace-modal__input"
+                    value={serviceLocation}
+                    onChange={(e) => setServiceLocation(e.target.value)}
+                  >
+                    <option value="">Select</option>
+                    {SERVICE_PLACES.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="marketplace-modal__label">
+                  Service area
+                  <input
+                    className="marketplace-modal__input"
+                    value={serviceArea}
+                    onChange={(e) => setServiceArea(e.target.value)}
+                    placeholder="e.g. Jos and nearby towns"
+                  />
+                </label>
+              </div>
+              <label className="marketplace-modal__label">
+                Availability
+                <input
+                  className="marketplace-modal__input"
+                  value={availabilityNote}
+                  onChange={(e) => setAvailabilityNote(e.target.value)}
+                  placeholder="e.g. Weekends, book 3 days ahead"
+                />
+              </label>
+            </>
           ) : (
-            <label className="marketplace-modal__label">
-              Note (optional — e.g. how you deliver this service)
-              <input
-                className="marketplace-modal__input"
-                value={quantityNote}
-                onChange={(e) => setQuantityNote(e.target.value)}
-                placeholder="Not sold by fixed unit count"
-              />
-            </label>
+            <>
+              <div className="marketplace-modal__toggle">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={quantityTracked}
+                    onChange={(e) => setQuantityTracked(e.target.checked)}
+                  />
+                  Track quantity in stock
+                </label>
+              </div>
+              {quantityTracked ? (
+                <label className="marketplace-modal__label">
+                  Quantity in stock
+                  <input
+                    className="marketplace-modal__input"
+                    type="number"
+                    min={1}
+                    value={stockQuantity}
+                    onChange={(e) => setStockQuantity(e.target.value)}
+                    required={quantityTracked}
+                  />
+                </label>
+              ) : (
+                <label className="marketplace-modal__label">
+                  Note (optional)
+                  <input
+                    className="marketplace-modal__input"
+                    value={quantityNote}
+                    onChange={(e) => setQuantityNote(e.target.value)}
+                    placeholder="Not sold by fixed unit count"
+                  />
+                </label>
+              )}
+            </>
           )}
 
           <div className="marketplace-modal__media-block">
             <span className="marketplace-modal__media-heading">Photos &amp; videos</span>
             <p className="marketplace-modal__hint">
-              Upload images or short clips. Up to {MAX_MEDIA} files, 50MB each.
+              {isService
+                ? "Show your work, studio, or finished jobs. Up to " + MAX_MEDIA + " files, 50MB each."
+                : `Upload images or short clips. Up to ${MAX_MEDIA} files, 50MB each.`}
             </p>
             <input
               ref={fileInputRef}
@@ -395,7 +571,7 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
           </label>
 
           <h3 className="marketplace-modal__section-title marketplace-modal__section-title--divider">
-            Seller contact details
+            {isService ? "Booking contact" : "Seller contact details"}
           </h3>
           <div className="marketplace-modal__grid2 marketplace-modal__grid2--tight">
             <label className="marketplace-modal__label">
@@ -444,7 +620,13 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
               Cancel
             </button>
             <button type="submit" className="marketplace-modal__btn-primary" disabled={saving || uploading}>
-              {saving ? "Saving…" : initialListing ? "Save changes" : "Publish offer"}
+              {saving
+                ? "Saving…"
+                : initialListing
+                  ? "Save changes"
+                  : isService
+                    ? "Publish service"
+                    : "Publish offer"}
             </button>
           </div>
         </form>

@@ -154,6 +154,7 @@ export interface User {
   user_approved: boolean;
   user_banned: boolean;
   user_verified: boolean;
+  badge_color?: string | null;
   user_group: string;
   account_status: string;
   business_name?: string;
@@ -163,7 +164,10 @@ export interface User {
   business_type?: string;
   nin_number?: string;
   CAC_number?: string;
-  address?: string;
+  deletion_email_masked?: string | null;
+  deletion_phone_last4?: string | null;
+  deleted_at?: string | null;
+  deleted_via?: string | null;
 }
 
 export interface UsersResponse {
@@ -180,7 +184,7 @@ export interface UsersResponse {
 export const getUsers = async (params?: {
   page?: number;
   limit?: number;
-  status?: "pending" | "banned" | "not_activated" | "approved" | "rejected" | "online";
+  status?: "pending" | "banned" | "not_activated" | "approved" | "rejected" | "online" | "deactivated" | "deleted";
   search?: string;
   group?: string;
 }): Promise<UsersResponse> => {
@@ -230,6 +234,21 @@ export const approveUser = async (id: string): Promise<{ success: boolean; messa
   return data;
 };
 
+export const activateUser = async (id: string): Promise<{ success: boolean; message: string; error?: string }> => {
+  const response = await adminApiRequest(`/user/${id}/activate`, {
+    method: "POST",
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    return {
+      success: false,
+      message: data.message || data.error || "Failed to activate user",
+      error: data.error || data.message,
+    };
+  }
+  return data;
+};
+
 export const banUser = async (id: string, reason?: string): Promise<{ success: boolean; message: string }> => {
   const response = await adminApiRequest(`/user/${id}/ban`, {
     method: "POST",
@@ -261,6 +280,59 @@ export const verifyUser = async (id: string): Promise<{ success: boolean; messag
   }
   
   return data;
+};
+
+export const setUserBadgeColor = async (
+  id: string,
+  badge_color: string
+): Promise<{ success: boolean; message: string; data?: { badge_color: string | null } }> => {
+  const response = await adminApiRequest(`/user/${id}/badge-color`, {
+    method: "PUT",
+    body: JSON.stringify({ badge_color }),
+  });
+  return response.json();
+};
+
+export const setUserBadgeColorByEmail = async (payload: {
+  name: string;
+  email: string;
+  badge_color: string;
+}): Promise<{
+  success: boolean;
+  message: string;
+  data?: { user_id: string; name: string; email: string; badge_color: string | null };
+}> => {
+  const response = await adminApiRequest("/user/badge-color-by-email", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  return response.json();
+};
+
+export type MembershipBadgeColor = {
+  package_id: string;
+  package_name: string;
+  badge_color: string;
+};
+
+export const getMembershipBadgeColors = async (): Promise<{
+  success: boolean;
+  data: MembershipBadgeColor[];
+}> => {
+  const response = await adminApiRequest("/user/membership-badge-colors");
+  return response.json();
+};
+
+export const saveMembershipBadgeColor = async (payload: {
+  package_id: string;
+  package_name: string;
+  badge_color: string;
+}): Promise<{ success: boolean; message: string }> => {
+  const response = await adminApiRequest("/user/membership-badge-colors", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  return response.json();
 };
 
 export const updateUserGroup = async (id: string, user_group: string): Promise<{ success: boolean; message: string }> => {
@@ -513,6 +585,54 @@ export const setAdminForumSuspended = async (
 
 export const deleteAdminForum = async (id: number): Promise<{ success: boolean; message?: string }> => {
   const response = await adminApiRequest(`/forums/${id}`, {
+    method: "DELETE",
+  });
+  return response.json();
+};
+
+export interface AdminForumThreadRow {
+  id: number;
+  title: string;
+  body: string;
+  reply_count: number;
+  category_name: string;
+  category_slug?: string;
+  author_name: string;
+  author_picture?: string;
+  user_id: number;
+  created_at: string;
+  last_reply_at?: string;
+}
+
+export interface AdminForumThreadsResponse {
+  success: boolean;
+  data: AdminForumThreadRow[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export const getAdminForumThreads = async (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}): Promise<AdminForumThreadsResponse> => {
+  const queryParams = new URLSearchParams();
+  if (params?.page) queryParams.append("page", params.page.toString());
+  if (params?.limit) queryParams.append("limit", params.limit.toString());
+  if (params?.search) queryParams.append("search", params.search);
+  const qs = queryParams.toString();
+  const response = await adminApiRequest(`/forums/threads${qs ? `?${qs}` : ""}`);
+  return response.json();
+};
+
+export const deleteAdminForumThread = async (
+  id: number
+): Promise<{ success: boolean; message?: string }> => {
+  const response = await adminApiRequest(`/forums/threads/${id}`, {
     method: "DELETE",
   });
   return response.json();
@@ -889,6 +1009,111 @@ export const updateAppFeature = async (
   return response.json();
 };
 
+// ==================== APP LANGUAGES (mobile UI translations) ====================
+export interface AppLanguageGroup {
+  id: string;
+  label: string;
+  keys: string[];
+}
+
+export interface AppLanguageRow {
+  code: string;
+  label: string;
+  enabled: boolean;
+  is_default: boolean;
+  sort_order?: number;
+  key_count: number;
+  translated_count: number;
+  translations: Record<string, string>;
+}
+
+export const getAppLanguages = async (): Promise<{
+  success: boolean;
+  data: {
+    languages: AppLanguageRow[];
+    english: Record<string, string>;
+    groups: AppLanguageGroup[];
+  };
+}> => {
+  const response = await adminApiRequest("/app-languages");
+  return response.json();
+};
+
+export const addAppLanguage = async (
+  code: string,
+  label: string
+): Promise<{ success: boolean; message: string; data: { languages: AppLanguageRow[] } }> => {
+  const response = await adminApiRequest("/app-languages", {
+    method: "POST",
+    body: JSON.stringify({ code, label }),
+  });
+  return response.json();
+};
+
+export const updateAppLanguage = async (
+  code: string,
+  payload: { label?: string; enabled?: boolean; translations?: Record<string, string> }
+): Promise<{ success: boolean; message: string; data: { languages: AppLanguageRow[] } }> => {
+  const response = await adminApiRequest(`/app-languages/${encodeURIComponent(code)}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  return response.json();
+};
+
+export const deleteAppLanguage = async (
+  code: string
+): Promise<{ success: boolean; message: string; data: { languages: AppLanguageRow[] } }> => {
+  const response = await adminApiRequest(`/app-languages/${encodeURIComponent(code)}`, {
+    method: "DELETE",
+  });
+  return response.json();
+};
+
+// ==================== MEMBERSHIP (personal / business) ====================
+export interface MembershipPlanItem {
+  id?: string;
+  title?: string;
+  amount: number;
+  description: string;
+}
+
+export interface MembershipPlanSettings {
+  enabled: boolean;
+  amount: number;
+  description: string;
+  currency?: string;
+  items?: MembershipPlanItem[];
+}
+
+export interface MembershipSettings {
+  personal: MembershipPlanSettings;
+  business: MembershipPlanSettings;
+}
+
+export type MembershipSettingsUpdate = {
+  personal?: Partial<MembershipPlanSettings>;
+  business?: Partial<Omit<MembershipPlanSettings, "enabled"> & { enabled?: boolean }>;
+};
+
+export const getMembershipSettings = async (): Promise<{
+  success: boolean;
+  data: MembershipSettings;
+}> => {
+  const response = await adminApiRequest("/membership");
+  return response.json();
+};
+
+export const updateMembershipSettings = async (
+  settings: MembershipSettingsUpdate
+): Promise<{ success: boolean; message: string; data: MembershipSettings }> => {
+  const response = await adminApiRequest("/membership", {
+    method: "PUT",
+    body: JSON.stringify(settings),
+  });
+  return response.json();
+};
+
 // ==================== WALLET ====================
 export interface WalletPaymentRequest {
   request_id: string;
@@ -918,6 +1143,57 @@ export const approveWalletPayment = async (id: string): Promise<{ success: boole
 export const rejectWalletPayment = async (id: string): Promise<{ success: boolean; message: string }> => {
   const response = await adminApiRequest(`/wallet/payments/${id}/reject`, {
     method: "POST",
+  });
+  return response.json();
+};
+
+// ==================== CAC EDITS ====================
+export interface CacEditRequest {
+  request_id: string;
+  payment_id: number | string;
+  user_id: number | string;
+  amount: number;
+  status: "pending" | "approved" | "rejected" | "awaiting_payment" | string;
+  requested_at?: string | null;
+  method?: string | null;
+  proof_url?: string | null;
+  business_name?: string | null;
+  email?: string | null;
+  cac_number?: string | null;
+  user_picture?: string | null;
+}
+
+export interface CacEditsResponse {
+  success: boolean;
+  admin_wallet_balance: number;
+  stats: {
+    pending: number;
+    approved: number;
+    rejected: number;
+    total_received: number;
+  };
+  data: CacEditRequest[];
+}
+
+export const getCacEditRequests = async (): Promise<CacEditsResponse> => {
+  const response = await adminApiRequest("/cac-edits");
+  return response.json();
+};
+
+export const approveCacEdit = async (id: string): Promise<{ success: boolean; message: string }> => {
+  const response = await adminApiRequest(`/cac-edits/${id}/approve`, {
+    method: "POST",
+  });
+  return response.json();
+};
+
+export const rejectCacEdit = async (
+  id: string,
+  reason: string
+): Promise<{ success: boolean; message: string }> => {
+  const response = await adminApiRequest(`/cac-edits/${id}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
   });
   return response.json();
 };
@@ -1003,6 +1279,7 @@ export interface ProPackage {
   duration: number;
   features: string[];
   active: boolean;
+  badge_color?: string | null;
 }
 
 export interface ProSubscriber {
@@ -1476,4 +1753,157 @@ export const deleteAdminNotification = async (
   });
   return response.json();
 };
+
+// ==================== HELP / FEEDBACK (mobile Help & support) ====================
+export interface SupportContact {
+  id: number;
+  kind: "email" | "phone";
+  label: string;
+  value: string;
+  sort_order: number;
+  published: boolean;
+}
+
+export interface SupportFaq {
+  id: number;
+  question: string;
+  answer: string;
+  sort_order: number;
+  published: boolean;
+}
+
+export interface SupportCategory {
+  id: number;
+  label: string;
+  sort_order: number;
+  published: boolean;
+}
+
+export interface SupportFeedbackItem {
+  id: number;
+  user_id: number | null;
+  rating: number;
+  comment: string;
+  created_at: string;
+  user_email?: string | null;
+  member_name?: string;
+}
+
+export interface SupportProblemItem {
+  id: number;
+  user_id: number | null;
+  category: string;
+  message: string;
+  status: string;
+  created_at: string;
+  user_email?: string | null;
+  member_name?: string;
+}
+
+export interface SupportSettings {
+  chat_hours: string;
+  chat_url: string;
+  member_guide_title: string;
+  member_guide_url: string;
+  member_guide_body: string;
+}
+
+export interface SupportAdminData {
+  settings: SupportSettings;
+  contacts: SupportContact[];
+  faqs: SupportFaq[];
+  categories: SupportCategory[];
+  feedback: SupportFeedbackItem[];
+  problems: SupportProblemItem[];
+}
+
+export const getSupportAdmin = async (): Promise<{
+  success: boolean;
+  data: SupportAdminData;
+}> => {
+  const response = await adminApiRequest("/support");
+  return response.json();
+};
+
+export const updateSupportSettings = async (settings: Partial<SupportSettings>) => {
+  const response = await adminApiRequest("/support/settings", {
+    method: "PUT",
+    body: JSON.stringify(settings),
+  });
+  return response.json();
+};
+
+export const createSupportContact = async (body: Partial<SupportContact>) => {
+  const response = await adminApiRequest("/support/contacts", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return response.json();
+};
+
+export const updateSupportContact = async (id: number, body: Partial<SupportContact>) => {
+  const response = await adminApiRequest(`/support/contacts/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+  return response.json();
+};
+
+export const deleteSupportContact = async (id: number) => {
+  const response = await adminApiRequest(`/support/contacts/${id}`, { method: "DELETE" });
+  return response.json();
+};
+
+export const createSupportFaq = async (body: Partial<SupportFaq>) => {
+  const response = await adminApiRequest("/support/faqs", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return response.json();
+};
+
+export const updateSupportFaq = async (id: number, body: Partial<SupportFaq>) => {
+  const response = await adminApiRequest(`/support/faqs/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+  return response.json();
+};
+
+export const deleteSupportFaq = async (id: number) => {
+  const response = await adminApiRequest(`/support/faqs/${id}`, { method: "DELETE" });
+  return response.json();
+};
+
+export const createSupportCategory = async (label: string) => {
+  const response = await adminApiRequest("/support/categories", {
+    method: "POST",
+    body: JSON.stringify({ label }),
+  });
+  return response.json();
+};
+
+export const deleteSupportCategory = async (id: number) => {
+  const response = await adminApiRequest(`/support/categories/${id}`, { method: "DELETE" });
+  return response.json();
+};
+
+export const deleteSupportFeedback = async (id: number) => {
+  const response = await adminApiRequest(`/support/feedback/${id}`, { method: "DELETE" });
+  return response.json();
+};
+
+export const updateSupportProblem = async (id: number, status: "open" | "resolved") => {
+  const response = await adminApiRequest(`/support/problems/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ status }),
+  });
+  return response.json();
+};
+
+export const deleteSupportProblem = async (id: number) => {
+  const response = await adminApiRequest(`/support/problems/${id}`, { method: "DELETE" });
+  return response.json();
+};
+
 

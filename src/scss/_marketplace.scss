@@ -1689,6 +1689,30 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
   }
 }
 
+.marketplace-modal__kind {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.marketplace-modal__kind-btn {
+  min-height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(13, 74, 31, 0.18);
+  background: #fff;
+  color: #555;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &.is-active {
+    border-color: #0d4a1f;
+    background: rgba(13, 74, 31, 0.08);
+    color: #0d4a1f;
+  }
+}
+
 .marketplace-modal__section-title {
   margin: 18px 0 10px;
   font-size: 15px;

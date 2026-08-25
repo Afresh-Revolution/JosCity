@@ -3,67 +3,125 @@ import { Loader2, X, Image as ImageIcon, Video, Mic } from "lucide-react";
 import Avatar from "../../components/Avatar";
 import { compressImage } from "../../utils/imageCompression";
 
-export type Offer = { cost: string; location: string; contact: string };
+export type Offer = {
+  cost: string;
+  location: string;
+  contact: string;
+  duration: string;
+  availability: string;
+};
 
-export const emptyOffer = (): Offer => ({ cost: "", location: "", contact: "" });
+export const emptyOffer = (): Offer => ({
+  cost: "",
+  location: "",
+  contact: "",
+  duration: "",
+  availability: "",
+});
 
 export function offerPayload(
   o: Offer
-): { cost: string; location: string; contact: string } | null {
+): {
+  cost: string;
+  location: string;
+  contact: string;
+  duration?: string;
+  availability?: string;
+} | null {
   const cost = o.cost.trim();
   const location = o.location.trim();
   const contact = o.contact.trim();
-  if (!cost && !location && !contact) return null;
-  return { cost, location, contact };
+  const duration = o.duration.trim();
+  const availability = o.availability.trim();
+  if (!cost && !location && !contact && !duration && !availability) return null;
+  const out: {
+    cost: string;
+    location: string;
+    contact: string;
+    duration?: string;
+    availability?: string;
+  } = { cost, location, contact };
+  if (duration) out.duration = duration;
+  if (availability) out.availability = availability;
+  return out;
 }
-
 
 export function BusinessOfferRow({
   title,
   value,
   onChange,
+  kind = "goods",
 }: {
   title: string;
   value: Offer;
   onChange: (next: Offer) => void;
+  kind?: "goods" | "service";
 }) {
+  const isService = kind === "service";
   return (
     <div className="business-offer-fields">
       <div className="business-offer-fields__title">{title}</div>
-      <div className="business-offer-fields__inputs">
+      <div className={`business-offer-fields__inputs ${isService ? "is-service" : ""}`}>
         <input
           type="text"
           inputMode="decimal"
-          placeholder="Price"
+          placeholder={isService ? "Rate / starting from" : "Price"}
           value={value.cost}
           onChange={(e) => onChange({ ...value, cost: e.target.value })}
-          aria-label={`${title} price`}
+          aria-label={`${title} ${isService ? "rate" : "price"}`}
         />
         <input
           type="text"
-          placeholder="Location"
+          placeholder={isService ? "Service area" : "Location"}
           value={value.location}
           onChange={(e) => onChange({ ...value, location: e.target.value })}
-          aria-label={`${title} location`}
+          aria-label={`${title} ${isService ? "service area" : "location"}`}
         />
+        {isService ? (
+          <input
+            type="text"
+            placeholder="Duration or package"
+            value={value.duration}
+            onChange={(e) => onChange({ ...value, duration: e.target.value })}
+            aria-label={`${title} duration`}
+          />
+        ) : null}
         <input
           type="tel"
-          placeholder="Contact number"
+          placeholder={isService ? "Book via (phone or WhatsApp)" : "Contact number"}
           value={value.contact}
           onChange={(e) => onChange({ ...value, contact: e.target.value })}
           aria-label={`${title} contact`}
         />
+        {isService ? (
+          <input
+            type="text"
+            placeholder="Availability (optional)"
+            value={value.availability}
+            onChange={(e) => onChange({ ...value, availability: e.target.value })}
+            aria-label={`${title} availability`}
+          />
+        ) : null}
       </div>
     </div>
   );
 }
 
 export type CreatePostListingPayload = {
-  text?: { cost: string; location: string; contact: string };
+  kind?: "goods" | "service";
+  text?: {
+    cost: string;
+    location: string;
+    contact: string;
+    duration?: string;
+    availability?: string;
+  };
   byMediaIndex?: Array<{
     cost: string;
     location: string;
     contact: string;
+    duration?: string;
+    availability?: string;
   } | null>;
 };
 
@@ -101,6 +159,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [textOffer, setTextOffer] = useState<Offer>(() => emptyOffer());
   const [imageOffers, setImageOffers] = useState<Offer[]>([]);
   const [videoOffers, setVideoOffers] = useState<Offer[]>([]);
+  const [listingKind, setListingKind] = useState<"goods" | "service">("goods");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -333,7 +392,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
           ];
           const hasMedia = byMediaIndex.some((x) => x !== null);
           if (textP || hasMedia) {
-            listingDetails = {};
+            listingDetails = { kind: listingKind };
             if (textP) listingDetails.text = textP;
             if (hasMedia) listingDetails.byMediaIndex = byMediaIndex;
           }
@@ -440,11 +499,34 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
           </div>
 
           {businessListingFields && (
-            <BusinessOfferRow
-              title="Listing for caption / description (optional)"
-              value={textOffer}
-              onChange={setTextOffer}
-            />
+            <>
+              <div className="business-offer-kind" role="group" aria-label="Listing type">
+                <button
+                  type="button"
+                  className={`business-offer-kind__btn ${listingKind === "goods" ? "is-active" : ""}`}
+                  onClick={() => setListingKind("goods")}
+                >
+                  Product
+                </button>
+                <button
+                  type="button"
+                  className={`business-offer-kind__btn ${listingKind === "service" ? "is-active" : ""}`}
+                  onClick={() => setListingKind("service")}
+                >
+                  Service
+                </button>
+              </div>
+              <BusinessOfferRow
+                title={
+                  listingKind === "service"
+                    ? "Service details for caption (optional)"
+                    : "Listing for caption / description (optional)"
+                }
+                value={textOffer}
+                onChange={setTextOffer}
+                kind={listingKind}
+              />
+            </>
           )}
 
           {selectedImages.length > 0 && (
@@ -473,6 +555,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       <BusinessOfferRow
                         title={`Image ${index + 1} (optional)`}
                         value={imageOffers[index] ?? emptyOffer()}
+                        kind={listingKind}
                         onChange={(next) =>
                           setImageOffers((prev) => {
                             const copy = [...prev];
@@ -520,6 +603,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       <BusinessOfferRow
                         title={`Video ${index + 1} (optional)`}
                         value={videoOffers[index] ?? emptyOffer()}
+                        kind={listingKind}
                         onChange={(next) =>
                           setVideoOffers((prev) => {
                             const copy = [...prev];

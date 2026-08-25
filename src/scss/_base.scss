@@ -123,8 +123,9 @@ body {
 }
 
 // Global badge styles - apply hero badge animation and effects
-.badge,
-[class*="__badge"] {
+// Admin panel is excluded: those badges should stay static.
+.badge:not(:where(.admin-page *)),
+[class*="__badge"]:not(:where(.admin-page *)) {
   position: relative;
   overflow: hidden;
   transition: background 0.3s ease, box-shadow 0.3s ease, transform 0.25s ease;
@@ -166,8 +167,8 @@ body {
 }
 
 // Hover effect (same as hero badge)
-.badge:hover,
-[class*="__badge"]:hover {
+.badge:not(:where(.admin-page *)):hover,
+[class*="__badge"]:not(:where(.admin-page *)):hover {
   background: linear-gradient(
     135deg,
     rgba(255, 255, 255, 0.06),
@@ -184,7 +185,7 @@ body {
 }
 
 // Active state
-.badge:active,
-[class*="__badge"]:active {
+.badge:not(:where(.admin-page *)):active,
+[class*="__badge"]:not(:where(.admin-page *)):active {
   transform: translateY(0) scale(0.98);
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ExternalLink, Phone, Mail, MapPin, Users, X } from "lucide-react";
+import CommonQuestions from "../components/CommonQuestions";
 import {
   DeveloperProfile,
   developersApi,
@@ -281,6 +282,8 @@ const Contact: React.FC = () => {
             );
           })}
         </div>
+
+        <CommonQuestions className="contact__faqs" heading="Common questions" />
 
         <div
           className={`contact__developers-cta ${

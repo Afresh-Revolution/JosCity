@@ -464,6 +464,10 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+
+    &--full {
+      grid-column: 1 / -1;
+    }
   }
 
   &__info-label {
@@ -681,6 +685,115 @@
     span {
       font-weight: 500;
     }
+  }
+
+  &__info-item--full {
+    grid-column: 1 / -1;
+  }
+
+  &__cac-unlock {
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color, #ddd);
+    background: var(--bg-secondary, #f8f8f8);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    &--open {
+      border-color: #1a5d3a;
+      background: rgba(26, 93, 58, 0.06);
+    }
+
+    &--pending {
+      border-color: #b54708;
+      background: rgba(181, 71, 8, 0.08);
+    }
+  }
+
+  &__cac-unlock-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary, #333);
+
+    svg {
+      color: #1a5d3a;
+    }
+  }
+
+  &__cac-unlock-meta {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--text-secondary, #666);
+  }
+
+  &__cac-unlock-error {
+    margin: 0;
+    color: #b42318;
+    font-size: 14px;
+  }
+
+  &__cac-unlock-ok {
+    margin: 0;
+    color: #067647;
+    font-size: 14px;
+  }
+
+  &__cac-unlock-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  &__cac-unlock-btn {
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #ddd);
+    background: var(--card-bg, #fff);
+    color: var(--text-primary, #333);
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    &--primary {
+      background: #1a5d3a;
+      border-color: #1a5d3a;
+      color: #fff;
+    }
+  }
+
+  &__cac-unlock-bank {
+    padding: 12px;
+    border-radius: 8px;
+    background: var(--card-bg, #fff);
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    strong {
+      font-size: 18px;
+      letter-spacing: 0.4px;
+    }
+  }
+
+  &__cac-unlock-manual {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
 }
 

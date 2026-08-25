@@ -22,10 +22,70 @@ import {
   type Comment as ApiComment,
   type PostReactionStat,
 } from "../../services/feedApi";
-import type { ListingDetails } from "../../utils/mapFeedApiItemToPost";
+import type { ListingDetails, ListingOffer } from "../../utils/mapFeedApiItemToPost";
 import { isAuthenticated, getUserData, getUserName } from "../../utils/userUtils";
 import { useNavigate } from "react-router-dom";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
+function offerHasContent(off?: ListingOffer | null) {
+  if (!off) return false;
+  return Boolean(off.cost || off.location || off.contact || off.duration || off.availability);
+}
+
+function ListingOfferRows({
+  heading,
+  offer,
+  kind,
+}: {
+  heading: string;
+  offer: ListingOffer;
+  kind: "goods" | "service";
+}) {
+  const isService = kind === "service" || offer.kind === "service";
+  return (
+    <>
+      <div className="newsfeed-post__listing-row">
+        <span className="newsfeed-post__listing-label">{heading}</span>
+      </div>
+      {offer.cost ? (
+        <div className="newsfeed-post__listing-row">
+          <span className="newsfeed-post__listing-label">
+            {isService ? "Rate" : "Price"}
+          </span>
+          {offer.cost}
+        </div>
+      ) : null}
+      {offer.duration ? (
+        <div className="newsfeed-post__listing-row">
+          <span className="newsfeed-post__listing-label">Duration</span>
+          {offer.duration}
+        </div>
+      ) : null}
+      {offer.location ? (
+        <div className="newsfeed-post__listing-row">
+          <span className="newsfeed-post__listing-label">
+            {isService ? "Service area" : "Location"}
+          </span>
+          {offer.location}
+        </div>
+      ) : null}
+      {offer.availability ? (
+        <div className="newsfeed-post__listing-row">
+          <span className="newsfeed-post__listing-label">Availability</span>
+          {offer.availability}
+        </div>
+      ) : null}
+      {offer.contact ? (
+        <div className="newsfeed-post__listing-row">
+          <span className="newsfeed-post__listing-label">
+            {isService ? "Book via" : "Contact"}
+          </span>
+          {offer.contact}
+        </div>
+      ) : null}
+    </>
+  );
+}
 
 
 interface Comment {
@@ -709,77 +769,34 @@ const PostCard: React.FC<PostCardProps> = ({
           (post.listingDetails.byMediaIndex &&
             post.listingDetails.byMediaIndex.some(Boolean))) && (
           <div className="newsfeed-post__listing" aria-label="Listing details">
-            {post.listingDetails.text &&
-              (post.listingDetails.text.cost ||
-                post.listingDetails.text.location ||
-                post.listingDetails.text.contact) && (
-                <>
-                  <div className="newsfeed-post__listing-row">
-                    <span className="newsfeed-post__listing-label">
-                      Description listing
-                    </span>
-                  </div>
-                  {post.listingDetails.text.cost ? (
-                    <div className="newsfeed-post__listing-row">
-                      <span className="newsfeed-post__listing-label">Price</span>
-                      {post.listingDetails.text.cost}
-                    </div>
-                  ) : null}
-                  {post.listingDetails.text.location ? (
-                    <div className="newsfeed-post__listing-row">
-                      <span className="newsfeed-post__listing-label">
-                        Location
-                      </span>
-                      {post.listingDetails.text.location}
-                    </div>
-                  ) : null}
-                  {post.listingDetails.text.contact ? (
-                    <div className="newsfeed-post__listing-row">
-                      <span className="newsfeed-post__listing-label">
-                        Contact
-                      </span>
-                      {post.listingDetails.text.contact}
-                    </div>
-                  ) : null}
-                </>
-              )}
+            {offerHasContent(post.listingDetails.text) && post.listingDetails.text ? (
+              <ListingOfferRows
+                heading={
+                  post.listingDetails.kind === "service"
+                    ? "Service details"
+                    : "Description listing"
+                }
+                offer={post.listingDetails.text}
+                kind={post.listingDetails.kind === "service" ? "service" : "goods"}
+              />
+            ) : null}
             {post.listingDetails.byMediaIndex?.map((off, idx) => {
-              if (
-                !off ||
-                (!off.cost && !off.location && !off.contact)
-              ) {
-                return null;
-              }
+              if (!offerHasContent(off) || !off) return null;
               return (
-                <React.Fragment key={`listing-media-${idx}`}>
-                  <div className="newsfeed-post__listing-row">
-                    <span className="newsfeed-post__listing-label">
-                      Item {idx + 1}
-                    </span>
-                  </div>
-                  {off.cost ? (
-                    <div className="newsfeed-post__listing-row">
-                      <span className="newsfeed-post__listing-label">Price</span>
-                      {off.cost}
-                    </div>
-                  ) : null}
-                  {off.location ? (
-                    <div className="newsfeed-post__listing-row">
-                      <span className="newsfeed-post__listing-label">
-                        Location
-                      </span>
-                      {off.location}
-                    </div>
-                  ) : null}
-                  {off.contact ? (
-                    <div className="newsfeed-post__listing-row">
-                      <span className="newsfeed-post__listing-label">
-                        Contact
-                      </span>
-                      {off.contact}
-                    </div>
-                  ) : null}
-                </React.Fragment>
+                <ListingOfferRows
+                  key={`listing-media-${idx}`}
+                  heading={
+                    post.listingDetails?.kind === "service" || off.kind === "service"
+                      ? `Service ${idx + 1}`
+                      : `Item ${idx + 1}`
+                  }
+                  offer={off}
+                  kind={
+                    post.listingDetails?.kind === "service" || off.kind === "service"
+                      ? "service"
+                      : "goods"
+                  }
+                />
               );
             })}
           </div>

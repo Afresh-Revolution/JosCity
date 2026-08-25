@@ -3,12 +3,16 @@
  */
 
 export interface ListingOffer {
+  kind?: "goods" | "service";
   cost?: string;
   location?: string;
   contact?: string;
+  duration?: string;
+  availability?: string;
 }
 
 export interface ListingDetails {
+  kind?: "goods" | "service";
   text?: ListingOffer | null;
   byMediaIndex?: Array<ListingOffer | null>;
 }

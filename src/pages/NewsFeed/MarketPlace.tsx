@@ -12,7 +12,7 @@ import FindFriendsModal from "../../components/FindFriendsModal";
 import ChatPanel from "../../components/ChatPanel";
 import OfferCard from "../../components/marketplace/OfferCard";
 import ProductCard from "../../components/marketplace/ProductCard";
-import CreateListingModal from "../../components/marketplace/CreateListingModal";
+import CreateListingModal, { type CreateListingPayload } from "../../components/marketplace/CreateListingModal";
 import CheckoutModal from "../../components/marketplace/CheckoutModal";
 import {
   getProfileUsername,
@@ -28,7 +28,6 @@ import {
   normalizeProductList,
   type ApiCartItem,
   type ApiMarketplaceListing,
-  type ApiMediaItem,
   type CheckoutBuyerPayload,
   type MarketplaceCart,
   type MarketplaceProduct,
@@ -364,45 +363,36 @@ const MarketPlace: React.FC = () => {
     }
   };
 
-  const handleSaveListing = async (payload: {
-    title: string;
-    description: string;
-    category: string;
-    priceNaira: number;
-    quantityTracked: boolean;
-    stockQuantity: number | null;
-    quantityNote: string | null;
-    media: ApiMediaItem[];
-    bankName: string;
-    bankAccountNumber: string;
-    bankAccountName: string;
-    sellerContactName: string;
-    sellerContactPhone: string;
-    sellerContactEmail: string;
-    sellerContactWhatsapp: string;
-  }) => {
+  const handleSaveListing = async (payload: CreateListingPayload) => {
+    const listingBody = {
+      title: payload.title,
+      description: payload.description,
+      category: payload.category,
+      listingKind: payload.listingKind,
+      priceNaira: payload.priceNaira,
+      quantityTracked: payload.quantityTracked,
+      stockQuantity: payload.quantityTracked ? payload.stockQuantity ?? 0 : 0,
+      quantityNote: payload.quantityNote,
+      unit: payload.unit,
+      durationNote: payload.durationNote,
+      serviceLocation: payload.serviceLocation,
+      serviceArea: payload.serviceArea,
+      availabilityNote: payload.availabilityNote,
+      media: payload.media,
+      bankName: payload.bankName,
+      bankAccountNumber: payload.bankAccountNumber,
+      bankAccountName: payload.bankAccountName,
+      sellerContactName: payload.sellerContactName,
+      sellerContactPhone: payload.sellerContactPhone,
+      sellerContactEmail: payload.sellerContactEmail,
+      sellerContactWhatsapp: payload.sellerContactWhatsapp,
+    };
     if (editTarget) {
-      const res = await listingMarketplaceApi.updateListing(Number(editTarget.id), {
-        title: payload.title,
-        description: payload.description,
-        category: payload.category,
-        priceNaira: payload.priceNaira,
-        quantityTracked: payload.quantityTracked,
-        stockQuantity: payload.quantityTracked ? payload.stockQuantity ?? 0 : 0,
-        quantityNote: payload.quantityNote,
-        media: payload.media,
-        bankName: payload.bankName,
-        bankAccountNumber: payload.bankAccountNumber,
-        bankAccountName: payload.bankAccountName,
-        sellerContactName: payload.sellerContactName,
-        sellerContactPhone: payload.sellerContactPhone,
-        sellerContactEmail: payload.sellerContactEmail,
-        sellerContactWhatsapp: payload.sellerContactWhatsapp,
-      });
+      const res = await listingMarketplaceApi.updateListing(Number(editTarget.id), listingBody);
       if (res.success) void loadMyListings();
       return { success: !!res.success, message: res.message };
     }
-    const res = await listingMarketplaceApi.createListing(payload);
+    const res = await listingMarketplaceApi.createListing(listingBody);
     if (res.success) void loadMyListings();
     return { success: !!res.success, message: res.message };
   };

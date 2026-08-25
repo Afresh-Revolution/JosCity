@@ -3,6 +3,14 @@ import { apiUrl } from "../api/config";
 const getToken = (): string | null =>
   localStorage.getItem("token") || localStorage.getItem("authToken");
 
+function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() =>
+    window.clearTimeout(timer)
+  );
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {}
@@ -15,7 +23,7 @@ async function request<T>(
   if (token) {
     (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
   }
-  const res = await fetch(apiUrl(`/forums${path}`), {
+  const res = await fetchWithTimeout(apiUrl(`/forums${path}`), {
     ...options,
     headers,
   });

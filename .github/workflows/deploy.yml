@@ -1,0 +1,36 @@
+name: Deploy Joscity
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 22
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SECRET }}
+          script: |
+            cd /root/JosCity
+            git fetch --all
+            git reset --hard origin/main
+            npm install
+            npm run build
+            systemctl reload nginx
+            pm2 restart Joscity-frontend || pm2 start npm --name Joscity-frontend -- start -- -p 5100
+
+            pm2 save

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -11,26 +12,27 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v0.1.6
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
           username: root
           key: ${{ secrets.VPS_SECRET }}
           script: |
+            set -e
             cd /root/JosCity
             git fetch --all
-            git reset --hard origin/main
+            git checkout master || git checkout -B master origin/master
+            git reset --hard origin/master
             npm install
             npm run build
             systemctl reload nginx
-            pm2 restart Joscity-frontend || pm2 start npm --name Joscity-frontend -- start -- -p 5100
-
-            pm2 save
+            pm2 restart Joscity-frontend || true
+            pm2 save || true

@@ -33,5 +33,5 @@ jobs:
             npm install
             npm run build
             systemctl reload nginx
-            pm2 restart Joscity-frontend || true
+            pm2 start npm --name Joscity-frontend -- run preview -- --host 0.0.0.0 --port 5100
             pm2 save || true

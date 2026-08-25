@@ -29,6 +29,7 @@ const defaultValue: PWAInstallContextValue = {
 const PWAInstallContext = createContext<PWAInstallContextValue>(defaultValue);
 
 function getIsStandalone(): boolean {
+  
   if (typeof window === "undefined") return false;
   if (window.matchMedia("(display-mode: standalone)").matches) return true;
   if (window.matchMedia("(display-mode: fullscreen)").matches) return true;

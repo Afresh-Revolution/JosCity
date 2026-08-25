@@ -29,8 +29,7 @@ jobs:
             set -e
             cd /root/JosCity
             git fetch --all
-            git checkout master || git checkout -B master origin/master
-            git reset --hard origin/master
+            git checkout -f -B master origin/master
             npm install
             npm run build
             systemctl reload nginx

@@ -1189,5 +1189,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         reportedUserId={selectedConversation?.otherUserId}
       />
     </div>
+  );
+};
 
 export default ChatPanel;

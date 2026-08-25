@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 
 import ReportModal from "../../components/ReportModal";
+
+interface NewsFeedSidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
 }

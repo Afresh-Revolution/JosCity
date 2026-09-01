@@ -3,6 +3,7 @@ import type {
   PersonalFormData,
   BusinessFormData,
 } from "../utils/validationSchemas";
+import type { BusinessCategory } from "../constants/businessCategories";
 import { fetchWithTimeout } from "../utils/fetchWithTimeout";
 
 interface ApiResponse<T> {
@@ -112,6 +113,31 @@ export const registerPersonal = async (
   }
 };
 
+export const fetchBusinessCategories = async (): Promise<
+  BusinessCategory[]
+> => {
+  try {
+    const response = await fetchWithTimeout(
+      `${API_BASE_URL}/auth/business/categories`,
+      {
+        method: "GET",
+        timeout: 15000,
+      }
+    );
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : {};
+    if (!response.ok || !Array.isArray(data.categories)) return [];
+    return data.categories
+      .map((item: { slug?: string; name?: string }) => ({
+        slug: String(item.slug || "").trim(),
+        name: String(item.name || "").trim(),
+      }))
+      .filter((item: BusinessCategory) => item.slug && item.name);
+  } catch {
+    return [];
+  }
+};
+
 export const registerBusiness = async (
   formData: BusinessFormData
 ): Promise<ApiResponse<{ businessId: string; email: string }>> => {
@@ -127,13 +153,15 @@ export const registerBusiness = async (
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          business_name: formData.business_name,
-          business_type: formData.business_type,
+          business_name: formData.business_name.trim(),
+          business_type: formData.business_type.trim(),
           business_email: normalizedEmail,
-          CAC_number: formData.CAC_number,
-          business_phone: formData.business_phone,
-          business_location: formData.business_location,
+          CAC_number: formData.CAC_number.trim(),
+          business_phone: formData.business_phone.trim(),
+          business_location: formData.business_location.trim(),
           business_password: formData.business_password,
+          business_description: formData.business_description.trim(),
+          terms_accepted: formData.terms_accepted,
         }),
         timeout: 30000, // 30 second timeout
       }
@@ -182,6 +210,26 @@ export const registerBusiness = async (
               field: "business_email",
               message:
                 "This email address is already registered. Please use a different email or sign in instead.",
+            },
+            ...(data.errors || []),
+          ],
+        };
+      }
+
+      const isDuplicatePhone =
+        errorMessageLower.includes("phone") &&
+        (errorMessageLower.includes("already") ||
+          errorMessageLower.includes("exists") ||
+          errorMessageLower.includes("registered"));
+
+      if (isDuplicatePhone) {
+        return {
+          success: false,
+          message: "This phone number is already registered",
+          errors: [
+            {
+              field: "business_phone",
+              message: "This phone number is already registered",
             },
             ...(data.errors || []),
           ],

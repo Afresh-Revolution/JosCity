@@ -64,7 +64,7 @@ const PersonalFormFields: React.FC<PersonalFormFieldsProps> = ({
 
       <div className="register-form-row">
         <div className="register-form-group">
-          <label htmlFor="user_gender">Gender</label>
+          <label htmlFor="user_gender">Gender <span>(optional)</span></label>
           <div className="register-select-wrapper">
             <select
               id="user_gender"
@@ -72,7 +72,7 @@ const PersonalFormFields: React.FC<PersonalFormFieldsProps> = ({
               value={formData.user_gender}
               onChange={onInputChange}
             >
-              <option value="">Gender</option>
+              <option value="">Prefer not to say</option>
               <option value="male">Male</option>
               <option value="female">Female</option>
             </select>
@@ -108,7 +108,7 @@ const PersonalFormFields: React.FC<PersonalFormFieldsProps> = ({
       </div>
 
       <div className="register-form-group">
-        <label htmlFor="nin_number">NIN Number</label>
+        <label htmlFor="nin_number">NIN Number <span>(optional)</span></label>
         <div className="register-input-wrapper">
           <User className="register-input-icon" size={20} />
           <input
@@ -117,13 +117,13 @@ const PersonalFormFields: React.FC<PersonalFormFieldsProps> = ({
             name="nin_number"
             value={formData.nin_number}
             onChange={onInputChange}
-            placeholder="NIN Number"
+            placeholder="11-digit NIN (optional)"
           />
         </div>
       </div>
 
       <div className="register-form-group">
-        <label htmlFor="address">Address</label>
+        <label htmlFor="address">Address <span>(optional)</span></label>
         <div className="register-input-wrapper">
           <MapPin className="register-input-icon" size={20} />
           <input
@@ -132,7 +132,7 @@ const PersonalFormFields: React.FC<PersonalFormFieldsProps> = ({
             name="address"
             value={formData.address}
             onChange={onInputChange}
-            placeholder="Address"
+            placeholder="Street, area, Jos (optional)"
           />
         </div>
       </div>

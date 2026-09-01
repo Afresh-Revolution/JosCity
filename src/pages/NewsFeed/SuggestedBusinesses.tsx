@@ -8,6 +8,7 @@ import {
 } from "../../utils/locationUtils";
 import { friendApi } from "../../services/friendApi";
 import { userApi, type User } from "../../services/userApi";
+import { businessCategoryLabel } from "../../constants/businessCategories";
 
 type UserWithBusinessFields = User & {
   business_name?: string;
@@ -336,7 +337,7 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
                   </p>
                   {business.businessType && (
                     <p className="newsfeed-suggested-friends__mutual">
-                      {business.businessType}
+                      {businessCategoryLabel(business.businessType)}
                     </p>
                   )}
                   {business.mutualFriends > 0 && (
@@ -439,7 +440,7 @@ const SuggestedBusinesses: React.FC<SuggestedBusinessesProps> = ({
                         </p>
                         {business.businessType && (
                           <p className="newsfeed-suggested-friends__mutual">
-                            {business.businessType}
+                            {businessCategoryLabel(business.businessType)}
                           </p>
                         )}
                         {business.mutualFriends > 0 && (

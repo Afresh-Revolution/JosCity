@@ -123,6 +123,7 @@ export const userApi = {
     page?: number;
     limit?: number;
     q?: string;
+    account_type?: "personal" | "business";
   }): Promise<{
     success: boolean;
     data: ApprovedDirectoryUser[];
@@ -135,6 +136,7 @@ export const userApi = {
       limit: String(limit),
     });
     if (params?.q?.trim()) q.set("q", params.q.trim());
+    if (params?.account_type) q.set("account_type", params.account_type);
     return apiRequest(`/users/approved?${q.toString()}`);
   },
 

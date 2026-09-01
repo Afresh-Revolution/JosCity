@@ -32,7 +32,13 @@ import {
 } from "../utils/userUtils";
 import { userApi } from "../services/userApi";
 import { cacEditApi, type CacEditState } from "../services/cacEditApi";
-import { getUserProfile, uploadProfilePicture } from "../api/auth";
+import { getUserProfile, uploadProfilePicture, fetchBusinessCategories } from "../api/auth";
+import {
+  BUSINESS_CATEGORIES,
+  businessCategoryLabel,
+  normalizeBusinessType,
+  type BusinessCategory,
+} from "../constants/businessCategories";
 import LazyImage from "../components/LazyImage";
 import ConfirmationModal from "../components/ConfirmationModal";
 import CacEditUnlock from "../components/CacEditUnlock";
@@ -80,6 +86,8 @@ const UserProfile: React.FC = () => {
   const [userIdCopied, setUserIdCopied] = useState(false);
   const [cacEdit, setCacEdit] = useState<CacEditState | null>(null);
   const [cacEditLoading, setCacEditLoading] = useState(false);
+  const [businessCategories, setBusinessCategories] =
+    useState<BusinessCategory[]>(BUSINESS_CATEGORIES);
   const accountType = getUserAccountType().toLowerCase();
   const isBusinessAccount = accountType === "business";
   const canEditCac = cacEdit ? cacEdit.can_edit : !Boolean(userData?.cac_verified);
@@ -226,6 +234,17 @@ const UserProfile: React.FC = () => {
       .then((state) => setCacEdit(state))
       .catch(() => setCacEdit(null))
       .finally(() => setCacEditLoading(false));
+  }, [isBusinessAccount]);
+
+  useEffect(() => {
+    if (!isBusinessAccount) return;
+    let cancelled = false;
+    void fetchBusinessCategories().then((items) => {
+      if (!cancelled && items.length > 0) setBusinessCategories(items);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [isBusinessAccount]);
 
   const handleEdit = () => {
@@ -668,17 +687,42 @@ const UserProfile: React.FC = () => {
                             <span>Business Type</span>
                           </div>
                           {isEditing ? (
-                            <input
-                              type="text"
+                            <select
                               name="business_type"
-                              value={editedData.business_type}
+                              value={
+                                normalizeBusinessType(editedData.business_type) ||
+                                editedData.business_type
+                              }
                               onChange={handleInputChange}
-                              className="user-profile__input"
-                              placeholder="Enter business type"
-                            />
+                              className="user-profile__input user-profile__input--select"
+                            >
+                              <option value="">Select business type</option>
+                              {businessCategories.map((option) => (
+                                <option key={option.slug} value={option.slug}>
+                                  {option.name}
+                                </option>
+                              ))}
+                              {editedData.business_type &&
+                                !businessCategories.some(
+                                  (option) =>
+                                    option.slug === editedData.business_type ||
+                                    option.slug ===
+                                      normalizeBusinessType(
+                                        editedData.business_type
+                                      )
+                                ) && (
+                                  <option value={editedData.business_type}>
+                                    {businessCategoryLabel(
+                                      editedData.business_type
+                                    )}
+                                  </option>
+                                )}
+                            </select>
                           ) : (
                             <div className="user-profile__info-value">
-                              {(userData?.business_type as string) || "Not set"}
+                              {businessCategoryLabel(
+                                (userData?.business_type as string) || ""
+                              ) || "Not set"}
                             </div>
                           )}
                         </div>
@@ -834,7 +878,7 @@ const UserProfile: React.FC = () => {
                         <div className="user-profile__info-item">
                           <div className="user-profile__info-label">
                             <VenusAndMars size={18} />
-                            <span>Gender</span>
+                            <span>Gender (optional)</span>
                           </div>
                           {isEditing ? (
                             <select
@@ -843,7 +887,7 @@ const UserProfile: React.FC = () => {
                               onChange={handleInputChange}
                               className="user-profile__input"
                             >
-                              <option value="">Select Gender</option>
+                              <option value="">Prefer not to say</option>
                               <option value="male">Male</option>
                               <option value="female">Female</option>
                             </select>
@@ -909,7 +953,7 @@ const UserProfile: React.FC = () => {
                         <div className="user-profile__info-item">
                           <div className="user-profile__info-label">
                             <IdCard size={18} />
-                            <span>NIN Number</span>
+                            <span>NIN Number (optional)</span>
                           </div>
                           {isEditing ? (
                             <input
@@ -930,7 +974,7 @@ const UserProfile: React.FC = () => {
                         <div className="user-profile__info-item">
                           <div className="user-profile__info-label">
                             <MapPin size={18} />
-                            <span>Address</span>
+                            <span>Address (optional)</span>
                           </div>
                           {isEditing ? (
                             <textarea

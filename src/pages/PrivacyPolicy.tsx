@@ -58,8 +58,8 @@ const PrivacyPolicy: React.FC = () => {
             <p>We may collect the following personal information:</p>
             <ul>
               <li>Name, email address, and contact information</li>
-              <li>National Identification Number (NIN)</li>
-              <li>Phone number and address</li>
+              <li>National Identification Number (NIN), if you choose to provide it</li>
+              <li>Phone number, and address if you choose to provide it</li>
               <li>
                 Payment information (processed securely through third-party
                 providers)

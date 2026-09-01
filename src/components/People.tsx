@@ -47,6 +47,7 @@ import "../scss/_newsfeed.scss";
 import "../scss/_profilemodal.scss";
 import "../scss/_messagepopup.scss";
 import { useNewsFeedNavPanels } from "../hooks/useNewsFeedNavPanels";
+import { businessCategoryLabel } from "../constants/businessCategories";
 
 interface User {
   id: number;
@@ -107,7 +108,13 @@ function mapNearbyApiUser(
 function textMatchesUser(user: User, rawQuery: string) {
   const q = rawQuery.toLowerCase().trim();
   if (!q) return true;
-  const hay = [user.name, user.address, user.businessType, user.profileSlug]
+  const hay = [
+    user.name,
+    user.address,
+    user.businessType,
+    user.businessType ? businessCategoryLabel(user.businessType) : "",
+    user.profileSlug,
+  ]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
@@ -129,6 +136,7 @@ const People: React.FC = () => {
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [distance, setDistance] = useState(100);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [showNotification, setShowNotification] = useState(false);
   const [isSearchEmojiPickerOpen, setIsSearchEmojiPickerOpen] = useState(false);
   const [allApprovedUsers, setAllApprovedUsers] = useState<User[]>([]);
@@ -180,6 +188,13 @@ const People: React.FC = () => {
   }, [useLocationFilter]);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch((searchQuery || filterQuery).trim());
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery, filterQuery]);
+
+  useEffect(() => {
     const loadDirectory = async () => {
       if (!isAuthenticated()) {
         setAllApprovedUsers([]);
@@ -190,7 +205,11 @@ const People: React.FC = () => {
       setDirectoryLoading(true);
       setDirectoryError(null);
       try {
-        const res = await userApi.getApprovedUsers({ page: 1, limit: 100 });
+        const res = await userApi.getApprovedUsers({
+          page: 1,
+          limit: 100,
+          q: debouncedSearch || undefined,
+        });
         if (!res.success || !Array.isArray(res.data)) {
           setAllApprovedUsers([]);
           if (!useLocationFilterRef.current) setDirectoryUsers([]);
@@ -212,7 +231,7 @@ const People: React.FC = () => {
       }
     };
     void loadDirectory();
-  }, []);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     if (!isAuthenticated() || !myCoords || !useLocationFilter) return;
@@ -547,7 +566,9 @@ const People: React.FC = () => {
           </h3>
           <p className="people-user-card__meta" style={{ marginTop: 4 }}>
             {accountLabel}
-            {user.businessType ? ` · ${user.businessType}` : ""}
+            {user.businessType
+              ? ` · ${businessCategoryLabel(user.businessType)}`
+              : ""}
             {user.distanceKm != null && (
               <span>{` · ${user.distanceKm} km away`}</span>
             )}

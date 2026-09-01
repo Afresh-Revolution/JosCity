@@ -1,5 +1,10 @@
 // Validation schemas for Personal and Business registration forms
 
+import {
+  BUSINESS_CATEGORY_SLUGS,
+  isKnownBusinessType,
+} from "../constants/businessCategories";
+
 export interface ValidationError {
   field: string;
   message: string;
@@ -26,6 +31,9 @@ export interface BusinessFormData {
   business_phone: string;
   business_location: string;
   business_password: string;
+  business_password_confirm: string;
+  business_description: string;
+  terms_accepted: boolean;
 }
 
 // Validation functions
@@ -54,10 +62,8 @@ export const validatePersonalForm = (
     });
   }
 
-  // Gender validation
-  if (!data.user_gender || data.user_gender === "") {
-    errors.push({ field: "user_gender", message: "Gender is required" });
-  } else if (!["male", "female"].includes(data.user_gender)) {
+  // Gender is optional; if provided it must be male or female
+  if (data.user_gender?.trim() && !["male", "female"].includes(data.user_gender.trim().toLowerCase())) {
     errors.push({ field: "user_gender", message: "Please select a valid gender" });
   }
 
@@ -90,23 +96,12 @@ export const validatePersonalForm = (
     }
   }
 
-  // NIN Number validation
-  if (!data.nin_number || data.nin_number.trim() === "") {
-    errors.push({ field: "nin_number", message: "NIN number is required" });
-  } else if (data.nin_number.trim().length < 11) {
+  // NIN is optional; if provided it must be 11 digits
+  const ninDigits = (data.nin_number || "").replace(/\D/g, "");
+  if (ninDigits && ninDigits.length !== 11) {
     errors.push({
       field: "nin_number",
-      message: "NIN number must be at least 11 characters",
-    });
-  }
-
-  // Address validation
-  if (!data.address || data.address.trim() === "") {
-    errors.push({ field: "address", message: "Address is required" });
-  } else if (data.address.trim().length < 10) {
-    errors.push({
-      field: "address",
-      message: "Address must be at least 10 characters",
+      message: "NIN number must be 11 digits",
     });
   }
 
@@ -130,7 +125,8 @@ export const validatePersonalForm = (
 };
 
 export const validateBusinessForm = (
-  data: BusinessFormData
+  data: BusinessFormData,
+  allowedTypes: string[] = BUSINESS_CATEGORY_SLUGS
 ): ValidationError[] => {
   const errors: ValidationError[] = [];
 
@@ -138,7 +134,7 @@ export const validateBusinessForm = (
   if (!data.business_name || data.business_name.trim() === "") {
     errors.push({
       field: "business_name",
-      message: "Business name is required",
+      message: "Enter your business name.",
     });
   } else if (data.business_name.trim().length < 2) {
     errors.push({
@@ -147,18 +143,24 @@ export const validateBusinessForm = (
     });
   }
 
-  // Business Type validation
+  // Business Type validation — same catalog as the app / backend
   if (!data.business_type || data.business_type === "") {
     errors.push({
       field: "business_type",
-      message: "Business type is required",
+      message: "Select a business type.",
     });
-  } else if (
-    !["retail", "service", "manufacturing"].includes(data.business_type)
-  ) {
+  } else if (!isKnownBusinessType(data.business_type, allowedTypes)) {
     errors.push({
       field: "business_type",
       message: "Please select a valid business type",
+    });
+  }
+
+  const description = (data.business_description || "").trim();
+  if (description.length > 240) {
+    errors.push({
+      field: "business_description",
+      message: "Description must be 240 characters or less",
     });
   }
 
@@ -169,22 +171,22 @@ export const validateBusinessForm = (
       message: "Business email is required",
     });
   } else {
-    // Normalize email to lowercase for validation
     const normalizedEmail = data.business_email.toLowerCase().trim();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(normalizedEmail)) {
       errors.push({
         field: "business_email",
-        message: "Please enter a valid email address",
+        message: "Enter a valid business email.",
       });
     }
   }
 
   // CAC Number validation (optional)
-  if (data.CAC_number && data.CAC_number.trim() !== "" && data.CAC_number.trim().length < 5) {
+  const cacValue = (data.CAC_number || "").trim().toUpperCase();
+  if (cacValue && (cacValue.length < 5 || !/^[A-Z0-9/-]+$/.test(cacValue))) {
     errors.push({
       field: "CAC_number",
-      message: "CAC number must be at least 5 characters",
+      message: "Enter a valid CAC number, or leave it blank.",
     });
   }
 
@@ -194,15 +196,11 @@ export const validateBusinessForm = (
       field: "business_phone",
       message: "Business phone is required",
     });
-  } else {
-    const phoneRegex =
-      /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/;
-    if (!phoneRegex.test(data.business_phone.replace(/\s/g, ""))) {
-      errors.push({
-        field: "business_phone",
-        message: "Please enter a valid phone number",
-      });
-    }
+  } else if (data.business_phone.replace(/\s/g, "").length < 10) {
+    errors.push({
+      field: "business_phone",
+      message: "Enter a valid business phone number.",
+    });
   }
 
   // Business Address validation
@@ -214,23 +212,36 @@ export const validateBusinessForm = (
   } else if (data.business_location.trim().length < 10) {
     errors.push({
       field: "business_location",
-      message: "Business address must be at least 10 characters",
+      message: "Enter a fuller business address (street, area, Jos).",
     });
   }
 
-  // Business Password validation
+  // Business Password validation — same rule as the app and backend
   if (!data.business_password || data.business_password === "") {
     errors.push({ field: "business_password", message: "Password is required" });
-  } else if (data.business_password.length < 8) {
+  } else if (
+    data.business_password.length < 8 ||
+    !/[A-Za-z]/.test(data.business_password) ||
+    !/\d/.test(data.business_password)
+  ) {
     errors.push({
       field: "business_password",
-      message: "Password must be at least 8 characters",
+      message: "Use 8+ characters with a letter and a number.",
     });
-  } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(data.business_password)) {
+  }
+
+  if (data.business_password !== data.business_password_confirm) {
     errors.push({
-      field: "business_password",
+      field: "business_password_confirm",
+      message: "Passwords do not match.",
+    });
+  }
+
+  if (!data.terms_accepted) {
+    errors.push({
+      field: "terms_accepted",
       message:
-        "Password must contain at least one uppercase letter, one lowercase letter, and one number",
+        "Agree to the Terms of Service, Merchant Terms and Privacy Policy to continue.",
     });
   }
 

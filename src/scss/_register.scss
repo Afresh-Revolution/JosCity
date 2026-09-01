@@ -8,7 +8,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .register-background {
@@ -62,6 +63,17 @@
 
   &.flipped {
     transform: rotateY(180deg);
+
+    .register-card-front {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+    }
+
+    .register-card-back {
+      position: relative;
+    }
   }
 }
 
@@ -205,10 +217,17 @@
     font-weight: 500;
     color: white;
     font-family: $font-family;
+
+    span {
+      font-weight: 400;
+      opacity: 0.75;
+      font-size: 0.8rem;
+    }
   }
 
   input,
-  select {
+  select,
+  textarea {
     width: 100%;
     padding: 0.875rem 1rem;
     border-radius: 8px;
@@ -228,6 +247,46 @@
       border-color: rgba(135, 206, 250, 0.8);
       box-shadow: 0 0 0 3px rgba(135, 206, 250, 0.2);
     }
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 4.5rem;
+    line-height: 1.4;
+  }
+}
+
+.register-helper {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.75);
+  font-family: $font-family;
+}
+
+.register-terms {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  font-family: $font-family;
+  cursor: pointer;
+
+  input[type="checkbox"] {
+    width: 1.05rem;
+    height: 1.05rem;
+    margin-top: 0.15rem;
+    flex-shrink: 0;
+    accent-color: #005522;
+    cursor: pointer;
+  }
+
+  a {
+    color: #fff;
+    font-weight: 600;
+    text-decoration: underline;
   }
 }
 

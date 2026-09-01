@@ -60,6 +60,7 @@ import "../../scss/_profilemodal.scss";
 import "../../scss/_messagepopup.scss";
 import "../../scss/_newsfeed.scss";
 import { feedApi } from "../../services/feedApi";
+import { userApi } from "../../services/userApi";
 import { startVisibleInterval } from "../../utils/visibleInterval";
 import AdminBroadcastStrip, {
   type AdminBroadcastItem,
@@ -79,6 +80,8 @@ interface SearchResult {
   subtitle?: string;
   avatar?: string;
   postCount?: number;
+  userId?: number;
+  accountType?: string;
 }
 
 interface EmbeddedPost {
@@ -1103,9 +1106,9 @@ const NewsFeed: React.FC = () => {
     ];
   }, [posts]);
 
-  // Search function
+  // Search function — people come from the live directory, not only from loaded posts
   const performSearch = useCallback(
-    (query: string) => {
+    async (query: string) => {
       if (!query.trim()) {
         setSearchResults([]);
         return;
@@ -1113,24 +1116,60 @@ const NewsFeed: React.FC = () => {
 
       const queryLower = query.toLowerCase().trim();
       const results: SearchResult[] = [];
+      const seenPeople = new Set<string>();
 
-      // Search people
-      allPeople.forEach((person) => {
-        if (person.name.toLowerCase().includes(queryLower)) {
+      try {
+        const res = await userApi.searchUsers(query.trim());
+        const rows = Array.isArray(res.data) ? res.data : [];
+        for (const row of rows) {
+          const isBiz = String(row.account_type || "").toLowerCase() === "business";
+          const name =
+            (isBiz && row.business_name?.trim()) ||
+            row.display_name?.trim() ||
+            [row.user_firstname, row.user_lastname].filter(Boolean).join(" ").trim() ||
+            row.user_name ||
+            `User ${row.user_id}`;
+          const key = String(row.user_id || name).toLowerCase();
+          if (seenPeople.has(key)) continue;
+          seenPeople.add(key);
           const postCount = posts.filter(
-            (p) => p.userName === person.name
+            (p) =>
+              Number(p.userId) === Number(row.user_id) ||
+              p.userName.toLowerCase() === name.toLowerCase()
           ).length;
           results.push({
             type: "person",
-            id: person.name,
-            title: person.name,
+            id: row.user_id,
+            userId: row.user_id,
+            title: name,
             subtitle:
               postCount > 0
                 ? `${postCount} post${postCount > 1 ? "s" : ""}`
-                : "User",
-            avatar: person.avatar,
+                : "Member",
+            avatar: row.user_picture || "",
+            accountType: row.account_type,
           });
         }
+      } catch {
+        // Fall through to post authors if the directory request fails.
+      }
+
+      allPeople.forEach((person) => {
+        if (!person.name.toLowerCase().includes(queryLower)) return;
+        const key = String(person.name).toLowerCase();
+        if (seenPeople.has(key)) return;
+        seenPeople.add(key);
+        const postCount = posts.filter((p) => p.userName === person.name).length;
+        results.push({
+          type: "person",
+          id: person.name,
+          title: person.name,
+          subtitle:
+            postCount > 0
+              ? `${postCount} post${postCount > 1 ? "s" : ""}`
+              : "User",
+          avatar: person.avatar,
+        });
       });
 
       // Search hashtags
@@ -1182,37 +1221,45 @@ const NewsFeed: React.FC = () => {
         }
       });
 
-      // Limit results to 10
-      setSearchResults(results.slice(0, 10));
+      setSearchResults(results.slice(0, 12));
     },
     [allPeople, allHashtags, posts]
   );
 
-  // Handle search input change
+  useEffect(() => {
+    const value = searchQuery;
+    const timer = window.setTimeout(() => {
+      void performSearch(value);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [performSearch, searchQuery]);
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchQuery(value);
-    performSearch(value);
+    setSearchQuery(e.target.value);
   };
 
-  // Handle search result click
   const handleSearchResultClick = (result: SearchResult) => {
     setSearchQuery("");
     setSearchResults([]);
     setIsSearchFocused(false);
 
-    // Scroll to relevant content based on result type
     if (result.type === "person") {
-      // Find and scroll to first post by this person
-      const userPost = posts.find((p) => p.userName === result.title);
+      const userPost = posts.find(
+        (p) =>
+          p.userName === result.title ||
+          (result.userId != null && Number(p.userId) === Number(result.userId))
+      );
       if (userPost) {
         const postElement = document.querySelector(
           `[data-post-id="${userPost.id}"]`
         );
         postElement?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
       }
-    } else if (result.type === "hashtag") {
-      // Find and scroll to first post with this hashtag
+      navigate("/people");
+      return;
+    }
+    if (result.type === "hashtag") {
       const hashtagPost = posts.find(
         (p) => p.hashtags && p.hashtags.includes(result.title)
       );
@@ -1222,6 +1269,7 @@ const NewsFeed: React.FC = () => {
         );
         postElement?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
+      return;
     } else if (result.type === "post") {
       // Scroll to the specific post
       const postElement = document.querySelector(

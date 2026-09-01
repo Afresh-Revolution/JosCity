@@ -13,7 +13,8 @@ import {
   type BusinessFormData,
   type ValidationError,
 } from "../utils/validationSchemas";
-import { registerPersonal, registerBusiness } from "../api/auth";
+import { registerPersonal, registerBusiness, fetchBusinessCategories } from "../api/auth";
+import { BUSINESS_CATEGORIES } from "../constants/businessCategories";
 import PageBackButton from "../components/PageBackButton";
 import "../main.css";
 
@@ -33,6 +34,8 @@ function Register() {
     }
   }, [location.pathname]);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [businessCategories, setBusinessCategories] = useState(BUSINESS_CATEGORIES);
   const [formData, setFormData] = useState<PersonalFormData>({
     user_firstname: "",
     user_lastname: "",
@@ -51,12 +54,25 @@ function Register() {
     business_phone: "",
     business_location: "",
     business_password: "",
+    business_password_confirm: "",
+    business_description: "",
+    terms_accepted: false,
   });
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
     []
   );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchBusinessCategories().then((items) => {
+      if (!cancelled && items.length > 0) setBusinessCategories(items);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -74,16 +90,30 @@ function Register() {
   };
 
   const handleBusinessInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
   ) => {
-    const { name, value } = e.target;
-    // Normalize email to lowercase in real-time
-    const normalizedValue = name === "business_email" ? value.toLowerCase().trim() : value;
+    const { name, type } = e.target;
+    let next: string | boolean =
+      type === "checkbox"
+        ? (e.target as HTMLInputElement).checked
+        : e.target.value;
+
+    if (name === "business_email" && typeof next === "string") {
+      next = next.toLowerCase().trim();
+    }
+    if (name === "CAC_number" && typeof next === "string") {
+      next = next.replace(/[^A-Za-z0-9/-]/g, "").slice(0, 32).toUpperCase();
+    }
+    if (name === "business_description" && typeof next === "string") {
+      next = next.slice(0, 240);
+    }
+
     setBusinessFormData((prev) => ({
       ...prev,
-      [name]: normalizedValue,
+      [name]: next,
     }));
-    // Clear validation error for this field when user starts typing
     setValidationErrors((prev) => prev.filter((err) => err.field !== name));
     setError(null);
   };
@@ -141,7 +171,10 @@ function Register() {
       };
 
       // Validate business form
-      const errors = validateBusinessForm(normalizedBusinessFormData);
+      const errors = validateBusinessForm(
+        normalizedBusinessFormData,
+        businessCategories.map((item) => item.slug)
+      );
       if (errors.length > 0) {
         setValidationErrors(errors);
         setError("Please fix the errors in the form before submitting.");
@@ -290,9 +323,14 @@ function Register() {
               <form className="register-form" onSubmit={handleSubmit}>
                 <BusinessFormFields
                   formData={businessFormData}
+                  categories={businessCategories}
                   showPassword={showPassword}
+                  showConfirmPassword={showConfirmPassword}
                   onInputChange={handleBusinessInputChange}
                   onTogglePassword={() => setShowPassword(!showPassword)}
+                  onToggleConfirmPassword={() =>
+                    setShowConfirmPassword((value) => !value)
+                  }
                 />
 
                 {validationErrors.length > 0 && (
@@ -336,10 +374,14 @@ function Register() {
                 <button
                   type="submit"
                   className="register-submit-button"
-                  disabled={isLoading}
+                  disabled={isLoading || !businessFormData.terms_accepted}
                   style={{
-                    opacity: isLoading ? 0.6 : 1,
-                    cursor: isLoading ? "not-allowed" : "pointer",
+                    opacity:
+                      isLoading || !businessFormData.terms_accepted ? 0.6 : 1,
+                    cursor:
+                      isLoading || !businessFormData.terms_accepted
+                        ? "not-allowed"
+                        : "pointer",
                   }}
                 >
                   {isLoading ? "SUBMITTING..." : "SUBMIT"}

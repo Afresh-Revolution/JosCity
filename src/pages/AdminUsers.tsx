@@ -31,11 +31,21 @@ import ConfirmationModal from "../components/ConfirmationModal";
 import AdminBadgeColorField, {
   PURPLE_BADGE,
 } from "../components/AdminBadgeColorField";
+import AdminNavBadge from "../components/AdminNavBadge";
 import { fetchRegisteredCitizensCount } from "../utils/citizenCountUtils";
 import "../main.css";
 import "../scss/_admin.scss";
 
-const AdminUsers: React.FC = () => {
+function accountStatusOf(user: User) {
+  return String(user.account_status || "").toLowerCase();
+}
+
+const AdminUsers: React.FC<{
+  counts?: {
+    deactivatedAccounts?: number;
+    pendingApprovals?: number;
+  };
+}> = ({ counts }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -48,6 +58,8 @@ const AdminUsers: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showBanConfirm, setShowBanConfirm] = useState(false);
+  const [showActivateConfirm, setShowActivateConfirm] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [pendingAction, setPendingAction] = useState<{
     userId: string;
     action: string;
@@ -57,8 +69,13 @@ const AdminUsers: React.FC = () => {
   } | null>(null);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(searchQuery.trim()), 400);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
     loadUsers();
-  }, [page, statusFilter]);
+  }, [page, statusFilter, debouncedSearch]);
 
   const loadUsers = async () => {
     try {
@@ -68,13 +85,15 @@ const AdminUsers: React.FC = () => {
         page,
         limit: 20,
         status: statusFilter !== "all" ? (statusFilter as any) : undefined,
+        search: debouncedSearch || undefined,
       });
-      setUsers(response.data || []);
-      setFilteredUsers(response.data || []);
+      const rows = Array.isArray(response?.data) ? response.data : [];
+      setUsers(rows);
+      setFilteredUsers(rows);
       setTotalPages(response.pagination?.totalPages || 1);
     } catch (err) {
       console.error("Failed to load users:", err);
-      // Don't set error if it's just an empty result
+      setError(err instanceof Error ? err.message : "Failed to load users");
       setUsers([]);
       setFilteredUsers([]);
     } finally {
@@ -82,23 +101,10 @@ const AdminUsers: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredUsers(users);
-    } else {
-      const query = searchQuery.toLowerCase();
-      setFilteredUsers(
-        users.filter(
-          (user) =>
-            user.user_email?.toLowerCase().includes(query) ||
-            user.user_firstname?.toLowerCase().includes(query) ||
-            user.user_lastname?.toLowerCase().includes(query) ||
-            user.user_phone?.includes(query) ||
-            user.business_name?.toLowerCase().includes(query)
-        )
-      );
-    }
-  }, [searchQuery, users]);
+  const applyFilter = (status: string) => {
+    setStatusFilter(status);
+    setPage(1);
+  };
 
   // Handle approve with email (like Settings)
   const handleApprove = async (user_id: string) => {
@@ -177,6 +183,12 @@ const AdminUsers: React.FC = () => {
       return;
     }
 
+    if (action === "activate") {
+      setPendingAction({ userId, action, userName, actionFn, args });
+      setShowActivateConfirm(true);
+      return;
+    }
+
     // For other actions, proceed directly
     await executeAction(userId, action, actionFn, ...args);
   };
@@ -194,6 +206,14 @@ const AdminUsers: React.FC = () => {
     const { userId, action, actionFn, args } = pendingAction;
     await executeAction(userId, action, actionFn, ...(args || []));
     setShowBanConfirm(false);
+    setPendingAction(null);
+  };
+
+  const handleConfirmActivate = async () => {
+    if (!pendingAction || pendingAction.action !== "activate") return;
+    const { userId, action, actionFn, args } = pendingAction;
+    await executeAction(userId, action, actionFn, ...(args || []));
+    setShowActivateConfirm(false);
     setPendingAction(null);
   };
 
@@ -261,7 +281,7 @@ const AdminUsers: React.FC = () => {
         <Search size={18} />
         <input
           type="text"
-          placeholder="Search users by name, email, or phone..."
+          placeholder="Search by name, email, or phone. Use Deactivated to restore paused accounts."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
@@ -270,53 +290,62 @@ const AdminUsers: React.FC = () => {
       <div className="admin-dashboard__filters">
         <button
           className={`admin-filter-btn ${statusFilter === "all" ? "active" : ""}`}
-          onClick={() => setStatusFilter("all")}
+          onClick={() => applyFilter("all")}
         >
           All
         </button>
         <button
           className={`admin-filter-btn ${statusFilter === "pending" ? "active" : ""}`}
-          onClick={() => setStatusFilter("pending")}
+          onClick={() => applyFilter("pending")}
         >
           Pending
+          <AdminNavBadge count={counts?.pendingApprovals} />
         </button>
         <button
           className={`admin-filter-btn ${statusFilter === "approved" ? "active" : ""}`}
-          onClick={() => setStatusFilter("approved")}
+          onClick={() => applyFilter("approved")}
         >
           Approved
         </button>
         <button
           className={`admin-filter-btn ${statusFilter === "banned" ? "active" : ""}`}
-          onClick={() => setStatusFilter("banned")}
+          onClick={() => applyFilter("banned")}
         >
           Banned
         </button>
         <button
           className={`admin-filter-btn ${statusFilter === "not_activated" ? "active" : ""}`}
-          onClick={() => setStatusFilter("not_activated")}
+          onClick={() => applyFilter("not_activated")}
         >
           Not Activated
         </button>
         <button
           className={`admin-filter-btn ${statusFilter === "rejected" ? "active" : ""}`}
-          onClick={() => setStatusFilter("rejected")}
+          onClick={() => applyFilter("rejected")}
         >
           Rejected
         </button>
         <button
           className={`admin-filter-btn ${statusFilter === "deactivated" ? "active" : ""}`}
-          onClick={() => setStatusFilter("deactivated")}
+          onClick={() => applyFilter("deactivated")}
         >
           Deactivated
+          <AdminNavBadge count={counts?.deactivatedAccounts} />
         </button>
         <button
           className={`admin-filter-btn ${statusFilter === "deleted" ? "active" : ""}`}
-          onClick={() => setStatusFilter("deleted")}
+          onClick={() => applyFilter("deleted")}
         >
           Deleted
         </button>
       </div>
+
+      {statusFilter === "deactivated" && (
+        <p className="admin-dashboard__filter-note">
+          Members who paused their account appear here. Search their email, then
+          Reactivate after they contact support.
+        </p>
+      )}
 
       {error && (
         <div className="admin-dashboard__message admin-dashboard__message--error">
@@ -347,18 +376,37 @@ const AdminUsers: React.FC = () => {
         <div className="admin-dashboard__empty-state">
           <Users size={48} />
           <p>
-            {statusFilter === "rejected" 
-              ? "No rejected users yet" 
+            {error
+              ? "Could not load users."
+              : statusFilter === "deactivated"
+              ? "No deactivated accounts. Members who pause their account will show here so you can reactivate them."
+              : statusFilter === "rejected"
+              ? "No rejected users yet"
               : statusFilter !== "all"
               ? `No ${statusFilter.replace("_", " ")} users yet`
               : "No users yet"}
           </p>
+          {error ? (
+            <button
+              type="button"
+              className="admin-dashboard__retry"
+              onClick={() => void loadUsers()}
+            >
+              Try again
+            </button>
+          ) : null}
         </div>
       ) : (
         <>
           <div className="admin-users-grid">
             {filteredUsers.map((user) => {
-              const isDeleted = user.account_status === "deleted";
+              const isDeleted = accountStatusOf(user) === "deleted";
+              const isDeactivated = accountStatusOf(user) === "deactivated";
+              const bannedFlag: unknown = user.user_banned;
+              const isBanned =
+                bannedFlag === true ||
+                bannedFlag === 1 ||
+                String(bannedFlag) === "1";
               const displayEmail =
                 user.deletion_email_masked || user.user_email || user.business_email;
               const displayPhone = isDeleted
@@ -394,7 +442,7 @@ const AdminUsers: React.FC = () => {
                           <Shield size={12} /> Verified
                         </span>
                       )}
-                      {user.user_banned && (
+                      {isBanned && (
                         <span className="badge badge--banned">
                           <Ban size={12} /> Banned
                         </span>
@@ -404,13 +452,13 @@ const AdminUsers: React.FC = () => {
                           <XCircle size={12} /> Rejected
                         </span>
                       )}
-                      {user.account_status === "deactivated" && (
+                      {isDeactivated && (
                         <span className="badge badge--inactive">Deactivated</span>
                       )}
                       {isDeleted && (
                         <span className="badge badge--inactive">Deleted</span>
                       )}
-                      {!user.user_activated && user.account_status !== "deactivated" && !isDeleted && (
+                      {!user.user_activated && !isDeactivated && !isDeleted && (
                         <span className="badge badge--inactive">Not Activated</span>
                       )}
                     </div>
@@ -491,7 +539,7 @@ const AdminUsers: React.FC = () => {
                       Approve
                     </button>
                   )}
-                  {!user.user_approved && user.account_status !== "rejected" && user.account_status !== "deactivated" && (
+                  {!user.user_approved && accountStatusOf(user) !== "rejected" && !isDeactivated && (
                     <button
                       onClick={() => handleApprove(user.user_id)}
                       disabled={processing === user.user_id}
@@ -505,7 +553,7 @@ const AdminUsers: React.FC = () => {
                       Approve
                     </button>
                   )}
-                  {(!user.user_approved || user.account_status === "pending") && user.account_status !== "rejected" && user.account_status !== "deactivated" && (
+                  {(!user.user_approved || accountStatusOf(user) === "pending") && accountStatusOf(user) !== "rejected" && !isDeactivated && (
                     <button
                       onClick={() => handleReject(user.user_id)}
                       disabled={processing === user.user_id}
@@ -533,22 +581,22 @@ const AdminUsers: React.FC = () => {
                       Verify
                     </button>
                   )}
-                  {user.account_status === "deactivated" && (
+                  {isDeactivated && (
                     <button
                       onClick={() => handleAction(user.user_id, "activate", activateUser)}
                       disabled={processing === user.user_id}
                       className="admin-action-btn admin-action-btn--approve"
-                      title="Activate this deactivated account"
+                      title="Restore sign-in after the member asks to come back"
                     >
                       {processing === user.user_id ? (
                         <Loader2 size={16} className="spinner" />
                       ) : (
                         <CheckCircle size={16} />
                       )}
-                      Activate
+                      Reactivate
                     </button>
                   )}
-                  {!user.user_banned ? (
+                  {!isBanned ? (
                     <button
                       onClick={() => {
                         const reason = window.prompt("Enter reason for ban (optional):");
@@ -680,6 +728,25 @@ const AdminUsers: React.FC = () => {
         confirmText="Ban User"
         cancelText="Cancel"
         type="ban"
+        isLoading={processing === pendingAction?.userId}
+      />
+
+      <ConfirmationModal
+        isOpen={showActivateConfirm}
+        onClose={() => {
+          setShowActivateConfirm(false);
+          setPendingAction(null);
+        }}
+        onConfirm={handleConfirmActivate}
+        title="Reactivate account"
+        message={
+          pendingAction
+            ? `Restore sign-in for ${pendingAction.userName}?\n\nThey will be able to log in again. Use this after they contact support and ask to come back.`
+            : ""
+        }
+        confirmText="Reactivate"
+        cancelText="Cancel"
+        type="warning"
         isLoading={processing === pendingAction?.userId}
       />
     </div>

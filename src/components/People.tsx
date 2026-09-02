@@ -614,7 +614,7 @@ const People: React.FC = () => {
   const filteredUsers = useMemo(() => {
     let users = directoryUsers;
 
-    if (searchQuery.trim()) {
+    if (searchQuery.trim() && searchQuery.trim() !== debouncedSearch) {
       users = users.filter((user) => textMatchesUser(user, searchQuery));
     }
 
@@ -637,6 +637,7 @@ const People: React.FC = () => {
     searchQuery,
     filterQuery,
     filterAccountType,
+    debouncedSearch,
   ]);
 
   // Show notification when no users are found

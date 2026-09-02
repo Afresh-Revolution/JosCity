@@ -3929,6 +3929,17 @@
       color: var(--text-tertiary);
     }
 
+    &__retry {
+      margin-top: 0.85rem;
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 1rem;
+      background: var(--color-primary, #34b86a);
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
     &__message {
       &--error {
         background-color: rgba(220, 53, 69, 0.1);
@@ -4911,6 +4922,13 @@
   }
 }
 
+.admin-dashboard__filter-note {
+  margin: -8px 0 16px;
+  font-size: 13px;
+  color: #4a5568;
+  line-height: 1.4;
+}
+
 // Shared cards/forms for admin sub-pages (news, announcements, etc.)
 .admin-panel-lede {
   margin: 0.35rem 0 0;
@@ -5274,7 +5292,26 @@
   background: #111;
 }
 
+.admin-nav-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .admin-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 8px 16px;
   border: 1px solid var(--border-color, #e0e0e0);
   background: var(--card-bg, white);
@@ -5293,6 +5330,12 @@
     color: white;
     border-color: var(--color-primary, #1a5d3a);
   }
+}
+
+.admin-sidebar-section-container__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .admin-tabs {

@@ -78,8 +78,9 @@ import AdminMonetization from "./AdminMonetization";
 import AdminNotifications from "./AdminNotifications";
 import AdminNews from "./AdminNews";
 import AdminDevelopers from "./AdminDevelopers";
-import { getDashboard, refreshAdminToken, type DashboardData } from "../services/adminApi";
+import { getDashboard, getStats, refreshAdminToken, type DashboardData } from "../services/adminApi";
 import { fetchPendingRegistrations } from "../utils/fetchWithTimeout";
+import AdminNavBadge from "../components/AdminNavBadge";
 
 const Admin: React.FC = () => {
   const navigate = useNavigate();
@@ -126,6 +127,14 @@ const Admin: React.FC = () => {
   >("dashboard");
   const [dashboardData, setDashboardData] = useState<DashboardData["data"] | null>(null);
   const [pendingCount, setPendingCount] = useState<number>(0);
+  const [attention, setAttention] = useState({
+    deactivatedAccounts: 0,
+    pendingApprovals: 0,
+    pendingFunding: 0,
+    pendingWithdrawals: 0,
+    pendingReports: 0,
+    pendingVerifications: 0,
+  });
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -153,6 +162,17 @@ const Admin: React.FC = () => {
         const data = await getDashboard();
         console.log("✅ Dashboard data loaded:", data.data);
         setDashboardData(data.data);
+        const insights = data.data?.insights;
+        if (insights) {
+          setAttention({
+            deactivatedAccounts: Number(insights.deactivatedAccounts || 0),
+            pendingApprovals: Number(insights.pendingApprovals || 0),
+            pendingFunding: Number(insights.pendingFunding || 0),
+            pendingWithdrawals: Number(insights.pendingWithdrawals || 0),
+            pendingReports: Number(insights.pendingReports || 0),
+            pendingVerifications: Number(insights.pendingVerifications || 0),
+          });
+        }
         // Renew admin token (new 7-day expiry) so it doesn’t expire while in use
         refreshAdminToken();
       } catch (err) {
@@ -196,6 +216,34 @@ const Admin: React.FC = () => {
     loadPendingCount();
     // Refresh count every 30 seconds
     const interval = setInterval(loadPendingCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const loadAttention = async () => {
+      try {
+        const response = await getStats();
+        const payload = response.data as Record<string, unknown> | undefined;
+        const insights = (
+          payload?.insights && typeof payload.insights === "object"
+            ? payload.insights
+            : payload
+        ) as Record<string, unknown> | undefined;
+        if (!insights) return;
+        setAttention({
+          deactivatedAccounts: Number(insights.deactivatedAccounts || 0),
+          pendingApprovals: Number(insights.pendingApprovals || 0),
+          pendingFunding: Number(insights.pendingFunding || 0),
+          pendingWithdrawals: Number(insights.pendingWithdrawals || 0),
+          pendingReports: Number(insights.pendingReports || 0),
+          pendingVerifications: Number(insights.pendingVerifications || 0),
+        });
+      } catch {
+        // keep last known counts
+      }
+    };
+    void loadAttention();
+    const interval = setInterval(loadAttention, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -449,6 +497,12 @@ const Admin: React.FC = () => {
                     onClick={() => toggleSection("users")}>
                     <div className="admin-sidebar-section-container__title">
                       Users
+                      <AdminNavBadge
+                        count={
+                          attention.deactivatedAccounts +
+                          attention.pendingApprovals
+                        }
+                      />
                     </div>
                     {expandedSections.users ? (
                       <ChevronDown size={16} />
@@ -469,6 +523,12 @@ const Admin: React.FC = () => {
                         }`}>
                         <UserCircle size={18} />
                         <span>Users</span>
+                        <AdminNavBadge
+                          count={
+                            attention.deactivatedAccounts +
+                            attention.pendingApprovals
+                          }
+                        />
                       </button>
                       <button
                         onClick={(e) => {
@@ -724,6 +784,12 @@ const Admin: React.FC = () => {
                         }`}>
                         <DollarSign size={18} />
                         <span>Funding</span>
+                        <AdminNavBadge
+                          count={
+                            attention.pendingFunding +
+                            attention.pendingWithdrawals
+                          }
+                        />
                       </button>
                       <button
                         onClick={(e) => {
@@ -844,6 +910,7 @@ const Admin: React.FC = () => {
                         }`}>
                         <BarChart3 size={18} />
                         <span>Reports</span>
+                        <AdminNavBadge count={attention.pendingReports} />
                       </button>
                       <button
                         onClick={(e) => {
@@ -889,6 +956,7 @@ const Admin: React.FC = () => {
                         }`}>
                         <CheckCircle size={18} />
                         <span>Verification</span>
+                        <AdminNavBadge count={attention.pendingVerifications} />
                       </button>
                       <button
                         onClick={(e) => {
@@ -1151,7 +1219,7 @@ const Admin: React.FC = () => {
             {activeView === "settings" ? (
               <AdminSettings />
             ) : activeView === "users" ? (
-              <AdminUsers />
+              <AdminUsers counts={attention} />
             ) : activeView === "posts" ? (
               <AdminPosts />
             ) : activeView === "pages" ? (
@@ -1183,7 +1251,7 @@ const Admin: React.FC = () => {
             ) : activeView === "market" ? (
               <AdminMarket />
             ) : activeView === "funding" ? (
-              <AdminFunding />
+              <AdminFunding counts={attention} />
             ) : activeView === "monetization" ? (
               <AdminMonetization />
             ) : activeView === "notifications" ? (

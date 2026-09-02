@@ -17,10 +17,13 @@ import {
   type FundingRequest,
 } from "../services/adminApi";
 import AdminWalletFunding from "../components/AdminWalletFunding";
+import AdminNavBadge from "../components/AdminNavBadge";
 import "../main.css";
 import "../scss/_admin.scss";
 
-const AdminFunding: React.FC = () => {
+const AdminFunding: React.FC<{
+  counts?: { pendingFunding?: number; pendingWithdrawals?: number };
+}> = ({ counts }) => {
   const [requests, setRequests] = useState<FundingRequest[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"wallet" | "campaigns" | "payments">("wallet");
@@ -102,6 +105,9 @@ const AdminFunding: React.FC = () => {
         >
           <Wallet size={16} />
           Funding requests
+          <AdminNavBadge
+            count={(counts?.pendingFunding || 0) + (counts?.pendingWithdrawals || 0)}
+          />
         </button>
         <button
           className={`admin-tab ${activeTab === "campaigns" ? "active" : ""}`}

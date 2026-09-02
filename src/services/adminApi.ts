@@ -117,6 +117,9 @@ export interface DashboardData {
       totalNotifications: number;
       pendingReports: number;
       pendingVerifications: number;
+      deactivatedAccounts?: number;
+      pendingFunding?: number;
+      pendingWithdrawals?: number;
     };
     chart: Array<{
       month: string;

@@ -18,9 +18,11 @@ type Props = {
 };
 
 type PriceDraft = {
+  key: string;
   id: string;
   title: string;
   amount: string;
+  discount: string;
   description: string;
 };
 
@@ -29,6 +31,13 @@ const MAX_ITEMS = 20;
 const formatAmountInput = (amount: number): string => {
   if (!Number.isFinite(amount) || amount === 0) return "";
   return String(amount);
+};
+
+const formatDiscountInput = (value?: number): string => {
+  if (value === undefined || value === null || !Number.isFinite(Number(value))) {
+    return "";
+  }
+  return String(value);
 };
 
 const parseAmount = (value: string): number => {
@@ -41,40 +50,104 @@ const parseAmount = (value: string): number => {
   return Math.round(amount * 100) / 100;
 };
 
-const newDraft = (): PriceDraft => ({
-  id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+const parseDiscount = (value: string): number => {
+  const normalized = value.replace(/%/g, "").trim();
+  if (!normalized) {
+    throw new Error("Enter a JosRide discount between 0 and 100.");
+  }
+  const percent = Number(normalized);
+  if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+    throw new Error("JosRide discount must be between 0 and 100.");
+  }
+  return Math.round(percent * 100) / 100;
+};
+
+const slugifyId = (value: string, fallback: string): string => {
+  const slug = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+  return slug || fallback;
+};
+
+const newKey = () => `draft-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+const newDraft = (id = ""): PriceDraft => ({
+  key: newKey(),
+  id,
   title: "",
   amount: "",
+  discount: "",
   description: "",
 });
 
-const toDrafts = (plan: MembershipPlanSettings): PriceDraft[] => {
+const hasContent = (item: MembershipPlanItem): boolean =>
+  Boolean(String(item.title || "").trim()) ||
+  Number(item.amount || 0) > 0 ||
+  Number(item.josride_discount_percent || 0) > 0 ||
+  Boolean(String(item.description || "").trim());
+
+const toDrafts = (
+  plan: MembershipPlanSettings,
+  accountType: "personal" | "business"
+): PriceDraft[] => {
   const source =
     plan.items && plan.items.length
       ? plan.items
       : [{ id: "primary", amount: plan.amount, description: plan.description }];
+  if (accountType === "personal" && !source.some(hasContent)) {
+    return [
+      {
+        ...newDraft("starter"),
+        title: "Starter",
+      },
+      {
+        ...newDraft("plus"),
+        title: "Plus",
+      },
+    ];
+  }
   return source.map((item, index) => ({
+    key: String(item.id || `item-${index + 1}`),
     id: String(item.id || `item-${index + 1}`),
     title: String(item.title || ""),
     amount: formatAmountInput(Number(item.amount || 0)),
+    discount: formatDiscountInput(item.josride_discount_percent),
     description: String(item.description || ""),
   }));
 };
 
-const toItems = (drafts: PriceDraft[]): MembershipPlanItem[] =>
-  drafts.map((item) => ({
-    id: item.id,
-    title: item.title.trim(),
-    amount: parseAmount(item.amount),
-    description: item.description.trim(),
-  }));
+const toItems = (drafts: PriceDraft[]): MembershipPlanItem[] => {
+  const seen = new Set<string>();
+  return drafts.map((item, index) => {
+    const id = slugifyId(item.id || item.title, `item-${index + 1}`);
+    if (seen.has(id)) {
+      throw new Error("Each package needs a unique ID (for example starter and plus).");
+    }
+    seen.add(id);
+    const next: MembershipPlanItem = {
+      id,
+      title: item.title.trim(),
+      amount: parseAmount(item.amount),
+      description: item.description.trim(),
+    };
+    if (item.discount.trim() !== "") {
+      next.josride_discount_percent = parseDiscount(item.discount);
+    }
+    return next;
+  });
+};
 
 const AdminMembership = ({ onError, onSuccess }: Props) => {
   const [settings, setSettings] = useState<MembershipSettings>(
     DEFAULT_MEMBERSHIP_SETTINGS
   );
-  const [personalItems, setPersonalItems] = useState<PriceDraft[]>([newDraft()]);
-  const [businessItems, setBusinessItems] = useState<PriceDraft[]>([newDraft()]);
+  const [personalItems, setPersonalItems] = useState<PriceDraft[]>([
+    newDraft("starter"),
+    newDraft("plus"),
+  ]);
+  const [businessItems, setBusinessItems] = useState<PriceDraft[]>([newDraft("primary")]);
   const [packageColors, setPackageColors] = useState<Record<string, string>>({});
   const [colorSaving, setColorSaving] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -83,8 +156,8 @@ const AdminMembership = ({ onError, onSuccess }: Props) => {
 
   const applySettings = (next: MembershipSettings) => {
     setSettings(next);
-    setPersonalItems(toDrafts(next.personal));
-    setBusinessItems(toDrafts(next.business));
+    setPersonalItems(toDrafts(next.personal, "personal"));
+    setBusinessItems(toDrafts(next.business, "business"));
   };
 
   const load = useCallback(async () => {
@@ -137,11 +210,20 @@ const AdminMembership = ({ onError, onSuccess }: Props) => {
       if (!result.success) {
         throw new Error(result.message || "Failed to update membership");
       }
-      if (result.data) applySettings(result.data);
+      if (result.data) {
+        setSettings((current) => ({
+          ...current,
+          personal: {
+            ...current.personal,
+            enabled: Boolean(result.data.personal?.enabled),
+          },
+          business: result.data.business ?? current.business,
+        }));
+      }
       onSuccess(
         nextEnabled
-          ? "Personal account membership is now on"
-          : "Personal account membership is now off"
+          ? "Personal subscription UI is now shown in the mobile app"
+          : "Personal subscription UI is now hidden in the mobile app"
       );
     } catch (err) {
       setSettings((current) => ({
@@ -158,14 +240,14 @@ const AdminMembership = ({ onError, onSuccess }: Props) => {
 
   const updateItem = (
     accountType: "personal" | "business",
-    itemId: string,
-    field: keyof Pick<PriceDraft, "title" | "amount" | "description">,
+    key: string,
+    field: keyof Omit<PriceDraft, "key">,
     value: string
   ) => {
     const setter = accountType === "personal" ? setPersonalItems : setBusinessItems;
     setter((current) =>
       current.map((item) =>
-        item.id === itemId ? { ...item, [field]: value } : item
+        item.key === key ? { ...item, [field]: value } : item
       )
     );
     onSuccess(null);
@@ -173,15 +255,25 @@ const AdminMembership = ({ onError, onSuccess }: Props) => {
 
   const addItem = (accountType: "personal" | "business") => {
     const setter = accountType === "personal" ? setPersonalItems : setBusinessItems;
-    setter((current) =>
-      current.length >= MAX_ITEMS ? current : [...current, newDraft()]
-    );
+    setter((current) => {
+      if (current.length >= MAX_ITEMS) return current;
+      const used = new Set(current.map((item) => item.id));
+      const suggested =
+        accountType === "personal" && !used.has("starter")
+          ? "starter"
+          : accountType === "personal" && !used.has("plus")
+            ? "plus"
+            : `plan-${current.length + 1}`;
+      return [...current, newDraft(suggested)];
+    });
     onSuccess(null);
   };
 
-  const removeItem = (accountType: "personal" | "business", itemId: string) => {
+  const removeItem = (accountType: "personal" | "business", key: string) => {
     const setter = accountType === "personal" ? setPersonalItems : setBusinessItems;
-    setter((current) => (current.length <= 1 ? current : current.filter((item) => item.id !== itemId)));
+    setter((current) =>
+      current.length <= 1 ? current : current.filter((item) => item.key !== key)
+    );
     onSuccess(null);
   };
 
@@ -215,11 +307,11 @@ const AdminMembership = ({ onError, onSuccess }: Props) => {
           return saveMembershipBadgeColor({
             package_id: packageId,
             package_name: item.title || packageId,
-            badge_color: packageColors[packageId] || "",
+            badge_color: packageColors[packageId] || packageColors[item.id || ""] || "",
           }).catch(() => undefined);
         })
       );
-      onSuccess("Membership prices, descriptions and badge colors saved");
+      onSuccess("Membership prices, JosRide discounts and badge colors saved");
     } catch (err) {
       onError(
         err instanceof Error
@@ -233,13 +325,14 @@ const AdminMembership = ({ onError, onSuccess }: Props) => {
 
   const saveItemColor = async (item: PriceDraft) => {
     try {
-      setColorSaving(item.id);
+      setColorSaving(item.key);
       onError(null);
       onSuccess(null);
+      const packageId = slugifyId(item.id || item.title, item.key);
       const result = await saveMembershipBadgeColor({
-        package_id: item.id,
-        package_name: item.title.trim() || item.id,
-        badge_color: packageColors[item.id] || "",
+        package_id: packageId,
+        package_name: item.title.trim() || packageId,
+        badge_color: packageColors[packageId] || packageColors[item.id] || "",
       });
       if (!result.success) {
         throw new Error(result.message || "Failed to save badge color");
@@ -261,101 +354,161 @@ const AdminMembership = ({ onError, onSuccess }: Props) => {
   ) => (
     <div className="admin-settings__membership-fields">
       {items.map((item, index) => (
-        <div key={item.id} className="admin-settings__membership-item">
+        <div key={item.key} className="admin-settings__membership-item">
           <div className="admin-settings__membership-item-head">
-            <span className="admin-settings__label">
-              Package {index + 1}
-            </span>
+            <span className="admin-settings__label">Package {index + 1}</span>
             {items.length > 1 ? (
               <button
                 type="button"
                 className="admin-settings__item-remove"
-                onClick={() => removeItem(accountType, item.id)}
+                onClick={() => removeItem(accountType, item.key)}
                 disabled={saving}
-                aria-label={`Remove price ${index + 1}`}
+                aria-label={`Remove package ${index + 1}`}
               >
                 <Trash2 size={14} />
                 Remove
               </button>
             ) : null}
           </div>
-          <div className="admin-settings__field">
-            <label
-              className="admin-settings__label"
-              htmlFor={`${accountType}-membership-title-${item.id}`}
-            >
-              Package name
-            </label>
-            <input
-              id={`${accountType}-membership-title-${item.id}`}
-              type="text"
-              className="admin-settings__input"
-              value={item.title}
-              onChange={(event) =>
-                updateItem(accountType, item.id, "title", event.target.value)
-              }
-              placeholder="Gold Membership Package"
-              disabled={saving}
-            />
-          </div>
-          <div className="admin-settings__field">
-            <label
-              className="admin-settings__label"
-              htmlFor={`${accountType}-membership-amount-${item.id}`}
-            >
-              Amount (₦)
-            </label>
-            <div className="admin-settings__amount-row">
-              <span className="admin-settings__amount-prefix">₦</span>
+          <div className="admin-settings__membership-grid">
+            <div className="admin-settings__field">
+              <label
+                className="admin-settings__label"
+                htmlFor={`${accountType}-membership-id-${item.key}`}
+              >
+                Package ID
+              </label>
               <input
-                id={`${accountType}-membership-amount-${item.id}`}
+                id={`${accountType}-membership-id-${item.key}`}
+                type="text"
+                className="admin-settings__input"
+                value={item.id}
+                onChange={(event) =>
+                  updateItem(accountType, item.key, "id", event.target.value)
+                }
+                placeholder={accountType === "personal" ? "starter" : "primary"}
+                disabled={saving}
+              />
+            </div>
+            <div className="admin-settings__field">
+              <label
+                className="admin-settings__label"
+                htmlFor={`${accountType}-membership-title-${item.key}`}
+              >
+                Title
+              </label>
+              <input
+                id={`${accountType}-membership-title-${item.key}`}
+                type="text"
+                className="admin-settings__input"
+                value={item.title}
+                onChange={(event) =>
+                  updateItem(accountType, item.key, "title", event.target.value)
+                }
+                placeholder="Starter"
+                disabled={saving}
+              />
+            </div>
+          </div>
+          <div className="admin-settings__membership-grid">
+            <div className="admin-settings__field">
+              <label
+                className="admin-settings__label"
+                htmlFor={`${accountType}-membership-amount-${item.key}`}
+              >
+                Amount (NGN)
+              </label>
+              <div className="admin-settings__amount-row">
+                <span className="admin-settings__amount-prefix">₦</span>
+                <input
+                  id={`${accountType}-membership-amount-${item.key}`}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  className="admin-settings__input"
+                  value={item.amount}
+                  onChange={(event) =>
+                    updateItem(accountType, item.key, "amount", event.target.value)
+                  }
+                  placeholder="0"
+                  disabled={saving}
+                />
+              </div>
+              <p className="admin-settings__hint">
+                Membership fee deducted from the member&apos;s wallet. Not a ride fare.
+              </p>
+            </div>
+            <div className="admin-settings__field">
+              <label
+                className="admin-settings__label"
+                htmlFor={`${accountType}-membership-discount-${item.key}`}
+              >
+                JosRide discount (%)
+              </label>
+              <input
+                id={`${accountType}-membership-discount-${item.key}`}
                 type="number"
                 min="0"
-                step="0.01"
+                max="100"
+                step="1"
                 inputMode="decimal"
                 className="admin-settings__input"
-                value={item.amount}
+                value={item.discount}
                 onChange={(event) =>
-                  updateItem(accountType, item.id, "amount", event.target.value)
+                  updateItem(
+                    accountType,
+                    item.key,
+                    "discount",
+                    event.target.value
+                  )
                 }
                 placeholder="0"
                 disabled={saving}
               />
+              <p className="admin-settings__hint">
+                This percent is taken off the original JosRide fare for 30 days
+                after the member pays. The membership fee itself is not a ride
+                credit.
+              </p>
             </div>
           </div>
           <div className="admin-settings__field">
             <label
               className="admin-settings__label"
-              htmlFor={`${accountType}-membership-description-${item.id}`}
+              htmlFor={`${accountType}-membership-description-${item.key}`}
             >
-              Benefits (one per line)
+              Description / benefits (one per line)
             </label>
             <textarea
-              id={`${accountType}-membership-description-${item.id}`}
+              id={`${accountType}-membership-description-${item.key}`}
               className="admin-settings__textarea"
               rows={3}
               value={item.description}
               onChange={(event) =>
                 updateItem(
                   accountType,
-                  item.id,
+                  item.key,
                   "description",
                   event.target.value
                 )
               }
-              placeholder="10% Discount&#10;Premium Partners&#10;VIP perks"
+              placeholder="10% off every JosRide trip for 30 days"
               disabled={saving}
             />
           </div>
           <div className="admin-settings__field">
             <span className="admin-settings__label">Name badge color</span>
             <AdminBadgeColorField
-              value={packageColors[item.id] || ""}
+              value={packageColors[item.id] || packageColors[item.key] || ""}
               onChange={(hex) =>
-                setPackageColors((current) => ({ ...current, [item.id]: hex }))
+                setPackageColors((current) => ({
+                  ...current,
+                  [item.id || item.key]: hex,
+                }))
               }
               onSave={() => void saveItemColor(item)}
-              saving={colorSaving === item.id}
+              saving={colorSaving === item.key}
               disabled={saving}
               showSave
               hint="Members on this package show this color on their name badge."
@@ -382,9 +535,10 @@ const AdminMembership = ({ onError, onSuccess }: Props) => {
         Membership
       </h2>
       <p className="admin-settings__section-description">
-        Personal accounts stay off membership until you turn this on. Business
-        accounts always use the prices and descriptions you set here. Extra
-        prices appear in the app as soon as you save.
+        Create the plans members pay for on the website. Amount is the wallet
+        fee. JosRide discount is the percent taken off every ride for 30 days.
+        Landing-page plans stay visible. These toggles only show or hide the
+        in-app subscription UI for that account type.
       </p>
 
       {loading ? (
@@ -402,8 +556,8 @@ const AdminMembership = ({ onError, onSuccess }: Props) => {
                     Personal accounts
                   </span>
                   <span className="admin-settings__toggle-description">
-                    When this is off, the app hides the membership section for
-                    personal accounts.
+                    Show the subscription UI in the mobile app for personal
+                    accounts. The website landing page still lists these plans.
                   </span>
                 </div>
                 <button
@@ -440,8 +594,9 @@ const AdminMembership = ({ onError, onSuccess }: Props) => {
                     Business accounts
                   </span>
                   <span className="admin-settings__toggle-description">
-                    Business membership stays available. Set the prices and copy
-                    shown in the app.
+                    Business plans on the website. The submitted mobile app does
+                    not use a separate business subscription toggle, so this
+                    stays on.
                   </span>
                 </div>
                 <span className="admin-settings__membership-always-on">

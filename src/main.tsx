@@ -31,6 +31,7 @@ import Accessibility from "./pages/Accessibility";
 import About from "./pages/About";
 import ContactPage from "./pages/ContactPage";
 import UserProfile from "./pages/UserProfile";
+import Membership from "./pages/Membership";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import NavbarThemeToggle from "./components/NavbarThemeToggle";
 import { preventInspect } from "./utils/preventInspect";
@@ -231,6 +232,15 @@ if (rootElement) {
                     }
                   />
                   <Route path="/profile/:username" element={<UserProfile />} />
+                  <Route path="/membership" element={<Membership />} />
+                  <Route
+                    path="/account/membership"
+                    element={
+                      <UserRoute>
+                        <Membership />
+                      </UserRoute>
+                    }
+                  />
                   <Route path="/marketplace" element={<MarketPlace />} />
                   <Route
                     path="/marketplace/products/:id"

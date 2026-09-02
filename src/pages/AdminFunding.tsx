@@ -7,6 +7,7 @@ import {
   XCircle,
   CheckCircle,
   Target,
+  Wallet,
 } from "lucide-react";
 import {
   getFundingRequests,
@@ -15,32 +16,37 @@ import {
   approveFundingPayment,
   type FundingRequest,
 } from "../services/adminApi";
+import AdminWalletFunding from "../components/AdminWalletFunding";
 import "../main.css";
 import "../scss/_admin.scss";
 
 const AdminFunding: React.FC = () => {
   const [requests, setRequests] = useState<FundingRequest[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<"requests" | "payments">("requests");
+  const [activeTab, setActiveTab] = useState<"wallet" | "campaigns" | "payments">("wallet");
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    loadData();
+    if (activeTab === "wallet") {
+      setLoading(false);
+      return;
+    }
+    void loadData();
   }, [activeTab]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      if (activeTab === "requests") {
+      if (activeTab === "campaigns") {
         const response = await getFundingRequests();
-        setRequests(response.data);
+        setRequests(response.data || []);
       } else {
         const response = await getFundingPayments();
-        setPayments(response.data);
+        setPayments(response.data || []);
       }
     } catch (err) {
       console.error("Failed to load funding data:", err);
@@ -56,7 +62,7 @@ const AdminFunding: React.FC = () => {
       setError(null);
       setSuccess(null);
       await deleteFundingRequest(requestId);
-      setSuccess("Funding request deleted successfully");
+      setSuccess("Campaign deleted");
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete request");
@@ -85,28 +91,35 @@ const AdminFunding: React.FC = () => {
       <div className="admin-dashboard__header">
         <h1>
           <DollarSign size={20} />
-          Funding Management
+          Funding
         </h1>
       </div>
 
       <div className="admin-tabs">
         <button
-          className={`admin-tab ${activeTab === "requests" ? "active" : ""}`}
-          onClick={() => setActiveTab("requests")}
+          className={`admin-tab ${activeTab === "wallet" ? "active" : ""}`}
+          onClick={() => setActiveTab("wallet")}
+        >
+          <Wallet size={16} />
+          Funding requests
+        </button>
+        <button
+          className={`admin-tab ${activeTab === "campaigns" ? "active" : ""}`}
+          onClick={() => setActiveTab("campaigns")}
         >
           <Target size={16} />
-          Funding Requests
+          Campaigns
         </button>
         <button
           className={`admin-tab ${activeTab === "payments" ? "active" : ""}`}
           onClick={() => setActiveTab("payments")}
         >
           <DollarSign size={16} />
-          Payments
+          Campaign payments
         </button>
       </div>
 
-      {error && (
+      {activeTab !== "wallet" && error && (
         <div className="admin-dashboard__message admin-dashboard__message--error">
           <AlertCircle size={18} />
           <span>{error}</span>
@@ -116,7 +129,7 @@ const AdminFunding: React.FC = () => {
         </div>
       )}
 
-      {success && (
+      {activeTab !== "wallet" && success && (
         <div className="admin-dashboard__message admin-dashboard__message--success">
           <CheckCircle size={18} />
           <span>{success}</span>
@@ -126,19 +139,21 @@ const AdminFunding: React.FC = () => {
         </div>
       )}
 
-      {loading ? (
+      {activeTab === "wallet" ? (
+        <AdminWalletFunding />
+      ) : loading ? (
         <div className="admin-dashboard__loading">
           <Loader2 size={32} className="spinner" />
           <span>Loading funding data...</span>
         </div>
       ) : (
         <>
-          {activeTab === "requests" && (
+          {activeTab === "campaigns" && (
             <div className="admin-funding-grid">
               {requests.length === 0 ? (
                 <div className="admin-dashboard__empty-state">
                   <Target size={48} />
-                  <p>No funding requests yet</p>
+                  <p>No funding campaigns yet</p>
                 </div>
               ) : (
                 requests.map((request) => (
@@ -157,7 +172,10 @@ const AdminFunding: React.FC = () => {
                           <span>Target: {formatCurrency(request.target_amount)}</span>
                         </div>
                         <div className="admin-funding-card__percentage">
-                          {Math.round((request.current_amount / request.target_amount) * 100)}%
+                          {request.target_amount
+                            ? Math.round((request.current_amount / request.target_amount) * 100)
+                            : 0}
+                          %
                         </div>
                       </div>
                       <div className="admin-funding-card__meta">
@@ -190,7 +208,7 @@ const AdminFunding: React.FC = () => {
               {payments.length === 0 ? (
                 <div className="admin-dashboard__empty-state">
                   <DollarSign size={48} />
-                  <p>No payments yet</p>
+                  <p>No campaign payments yet</p>
                 </div>
               ) : (
                 payments.map((payment: any) => (
@@ -227,4 +245,3 @@ const AdminFunding: React.FC = () => {
 };
 
 export default AdminFunding;
-

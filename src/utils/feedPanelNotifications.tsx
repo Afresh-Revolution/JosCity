@@ -117,7 +117,11 @@ export function mapApiRowToFeedPanelNotification(n: {
     userName:
       n.from_user?.display_name ??
       fallbackCurrentUserName ??
-      (item.is_global || isAdminBroadcast ? "Admin" : "Someone"),
+      (item.is_global || isAdminBroadcast
+        ? "Admin"
+        : nodeTypeLower === "membership"
+          ? "JosCity"
+          : "Someone"),
     userAvatar: n.from_user?.profile_image_url ?? fallbackCurrentUserAvatar,
     message: item.message || n.action || "",
     timestamp: n.time ?? "",
@@ -128,6 +132,9 @@ export function mapApiRowToFeedPanelNotification(n: {
 }
 
 export function getFeedPanelNotificationIcon(n: FeedPanelNotification) {
+  if (n.nodeType === "membership") {
+    return <Calendar size={20} />;
+  }
   if (n.nodeType === "admin_notification" || n.createdByAdmin) {
     const t = normalizeAdminBroadcastType(n.notificationType);
     switch (t) {
@@ -166,6 +173,9 @@ export function getFeedPanelNotificationIcon(n: FeedPanelNotification) {
 }
 
 export function getFeedPanelNotificationColor(n: FeedPanelNotification) {
+  if (n.nodeType === "membership") {
+    return "#2e7d32";
+  }
   if (n.nodeType === "admin_notification" || n.createdByAdmin) {
     const t = normalizeAdminBroadcastType(n.notificationType);
     switch (t) {

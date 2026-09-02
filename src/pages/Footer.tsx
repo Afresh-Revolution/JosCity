@@ -106,6 +106,7 @@ const Footer: React.FC = () => {
         { text: "Services", url: "/#services" },
         { text: "Events", url: "/#events" },
         { text: "Contact Us", url: "/#contact" },
+        { text: "Membership", url: "/membership" },
       ],
     },
     {

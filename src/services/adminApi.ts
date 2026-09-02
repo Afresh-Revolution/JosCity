@@ -1,4 +1,5 @@
 import API_BASE_URL from "../api/config";
+import type { CbcQuote } from "../utils/cbcQuote";
 
 /** Express/HTML error pages: extract a short line and avoid dumping full HTML into the UI. */
 function normalizeNonJsonAdminError(status: number, statusText: string, body: string): string {
@@ -1134,6 +1135,7 @@ export interface MembershipPlanItem {
   title?: string;
   amount: number;
   description: string;
+  josride_discount_percent?: number;
 }
 
 export interface MembershipPlanSettings {
@@ -1177,18 +1179,44 @@ export interface WalletPaymentRequest {
   request_id: string;
   user_id: string;
   amount: number;
+  cbc_amount?: number;
   status: string;
   requested_at: string;
+  request_type?: string;
+  method?: string | null;
+  proof_url?: string | null;
+  admin_notes?: string | null;
 }
+
+export type { CbcQuote };
 
 export interface WalletPaymentsResponse {
   success: boolean;
+  quote?: CbcQuote | null;
   data: WalletPaymentRequest[];
 }
 
 export const getWalletPayments = async (): Promise<WalletPaymentsResponse> => {
   const response = await adminApiRequest("/wallet/payments");
   return response.json();
+};
+
+export const getCbcQuote = async (): Promise<CbcQuote> => {
+  const response = await adminApiRequest("/wallet/cbc");
+  const payload = await response.json();
+  return (payload.data ?? payload) as CbcQuote;
+};
+
+export const updateCbcQuote = async (input: {
+  cbc_usd: number;
+  usd_ngn: number | null;
+}): Promise<CbcQuote> => {
+  const response = await adminApiRequest("/wallet/cbc", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+  const payload = await response.json();
+  return (payload.data ?? payload) as CbcQuote;
 };
 
 export const approveWalletPayment = async (id: string): Promise<{ success: boolean; message: string }> => {
@@ -1198,9 +1226,13 @@ export const approveWalletPayment = async (id: string): Promise<{ success: boole
   return response.json();
 };
 
-export const rejectWalletPayment = async (id: string): Promise<{ success: boolean; message: string }> => {
+export const rejectWalletPayment = async (
+  id: string,
+  reason?: string
+): Promise<{ success: boolean; message: string }> => {
   const response = await adminApiRequest(`/wallet/payments/${id}/reject`, {
     method: "POST",
+    body: JSON.stringify({ reason }),
   });
   return response.json();
 };

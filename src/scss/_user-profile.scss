@@ -382,6 +382,17 @@
     font-weight: 500;
   }
 
+  &__header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-left: auto;
+
+    @media (max-width: 480px) {
+      width: 100%;
+    }
+  }
+
   &__edit-btn {
     display: flex;
     align-items: center;

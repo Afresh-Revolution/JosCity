@@ -76,7 +76,9 @@ export default function AdminBadgeColorField({
             className="admin-badge-color__hex"
             value={value}
             placeholder="#7C3AED"
-            maxLength={7}
+            maxLength={9}
+            spellCheck={false}
+            autoComplete="off"
             disabled={disabled || saving}
             onChange={(event) => onChange(event.target.value)}
           />

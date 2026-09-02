@@ -19,6 +19,7 @@ import {
   IdCard,
   VenusAndMars,
   Copy,
+  BadgeCheck,
 } from "lucide-react";
 import "../main.css";
 import "../scss/_user-profile.scss";
@@ -626,10 +627,19 @@ const UserProfile: React.FC = () => {
                   </div>
                 )}
               </div>
-              <button
-                className="user-profile__edit-btn"
-                onClick={isEditing ? handleCancel : handleEdit}
-              >
+              <div className="user-profile__header-actions">
+                <button
+                  type="button"
+                  className="user-profile__edit-btn"
+                  onClick={() => navigate("/membership")}
+                >
+                  <BadgeCheck size={18} />
+                  Membership
+                </button>
+                <button
+                  className="user-profile__edit-btn"
+                  onClick={isEditing ? handleCancel : handleEdit}
+                >
                 {isEditing ? (
                   <>
                     <X size={18} />
@@ -642,6 +652,7 @@ const UserProfile: React.FC = () => {
                   </>
                 )}
               </button>
+              </div>
             </div>
 
             <div className="user-profile__content">

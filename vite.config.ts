@@ -35,7 +35,7 @@ function devApiProxy(target: string) {
     changeOrigin: true,
     secure: false,
     ws: true,
-    timeout: 10000,
+    timeout: 60000,
     configure: (proxy: {
       on: (event: string, handler: (...args: unknown[]) => void) => void;
     }) => {

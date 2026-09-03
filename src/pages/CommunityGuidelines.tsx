@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Home, ArrowLeft } from "lucide-react";
+import AppStoreDownload from "../components/AppStoreDownload";
 import "../main.css";
 
 const CommunityGuidelines: React.FC = () => {
@@ -86,8 +87,17 @@ const CommunityGuidelines: React.FC = () => {
             </p>
           </section>
 
+          <section className="legal-page__section" id="download-app">
+            <h2>7. Download the app</h2>
+            <p>
+              JosCity is available for Android and iPhone. Use the store
+              buttons below when the links are published.
+            </p>
+            <AppStoreDownload heading="" description="" />
+          </section>
+
           <section className="legal-page__section">
-            <h2>6. Contact</h2>
+            <h2>8. Contact</h2>
             <p>
               Questions about these guidelines: <strong>support@joscity.com</strong>
             </p>

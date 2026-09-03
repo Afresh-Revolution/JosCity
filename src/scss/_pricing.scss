@@ -347,6 +347,13 @@
     gap: 10px;
   }
 
+  &__card-badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
   &__subscribed-badge {
     flex-shrink: 0;
     display: inline-flex;
@@ -359,6 +366,27 @@
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+
+    &--revised {
+      background: #fbbf24;
+      color: #422006;
+    }
+  }
+
+  &__card-revised {
+    margin: 8px 0 0;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(251, 191, 36, 0.2);
+    border: 1px solid rgba(251, 191, 36, 0.45);
+    color: #fde68a;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.4;
+  }
+
+  &__card--revised {
+    box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.45);
   }
 
   &__card-subscribed {
@@ -395,6 +423,14 @@
     line-height: 1.6;
     font-weight: 400;
     letter-spacing: 0.2px;
+  }
+
+  &__card-cashback {
+    font-size: 13px;
+    color: #86efac;
+    margin: 8px 0 0;
+    line-height: 1.5;
+    font-weight: 600;
   }
 
   &__card-features {

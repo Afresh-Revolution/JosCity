@@ -9,7 +9,11 @@ import {
   type MembershipPlanSettings,
   type MembershipSettings,
 } from "../services/adminApi";
-import { DEFAULT_MEMBERSHIP_SETTINGS } from "../services/membershipApi";
+import {
+  DEFAULT_MEMBERSHIP_SETTINGS,
+  readCashbackAmount,
+  readCashbackDurationMonths,
+} from "../services/membershipApi";
 import AdminBadgeColorField from "./AdminBadgeColorField";
 
 type Props = {
@@ -23,10 +27,13 @@ type PriceDraft = {
   title: string;
   amount: string;
   discount: string;
+  cashback: string;
+  cashbackDuration: string;
   description: string;
 };
 
 const MAX_ITEMS = 20;
+const MAX_CASHBACK_MONTHS = 36;
 
 const formatAmountInput = (amount: number): string => {
   if (!Number.isFinite(amount) || amount === 0) return "";
@@ -62,6 +69,33 @@ const parseDiscount = (value: string): number => {
   return Math.round(percent * 100) / 100;
 };
 
+const parseOptionalAmount = (value: string, label: string): number => {
+  const normalized = value.replace(/,/g, "").trim();
+  if (!normalized) return 0;
+  const amount = Number(normalized);
+  if (!Number.isFinite(amount) || amount < 0) {
+    throw new Error(`Enter a valid ${label} of 0 or more.`);
+  }
+  return Math.round(amount * 100) / 100;
+};
+
+const parseCashbackDuration = (value: string): number => {
+  const normalized = value.trim();
+  if (!normalized || normalized === "0") return 0;
+  const months = Number(normalized);
+  if (
+    !Number.isFinite(months) ||
+    !Number.isInteger(months) ||
+    months < 1 ||
+    months > MAX_CASHBACK_MONTHS
+  ) {
+    throw new Error(
+      `Cashback duration must be a whole number of 30-day months between 1 and ${MAX_CASHBACK_MONTHS}.`
+    );
+  }
+  return months;
+};
+
 const slugifyId = (value: string, fallback: string): string => {
   const slug = value
     .toLowerCase()
@@ -79,6 +113,8 @@ const newDraft = (id = ""): PriceDraft => ({
   title: "",
   amount: "",
   discount: "",
+  cashback: "",
+  cashbackDuration: "",
   description: "",
 });
 
@@ -86,6 +122,7 @@ const hasContent = (item: MembershipPlanItem): boolean =>
   Boolean(String(item.title || "").trim()) ||
   Number(item.amount || 0) > 0 ||
   Number(item.josride_discount_percent || 0) > 0 ||
+  readCashbackAmount(item) > 0 ||
   Boolean(String(item.description || "").trim());
 
 const toDrafts = (
@@ -114,6 +151,8 @@ const toDrafts = (
     title: String(item.title || ""),
     amount: formatAmountInput(Number(item.amount || 0)),
     discount: formatDiscountInput(item.josride_discount_percent),
+    cashback: formatAmountInput(readCashbackAmount(item)),
+    cashbackDuration: formatAmountInput(readCashbackDurationMonths(item)),
     description: String(item.description || ""),
   }));
 };
@@ -126,11 +165,23 @@ const toItems = (drafts: PriceDraft[]): MembershipPlanItem[] => {
       throw new Error("Each package needs a unique ID (for example starter and plus).");
     }
     seen.add(id);
+    const cashbackAmount = parseOptionalAmount(item.cashback, "cashback amount");
+    const cashbackMonths =
+      cashbackAmount > 0
+        ? parseCashbackDuration(item.cashbackDuration)
+        : 0;
+    if (cashbackAmount > 0 && cashbackMonths <= 0) {
+      throw new Error(
+        `Set cashback duration (in 30-day months) for ${item.title.trim() || id}.`
+      );
+    }
     const next: MembershipPlanItem = {
       id,
       title: item.title.trim(),
       amount: parseAmount(item.amount),
       description: item.description.trim(),
+      cashback_amount: cashbackAmount,
+      cashback_duration_months: cashbackAmount > 0 ? cashbackMonths : 0,
     };
     if (item.discount.trim() !== "") {
       next.josride_discount_percent = parseDiscount(item.discount);
@@ -311,7 +362,7 @@ const AdminMembership = ({ onError, onSuccess }: Props) => {
           }).catch(() => undefined);
         })
       );
-      onSuccess("Membership prices, JosRide discounts and badge colors saved");
+      onSuccess("Membership prices, JosRide discounts, cashback and badge colors saved");
     } catch (err) {
       onError(
         err instanceof Error
@@ -473,6 +524,75 @@ const AdminMembership = ({ onError, onSuccess }: Props) => {
               </p>
             </div>
           </div>
+          <div className="admin-settings__membership-grid">
+            <div className="admin-settings__field">
+              <label
+                className="admin-settings__label"
+                htmlFor={`${accountType}-membership-cashback-${item.key}`}
+              >
+                Wallet cashback (NGN, optional)
+              </label>
+              <div className="admin-settings__amount-row">
+                <span className="admin-settings__amount-prefix">₦</span>
+                <input
+                  id={`${accountType}-membership-cashback-${item.key}`}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  className="admin-settings__input"
+                  value={item.cashback}
+                  onChange={(event) =>
+                    updateItem(
+                      accountType,
+                      item.key,
+                      "cashback",
+                      event.target.value
+                    )
+                  }
+                  placeholder="0"
+                  disabled={saving}
+                />
+              </div>
+              <p className="admin-settings__hint">
+                Optional. Credited to the member&apos;s wallet every 30 days
+                after purchase. Leave blank for no cashback.
+              </p>
+            </div>
+            <div className="admin-settings__field">
+              <label
+                className="admin-settings__label"
+                htmlFor={`${accountType}-membership-cashback-duration-${item.key}`}
+              >
+                Cashback duration (30-day months)
+              </label>
+              <input
+                id={`${accountType}-membership-cashback-duration-${item.key}`}
+                type="number"
+                min="0"
+                max={MAX_CASHBACK_MONTHS}
+                step="1"
+                inputMode="numeric"
+                className="admin-settings__input"
+                value={item.cashbackDuration}
+                onChange={(event) =>
+                  updateItem(
+                    accountType,
+                    item.key,
+                    "cashbackDuration",
+                    event.target.value
+                  )
+                }
+                placeholder="10"
+                disabled={saving}
+              />
+              <p className="admin-settings__hint">
+                Required only when cashback is set. 10 means 10 credits, one
+                every 30 days from approval. Continues even if they cancel or
+                do not resubscribe.
+              </p>
+            </div>
+          </div>
           <div className="admin-settings__field">
             <label
               className="admin-settings__label"
@@ -537,8 +657,11 @@ const AdminMembership = ({ onError, onSuccess }: Props) => {
       <p className="admin-settings__section-description">
         Create the plans members pay for on the website. Amount is the wallet
         fee. JosRide discount is the percent taken off every ride for 30 days.
-        Landing-page plans stay visible. These toggles only show or hide the
-        in-app subscription UI for that account type.
+        Optional wallet cashback is credited every 30 days for the duration you
+        set, even if the member cancels or does not resubscribe. Landing-page
+        plans stay
+        visible. These toggles only show or hide the in-app subscription UI for
+        that account type.
       </p>
 
       {loading ? (

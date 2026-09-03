@@ -2,7 +2,7 @@
 
 This covers the **JosCity website** and **JosCity admin**. Membership is sold on JosCity. The ride discount is applied later by the JosRide backend. The submitted mobile apps do not need this work yet.
 
-Do **not** hardcode ₦2,000 / 10% or ₦5,000 / 30%. Admin owns amount and discount percent.
+Do **not** hardcode ₦2,000 / 10% or ₦5,000 / 30% or cashback amounts. Admin owns amount, discount percent, optional cashback, and cashback duration.
 
 ---
 
@@ -12,8 +12,9 @@ A JosCity user funds their wallet, pays for a plan, and that plan stays active f
 
 | Who | What to build now |
 |---|---|
-| JosCity admin | Create / edit plans: title, amount, description, **JosRide discount %** |
-| JosCity website | Show plans, pay from wallet, show current plan + expiry |
+| JosCity admin | Create / edit plans: title, amount, description, **JosRide discount %**, optional **wallet cashback** and **cashback duration** |
+| JosCity website | Show plans, pay from wallet, show current plan + expiry + cashback copy |
+| JosCity backend | Persist cashback on plans. After subscribe, credit `cashback_amount` to the wallet every 30 days for `cashback_duration_months`. Independent of resubscription. |
 | JosCity mobile apps | No change for this release |
 | JosRide apps / web | No change for this release. Discount is applied on the JosRide API fare |
 
@@ -48,12 +49,18 @@ type MembershipPlanItem = {
   amount: number;                   // NGN to debit from wallet. Not a ride price.
   description: string;              // Newline-separated benefit copy
   josride_discount_percent: number; // 0–100. 10 = 10% off every JosRide trip
+  cashback_amount: number;          // NGN credited to wallet every 30 days. 0 = none
+  cashback_duration_months: number; // How many 30-day cycles to credit. 0 = none
 };
 ```
 
 Aliases accepted on **write** only: `ride_discount_percent`, `discount_percent`. Prefer `josride_discount_percent`.
 
-If admin saves an item without that field, the previous percent is kept. Sending `0` clears it.
+Cashback write aliases: `cashback`, `wallet_cashback`, `cashback_months`, `cashback_duration`. Prefer `cashback_amount` and `cashback_duration_months`.
+
+If admin saves an item without the discount field, the previous percent is kept. Sending `0` clears it.
+
+Cashback is optional. Empty / `0` amount means no cashback. If `cashback_amount` > 0, `cashback_duration_months` must be ≥ 1.
 
 ### Current membership (logged-in user)
 
@@ -68,6 +75,12 @@ type CurrentMembership = {
   billing: "Billed every 30 days";
   badge_color: string | null;
   josride_discount_percent: number; // 0 when EXPIRED
+  cashback_amount?: number;
+  cashback_duration_months?: number;
+  cashback_payments_made?: number;
+  cashback_remaining_payments?: number;
+  cashback_next_at?: string | null; // YYYY-MM-DD of next wallet credit
+  cashback_ends_at?: string | null;
 } | null;
 ```
 
@@ -99,16 +112,20 @@ PUT  /api/admin/membership
         {
           "id": "starter",
           "title": "Starter",
-          "amount": 2000,
-          "description": "10% off every JosRide trip for 30 days",
-          "josride_discount_percent": 10
+          "amount": 5000,
+          "description": "5% off every JosRide trip for 30 days",
+          "josride_discount_percent": 5,
+          "cashback_amount": 0,
+          "cashback_duration_months": 0
         },
         {
           "id": "plus",
           "title": "Plus",
-          "amount": 5000,
-          "description": "30% off every JosRide trip for 30 days",
-          "josride_discount_percent": 30
+          "amount": 10000,
+          "description": "10% off every JosRide trip for 30 days",
+          "josride_discount_percent": 10,
+          "cashback_amount": 2000,
+          "cashback_duration_months": 10
         }
       ]
     },
@@ -138,16 +155,20 @@ Send `personal` and/or `business`. Business `enabled` is always treated as `true
       {
         "id": "starter",
         "title": "Starter",
-        "amount": 2000,
-        "description": "10% off every JosRide trip for 30 days",
-        "josride_discount_percent": 10
+        "amount": 5000,
+        "description": "5% off every JosRide trip for 30 days",
+        "josride_discount_percent": 5,
+        "cashback_amount": 0,
+        "cashback_duration_months": 0
       },
       {
         "id": "plus",
         "title": "Plus",
-        "amount": 5000,
-        "description": "30% off every JosRide trip for 30 days",
-        "josride_discount_percent": 30
+        "amount": 10000,
+        "description": "10% off every JosRide trip for 30 days",
+        "josride_discount_percent": 10,
+        "cashback_amount": 2000,
+        "cashback_duration_months": 10
       }
     ]
   }
@@ -161,16 +182,28 @@ For each item show:
 - Title
 - Amount (NGN) — membership fee, not a ride fare
 - JosRide discount (%) — number input, 0–100
+- Wallet cashback (NGN) — optional. Blank / 0 = no cashback
+- Cashback duration (30-day months) — required only when cashback amount is set
 - Description / benefits (textarea; one benefit per line)
 
 Helper copy under the percent field:
 
 > This percent is taken off the original JosRide fare for 30 days after the member pays. The membership fee itself is not a ride credit.
 
+Helper copy under cashback:
+
+> Optional. Credited to the member's wallet every 30 days after purchase. Leave blank for no cashback.
+
+Helper copy under duration:
+
+> Required only when cashback is set. 10 means 10 credits, one every 30 days from approval. Continues even if they cancel or do not resubscribe.
+
 Validation before save:
 
 - `amount` ≥ 0
 - `josride_discount_percent` between 0 and 100
+- `cashback_amount` ≥ 0
+- if `cashback_amount` > 0 then `cashback_duration_months` is an integer 1–36
 - unique `id` per item (stable ids; website subscribe sends this as `package_id`)
 - max 20 items per account type
 
@@ -221,10 +254,12 @@ Authorization: Bearer <user jwt>
       {
         "id": "starter",
         "title": "Starter",
-        "amount": 2000,
-        "description": "10% off every JosRide trip for 30 days",
-        "josride_discount_percent": 10,
-        "features": ["10% off every JosRide trip for 30 days"],
+        "amount": 5000,
+        "description": "5% off every JosRide trip for 30 days",
+        "josride_discount_percent": 5,
+        "cashback_amount": 0,
+        "cashback_duration_months": 0,
+        "features": ["5% off every JosRide trip for 30 days"],
         "sort_order": 0
       }
     ],
@@ -247,7 +282,7 @@ Show a coming-soon state. Do not offer subscribe.
 | `current` | UI |
 |---|---|
 | `null` | “No active plan” |
-| `status: "ACTIVE"` | Title, “X% off JosRide rides”, “Renews / expires `expires_at`” |
+| `status: "ACTIVE"` | Title, “X% off JosRide rides”, expiry, and cashback copy when a grant is running |
 | `status: "EXPIRED"` | “Expired on `expires_at`” + CTA to buy again |
 
 ---
@@ -286,7 +321,12 @@ Content-Type: application/json
       "expires_at": "2026-10-01",
       "billing": "Billed every 30 days",
       "badge_color": null,
-      "josride_discount_percent": 10
+      "josride_discount_percent": 10,
+      "cashback_amount": 2000,
+      "cashback_duration_months": 10,
+      "cashback_payments_made": 0,
+      "cashback_remaining_payments": 10,
+      "cashback_next_at": "2026-10-31"
     }
   }
 }
@@ -309,6 +349,64 @@ There is no prorating and no auto-renew charge in this backend. After 30 days th
 
 ---
 
+## 4b. Backend — wallet cashback (required)
+
+Cashback is **separate** from the 30-day JosRide discount. Discount still lasts 30 days and still resets on resubscribe. Cashback does not.
+
+A **month** is the same 30-day window already used for membership: 30 days from when the subscribe payment is approved (wallet debit succeeds).
+
+### When a subscribe succeeds
+
+If the paid package has `cashback_amount` > 0 and `cashback_duration_months` > 0:
+
+1. Snapshot those two values onto a **cashback grant** for that user. Do not read later admin edits when paying later months.
+2. Start the clock at subscribe time (`approved_at`).
+3. **Do not** credit cashback on day 0.
+4. After **30 days**, credit `cashback_amount` to the user's JosCity wallet.
+5. Repeat every 30 days until `cashback_duration_months` credits have been paid.
+   - Example: ₦2,000 for 10 months → 10 credits, first at day 30, last at day 300.
+
+### Regardless of resubscription or cancellation
+
+Cashback is a grant, not a subscription. It keeps paying until its own duration is finished.
+
+- If the member **cancels** the subscription, remaining cashback credits **must still be paid** on the same 30-day schedule until `payments_made >= duration_months`.
+- Membership **expiry** (discount window ends) **must not stop** remaining cashback.
+- A later subscribe / renew / replace **must not stop, reset, or skip** an in-progress grant, and **must not** start a second grant for the same unfinished package.
+- After a grant has paid all of its months, a later subscribe to a cashback package may start a new grant.
+
+`POST /account/membership/cancel` only stops auto-renew reminders and lets the 30-day **discount** run out. It must not cancel, pause, or delete an active cashback grant.
+
+### Suggested grant fields
+
+```ts
+type MembershipCashbackGrant = {
+  user_id: number;
+  package_id: string;
+  amount: number;            // snapshotted cashback_amount
+  duration_months: number;   // snapshotted cashback_duration_months
+  payments_made: number;
+  started_at: string;        // subscribe approved_at
+  next_at: string;           // started_at + (payments_made + 1) * 30 days
+  status: "ACTIVE" | "COMPLETED";
+};
+```
+
+Return grant progress on `current` so the website can show remaining months.
+
+A daily job (or equivalent) should find grants where `status = ACTIVE` and `next_at <= today`, credit the wallet, increment `payments_made`, and complete the grant when `payments_made >= duration_months`.
+
+Example admin setup (do not hardcode; admin enters these):
+
+| Amount | Discount | Cashback | Duration |
+|---|---|---|---|
+| ₦5,000 | 5% | none | — |
+| ₦10,000 | 10% | ₦2,000 | 10 months |
+| ₦30,000 | 15% | ₦3,000 | 10 months |
+| ₦50,000 | 30% | ₦5,500 | 10 months |
+
+---
+
 ## 5. Website UI copy (suggested)
 
 **Plan card**
@@ -316,6 +414,7 @@ There is no prorating and no auto-renew charge in this backend. After 30 days th
 - Title
 - ₦ amount / 30 days
 - “X% off every JosRide trip”
+- If cashback is set: “₦X wallet cashback every 30 days for Y months”
 - Feature bullets from `features`
 
 **After purchase**
@@ -330,8 +429,8 @@ Do **not** tell the user they received ₦2,000 ride credit. The ₦2,000 only a
 
 - Do not calculate a JosRide fare or discounted fare. That lives on JosRide.
 - Do not call JosRide APIs from the JosCity site for this feature.
-- Do not send `josride_discount_percent` on subscribe. The server copies it from the plan at payment time.
-- Do not treat `amount` as a wallet credit toward rides.
+- Do not send `josride_discount_percent` or cashback fields on subscribe. The server copies them from the plan at payment time.
+- Do not treat `amount` as a wallet credit toward rides. Cashback is a separate later wallet credit.
 
 ---
 
@@ -367,9 +466,10 @@ await membershipApi.subscribe(token, packages[0].id);
 
 Admin
 
-- [ ] Create two personal plans (e.g. ₦2,000 / 10% and ₦5,000 / 30%)
-- [ ] Reload GET and confirm percents persisted
-- [ ] Edit amount only; discount percent must not reset to 0
+- [ ] Create two personal plans (e.g. ₦5,000 / 5% with no cashback, and ₦10,000 / 10% with ₦2,000 cashback for 10 months)
+- [ ] Reload GET and confirm percents and cashback persisted
+- [ ] Edit amount only; discount percent and cashback must not reset to 0
+- [ ] Clear cashback amount + duration; GET returns 0 / no cashback
 - [ ] Disable personal membership; website shows coming soon
 
 Website
@@ -378,8 +478,9 @@ Website
 - [ ] Logged-in page shows `current === null` before pay
 - [ ] Subscribe with low wallet → insufficient-balance error + fund CTA
 - [ ] Fund wallet, subscribe → `ACTIVE`, `josride_discount_percent` matches the plan, `expires_at` is ~30 days out
-- [ ] Subscribe to the other plan → previous plan replaced, new 30 days
+- [ ] Subscribe to the other plan → previous plan replaced, new 30 days, in-progress cashback is not reset
 - [ ] After expiry (or by setting a past date in staging) status is `EXPIRED` and percent is 0
+- [ ] Cashback package: no wallet credit on day 0; first credit ~30 days later; remaining payments continue after expiry **and after cancel**
 
 JosRide (backend already live; no app rebuild)
 

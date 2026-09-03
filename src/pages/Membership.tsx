@@ -12,6 +12,10 @@ import {
   subscribeMembership,
   cancelMembership,
   resumeMembership,
+  formatCashbackCopy,
+  formatActiveCashbackCopy,
+  hasMembershipCashback,
+  PLAN_REVISED_COPY,
   type AccountMembership,
   type CurrentMembership,
   type MembershipPackage,
@@ -28,13 +32,21 @@ function formatNaira(value?: number) {
 }
 
 function featuresOf(pkg: MembershipPackage): string[] {
-  if (Array.isArray(pkg.features) && pkg.features.length) {
-    return pkg.features.filter(Boolean);
+  const lines =
+    Array.isArray(pkg.features) && pkg.features.length
+      ? pkg.features.filter(Boolean)
+      : String(pkg.description || "")
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean);
+  const cashbackCopy = formatCashbackCopy(
+    pkg.cashback_amount,
+    pkg.cashback_duration_months
+  );
+  if (cashbackCopy && !lines.some((line) => /cashback/i.test(line))) {
+    return [...lines, cashbackCopy];
   }
-  return String(pkg.description || "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+  return lines;
 }
 
 const MembershipPage = () => {
@@ -79,6 +91,8 @@ const MembershipPage = () => {
             amount: plan.amount,
             description: plan.description,
             josride_discount_percent: plan.josride_discount_percent,
+            cashback_amount: plan.cashback_amount,
+            cashback_duration_months: plan.cashback_duration_months,
             features: plan.features,
             sort_order: index,
           }))
@@ -106,20 +120,39 @@ const MembershipPage = () => {
     if (!current) return { tone: "idle", text: "No active plan" };
     const expiresLabel = toCalendarDate(current.expires_at) || current.expires_at || "—";
     if (current.status === "EXPIRED") {
+      const cashbackCopy = formatActiveCashbackCopy(current);
       return {
         tone: "expired",
-        text: `Expired on ${expiresLabel}. Buy a plan to restore your JosRide discount.`,
+        text: `Expired on ${expiresLabel}. Buy a plan to restore your JosRide discount.${
+          cashbackCopy
+            ? ` ${cashbackCopy} Remaining cashback still credits even after expiry.`
+            : ""
+        }`,
       };
     }
     if (current.cancelled) {
+      const cashbackCopy = formatActiveCashbackCopy(current);
       return {
         tone: "idle",
-        text: `${current.title} is cancelled. Your paid JosRide discount stays until ${expiresLabel}. Undo to resume reminders on this same countdown.`,
+        text: `${current.title} is cancelled. Your paid JosRide discount stays until ${expiresLabel}.${
+          cashbackCopy
+            ? ` ${cashbackCopy} Cancellation does not stop remaining cashback.`
+            : ""
+        } Undo to resume reminders on this same countdown.${
+          current.plan_revised ? ` ${PLAN_REVISED_COPY}` : ""
+        }`,
       };
     }
+    const cashbackCopy = formatActiveCashbackCopy(current);
     return {
-      tone: "active",
-      text: `${current.title} is active. ${current.josride_discount_percent}% off JosRide rides. Renews / expires ${expiresLabel}.`,
+      tone: current.plan_revised ? "revised" : "active",
+      text: current.plan_revised
+        ? `${PLAN_REVISED_COPY} Your current ${current.title} terms stay until ${expiresLabel}.${
+            cashbackCopy ? ` ${cashbackCopy}` : ""
+          }`
+        : `${current.title} is active. ${current.josride_discount_percent}% off JosRide rides. Renews / expires ${expiresLabel}.${
+            cashbackCopy ? ` ${cashbackCopy}` : ""
+          }`,
     };
   }, [current, loggedIn]);
 
@@ -159,8 +192,16 @@ const MembershipPage = () => {
       );
       const walletData = await walletApi.getWallet().catch(() => null);
       if (walletData) setWallet(walletData);
+      const cashbackCopy = formatCashbackCopy(
+        next?.cashback_amount ?? pendingPackage.cashback_amount,
+        next?.cashback_duration_months ?? pendingPackage.cashback_duration_months
+      );
       setSuccess(
-        `Your ${next?.title || pendingPackage.title} plan is active. For 30 days, JosRide will automatically take ${next?.josride_discount_percent ?? pendingPackage.josride_discount_percent}% off the original price of each ride. You do not need to do anything in the JosRide app.`
+        `Your ${next?.title || pendingPackage.title} plan is active. For 30 days, JosRide will automatically take ${next?.josride_discount_percent ?? pendingPackage.josride_discount_percent}% off the original price of each ride.${
+          cashbackCopy
+            ? ` ${cashbackCopy}, starting 30 days from today, even if you cancel or do not resubscribe.`
+            : " You do not need to do anything in the JosRide app."
+        }`
       );
       setShowWallet(false);
     } catch (err) {
@@ -185,8 +226,11 @@ const MembershipPage = () => {
       setAccount((currentAccount) =>
         currentAccount ? { ...currentAccount, current: next } : currentAccount
       );
+      const cashbackCopy = next ? formatActiveCashbackCopy(next) : null;
       setSuccess(
-        "Subscription cancelled. Your paid benefits stay until the expiry date, and you will not get renewal reminders."
+        cashbackCopy
+          ? `Subscription cancelled. Your paid JosRide discount stays until the expiry date. ${cashbackCopy} Remaining cashback still credits even after cancel.`
+          : "Subscription cancelled. Your paid benefits stay until the expiry date, and you will not get renewal reminders."
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not cancel membership");
@@ -247,7 +291,9 @@ const MembershipPage = () => {
           <h1>Ride discounts for 30 days</h1>
           <p>
             Pay from your JosCity wallet. JosRide then takes the plan percent off
-            the original fare automatically. The fee is not ride credit.
+            the original fare automatically. Some plans also credit wallet
+            cashback every 30 days for a set duration, even if you do not
+            resubscribe.
           </p>
         </header>
 
@@ -290,19 +336,32 @@ const MembershipPage = () => {
                 const isCurrent =
                   current?.status === "ACTIVE" &&
                   String(current.package_id) === String(pkg.id);
+                const isRevised = Boolean(isCurrent && current?.plan_revised);
                 return (
                   <article
                     key={pkg.id}
-                    className={`membership-card${isCurrent ? " membership-card--current" : ""}`}
+                    className={`membership-card${isCurrent ? " membership-card--current" : ""}${
+                      isRevised ? " membership-card--revised" : ""
+                    }`}
                   >
                     <div className="membership-card__top">
                       <h2>{pkg.title || "Membership"}</h2>
                       {isCurrent ? (
-                        <span className="membership-card__badge">
-                          {current?.cancelled ? "Cancelled" : "Subscribed"}
-                        </span>
+                        <div className="membership-card__badges">
+                          <span className="membership-card__badge">
+                            {current?.cancelled ? "Cancelled" : "Subscribed"}
+                          </span>
+                          {isRevised ? (
+                            <span className="membership-card__badge membership-card__badge--revised">
+                              Plan revised
+                            </span>
+                          ) : null}
+                        </div>
                       ) : null}
                     </div>
+                    {isRevised ? (
+                      <p className="membership-card__revised">{PLAN_REVISED_COPY}</p>
+                    ) : null}
                     <p className="membership-card__price">
                       {formatNaira(pkg.amount)}
                       <span> / 30 days</span>
@@ -326,19 +385,38 @@ const MembershipPage = () => {
                     ) : null}
                     <div className="membership-card__actions">
                       {isCurrent && current?.cancelled ? (
-                        <button
-                          type="button"
-                          disabled={resuming || cancelling || Boolean(subscribingId)}
-                          onClick={() => void undoCancellation()}
-                        >
-                          {resuming ? (
-                            <>
-                              <Loader2 size={16} className="spinner" /> Resuming...
-                            </>
-                          ) : (
-                            "Undo cancellation"
-                          )}
-                        </button>
+                        <>
+                          {isRevised ? (
+                            <button
+                              type="button"
+                              disabled={
+                                Boolean(subscribingId) || cancelling || resuming
+                              }
+                              onClick={() => beginSubscribe(pkg)}
+                            >
+                              {subscribingId === pkg.id ? (
+                                <>
+                                  <Loader2 size={16} className="spinner" /> Paying...
+                                </>
+                              ) : (
+                                "Resubscribe"
+                              )}
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            disabled={resuming || cancelling || Boolean(subscribingId)}
+                            onClick={() => void undoCancellation()}
+                          >
+                            {resuming ? (
+                              <>
+                                <Loader2 size={16} className="spinner" /> Resuming...
+                              </>
+                            ) : (
+                              "Undo cancellation"
+                            )}
+                          </button>
+                        </>
                       ) : (
                         <button
                           type="button"
@@ -349,6 +427,8 @@ const MembershipPage = () => {
                             <>
                               <Loader2 size={16} className="spinner" /> Paying...
                             </>
+                          ) : isRevised ? (
+                            "Resubscribe"
                           ) : isCurrent ? (
                             "Renew now"
                           ) : loggedIn ? (
@@ -421,7 +501,9 @@ const MembershipPage = () => {
           current?.status === "ACTIVE" &&
           pendingPackage &&
           String(current.package_id) === String(pendingPackage.id)
-            ? current.cancelled
+            ? current.plan_revised
+              ? "Activate revised plan?"
+              : current.cancelled
               ? "Subscribe again?"
               : "Renew membership?"
             : current?.status === "ACTIVE"
@@ -429,9 +511,24 @@ const MembershipPage = () => {
               : "Confirm membership"
         }
         message={
-          current?.status === "ACTIVE"
-            ? "This starts a new 30-day period from today and replaces your current plan."
-            : `Pay ${formatNaira(pendingPackage?.amount)} from your wallet for ${pendingPackage?.title || "this plan"}?`
+          current?.status === "ACTIVE" && current.plan_revised
+            ? "This plan was revised. Paying now starts a new 30-day period with the new listed terms. Existing wallet cashback already in progress is not reset."
+            : current?.status === "ACTIVE"
+            ? hasMembershipCashback(
+                pendingPackage?.cashback_amount,
+                pendingPackage?.cashback_duration_months
+              )
+              ? "This starts a new 30-day discount period from today and replaces your current plan. Existing wallet cashback already in progress is not reset."
+              : "This starts a new 30-day period from today and replaces your current plan."
+            : hasMembershipCashback(
+                pendingPackage?.cashback_amount,
+                pendingPackage?.cashback_duration_months
+              )
+              ? `Pay ${formatNaira(pendingPackage?.amount)} from your wallet for ${pendingPackage?.title || "this plan"}? ${formatCashbackCopy(
+                  pendingPackage?.cashback_amount,
+                  pendingPackage?.cashback_duration_months
+                )} starts 30 days after this payment.`
+              : `Pay ${formatNaira(pendingPackage?.amount)} from your wallet for ${pendingPackage?.title || "this plan"}?`
         }
         confirmText="Pay from wallet"
         cancelText="Cancel"
@@ -443,7 +540,7 @@ const MembershipPage = () => {
         onClose={() => setConfirmCancel(false)}
         onConfirm={() => void confirmCancelSubscription()}
         title="Cancel subscription?"
-        message="You keep your paid benefits until the expiry date. You will not be reminded to renew, and this payment is not refunded."
+        message="You keep your paid JosRide discount until the expiry date. Wallet cashback already in progress still credits every 30 days until its duration ends, even after you cancel. You will not be reminded to renew, and this payment is not refunded."
         confirmText="Cancel subscription"
         cancelText="Keep plan"
         type="warning"

@@ -8,6 +8,8 @@ export type MembershipPackage = MembershipPlanItem & {
   features: string[];
   sort_order: number;
   josride_discount_percent: number;
+  cashback_amount: number;
+  cashback_duration_months: number;
 };
 
 export type CurrentMembership = {
@@ -21,7 +23,17 @@ export type CurrentMembership = {
   billing: string;
   badge_color: string | null;
   josride_discount_percent: number;
+  cashback_amount?: number;
+  cashback_duration_months?: number;
+  cashback_payments_made?: number;
+  cashback_remaining_payments?: number;
+  cashback_next_at?: string | null;
+  cashback_ends_at?: string | null;
+  plan_revised?: boolean;
 } | null;
+
+export const PLAN_REVISED_COPY =
+  "Plan revised. Resubscribe to activate the new plan.";
 
 export type AccountMembership = {
   user_id: number;
@@ -56,6 +68,8 @@ export const DEFAULT_MEMBERSHIP_SETTINGS: MembershipSettings = {
         amount: 0,
         description: "",
         josride_discount_percent: 0,
+        cashback_amount: 0,
+        cashback_duration_months: 0,
       },
     ],
   },
@@ -71,6 +85,8 @@ export const DEFAULT_MEMBERSHIP_SETTINGS: MembershipSettings = {
         amount: 0,
         description: "",
         josride_discount_percent: 0,
+        cashback_amount: 0,
+        cashback_duration_months: 0,
       },
     ],
   },
@@ -113,7 +129,107 @@ export type PublicMembershipPlan = {
   amount: number;
   description: string;
   josride_discount_percent: number;
+  cashback_amount: number;
+  cashback_duration_months: number;
   features: string[];
+};
+
+type CashbackSource = {
+  cashback_amount?: number;
+  cashback?: number;
+  wallet_cashback?: number;
+  cashback_duration_months?: number;
+  cashback_months?: number;
+  cashback_duration?: number;
+};
+
+export const readCashbackAmount = (item?: CashbackSource | null): number => {
+  const raw =
+    item?.cashback_amount ?? item?.cashback ?? item?.wallet_cashback ?? 0;
+  const amount = Number(raw);
+  return Number.isFinite(amount) && amount > 0
+    ? Math.round(amount * 100) / 100
+    : 0;
+};
+
+export const readCashbackDurationMonths = (
+  item?: CashbackSource | null
+): number => {
+  const raw =
+    item?.cashback_duration_months ??
+    item?.cashback_months ??
+    item?.cashback_duration ??
+    0;
+  const months = Number(raw);
+  return Number.isFinite(months) && months > 0 ? Math.round(months) : 0;
+};
+
+export const hasMembershipCashback = (
+  amount?: number | null,
+  months?: number | null
+): boolean => Number(amount || 0) > 0 && Number(months || 0) > 0;
+
+export const formatCashbackCopy = (
+  amount?: number | null,
+  months?: number | null
+): string | null => {
+  if (!hasMembershipCashback(amount, months)) return null;
+  const naira = `₦${Number(amount).toLocaleString("en-NG")}`;
+  const duration = Number(months);
+  const period = duration === 1 ? "1 month" : `${duration} months`;
+  return `${naira} wallet cashback every 30 days for ${period}`;
+};
+
+export const formatActiveCashbackCopy = (
+  current: NonNullable<CurrentMembership>
+): string | null => {
+  const amount = readCashbackAmount(current);
+  const months = readCashbackDurationMonths(current);
+  const remaining = Number(current.cashback_remaining_payments);
+  if (Number.isFinite(remaining) && remaining > 0 && amount > 0) {
+    const naira = `₦${amount.toLocaleString("en-NG")}`;
+    const left = remaining === 1 ? "1 month left" : `${remaining} months left`;
+    return `${naira} wallet cashback every 30 days (${left}).`;
+  }
+  return formatCashbackCopy(amount, months);
+};
+
+const normalizePackage = (
+  pkg: MembershipPackage,
+  index = 0
+): MembershipPackage => {
+  const cashbackAmount = readCashbackAmount(pkg);
+  const cashbackMonths = readCashbackDurationMonths(pkg);
+  const cashbackCopy = formatCashbackCopy(cashbackAmount, cashbackMonths);
+  const features = Array.isArray(pkg.features)
+    ? [...pkg.features]
+    : String(pkg.description || "")
+        .split(/\r?\n/)
+        .map((line) => line.replace(/^[-•*]\s+/, "").trim())
+        .filter(Boolean);
+  if (
+    cashbackCopy &&
+    !features.some((line) => /cashback/i.test(line))
+  ) {
+    features.push(cashbackCopy);
+  }
+  return {
+    ...pkg,
+    id: String(pkg.id || `plan-${index + 1}`),
+    cashback_amount: cashbackAmount,
+    cashback_duration_months: cashbackMonths,
+    features,
+  };
+};
+
+const normalizeCurrent = (current: CurrentMembership): CurrentMembership => {
+  if (!current) return current;
+  return {
+    ...current,
+    cashback_amount: readCashbackAmount(current),
+    cashback_duration_months: readCashbackDurationMonths(current),
+    plan_revised: Boolean(current.plan_revised),
+  };
 };
 
 const toItemList = (raw: unknown): MembershipPlanItem[] => {
@@ -147,6 +263,9 @@ export const plansFromMembershipSettings = (
           (item as { discount_percent?: number }).discount_percent ??
           0
       );
+      const cashbackAmount = readCashbackAmount(item);
+      const cashbackMonths = readCashbackDurationMonths(item);
+      const cashbackCopy = formatCashbackCopy(cashbackAmount, cashbackMonths);
       const features = String(item.description || "")
         .split(/\r?\n/)
         .map((line) => line.replace(/^[-•*]\s+/, "").trim())
@@ -154,12 +273,20 @@ export const plansFromMembershipSettings = (
       if (percent > 0 && !features.some((line) => line.includes(`${percent}%`))) {
         features.unshift(`${percent}% off every JosRide trip`);
       }
+      if (
+        cashbackCopy &&
+        !features.some((line) => /cashback/i.test(line))
+      ) {
+        features.push(cashbackCopy);
+      }
       return {
         id: String(item.id || `plan-${index + 1}`),
         title: String(item.title || "").trim() || "Membership",
         amount: Number(item.amount || 0),
         description: String(item.description || ""),
         josride_discount_percent: Number.isFinite(percent) ? percent : 0,
+        cashback_amount: cashbackAmount,
+        cashback_duration_months: cashbackMonths,
         features,
       };
     })
@@ -213,7 +340,13 @@ export const getAccountMembership = async (): Promise<AccountMembership> => {
     signal: AbortSignal.timeout(20000),
   });
   const data = await readJson<{ data: AccountMembership }>(response);
-  return data.data;
+  const membership = data.data;
+  if (!membership) return membership;
+  return {
+    ...membership,
+    packages: (membership.packages || []).map(normalizePackage),
+    current: normalizeCurrent(membership.current),
+  };
 };
 
 export const subscribeMembership = async (
@@ -232,7 +365,7 @@ export const subscribeMembership = async (
   const data = await readJson<{ data: { current: CurrentMembership } }>(
     response
   );
-  return data.data.current;
+  return normalizeCurrent(data.data.current);
 };
 
 export const cancelMembership = async (): Promise<CurrentMembership> => {
@@ -248,7 +381,7 @@ export const cancelMembership = async (): Promise<CurrentMembership> => {
   const data = await readJson<{ data: { current: CurrentMembership } }>(
     response
   );
-  return data.data.current;
+  return normalizeCurrent(data.data.current);
 };
 
 export const resumeMembership = async (): Promise<CurrentMembership> => {
@@ -264,5 +397,5 @@ export const resumeMembership = async (): Promise<CurrentMembership> => {
   const data = await readJson<{ data: { current: CurrentMembership } }>(
     response
   );
-  return data.data.current;
+  return normalizeCurrent(data.data.current);
 };

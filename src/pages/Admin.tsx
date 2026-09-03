@@ -12,45 +12,27 @@ import {
   ChevronDown,
   ChevronRight,
   LayoutDashboard,
-  Palette,
-  Globe,
   Users,
-  Shield,
-  FileText,
   Calendar,
-  BookOpen,
   ShoppingBag,
-  Briefcase,
-  GraduationCap,
-  Film,
-  Gamepad2,
   DollarSign,
   Wallet,
   TrendingUp,
   Gift,
-  CreditCard,
   Code,
   CheckCircle,
   XCircle,
   BarChart3,
   Megaphone,
-  Package,
-  Smartphone,
   Settings,
   Menu,
   Flag,
-  Tag,
   Newspaper,
-  Heart,
   HelpCircle,
-  Smile,
-  Image,
-  History,
-  Languages,
-  Coins,
   Zap,
   UserCircle,
   LogOut,
+  BadgeCheck,
 } from "lucide-react";
 import primaryLogo from "../image/primary-logo.png";
 import userAvatar from "../image/sky.png";
@@ -78,6 +60,7 @@ import AdminMonetization from "./AdminMonetization";
 import AdminNotifications from "./AdminNotifications";
 import AdminNews from "./AdminNews";
 import AdminDevelopers from "./AdminDevelopers";
+import AdminMembershipList from "./AdminMembershipList";
 import { getDashboard, getStats, refreshAdminToken, type DashboardData } from "../services/adminApi";
 import { fetchPendingRegistrations } from "../utils/fetchWithTimeout";
 import AdminNavBadge from "../components/AdminNavBadge";
@@ -124,6 +107,7 @@ const Admin: React.FC = () => {
     | "notifications"
     | "news"
     | "developers"
+    | "memberships"
   >("dashboard");
   const [dashboardData, setDashboardData] = useState<DashboardData["data"] | null>(null);
   const [pendingCount, setPendingCount] = useState<number>(0);
@@ -449,42 +433,6 @@ const Admin: React.FC = () => {
                       <Settings size={18} />
                       <span>Settings</span>
                     </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <Palette size={18} />
-                      <span>Themes</span>
-                    </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <LayoutDashboard size={18} />
-                      <span>Design</span>
-                    </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <Languages size={18} />
-                      <span>Languages</span>
-                    </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <Globe size={18} />
-                      <span>Countries</span>
-                    </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <DollarSign size={18} />
-                      <span>Currencies</span>
-                    </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <Users size={18} />
-                      <span>Genders</span>
-                    </a>
                   </div>
                 </div>
               </div>
@@ -533,20 +481,16 @@ const Admin: React.FC = () => {
                       <button
                         onClick={(e) => {
                           e.preventDefault();
+                          setActiveView("memberships");
                           setIsMobileMenuOpen(false);
                         }}
-                        className="admin-sidebar-section-container__item">
-                        <Users size={18} />
-                        <span>Users Groups</span>
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="admin-sidebar-section-container__item">
-                        <Shield size={18} />
-                        <span>Permission Group</span>
+                        className={`admin-sidebar-section-container__item ${
+                          activeView === "memberships"
+                            ? "admin-sidebar-section-container__item--active"
+                            : ""
+                        }`}>
+                        <BadgeCheck size={18} />
+                        <span>Memberships</span>
                       </button>
                     </div>
                   )}
@@ -636,41 +580,6 @@ const Admin: React.FC = () => {
                       <span>Events</span>
                       <ChevronRight size={16} />
                     </button>
-                    <a href="#" className="admin-modules-container__item">
-                      <BookOpen size={18} />
-                      <span>Blogs</span>
-                      <ChevronRight size={16} />
-                    </a>
-                    <a href="#" className="admin-modules-container__item">
-                      <Tag size={18} />
-                      <span>Offers</span>
-                      <ChevronRight size={16} />
-                    </a>
-                    <a href="#" className="admin-modules-container__item">
-                      <Briefcase size={18} />
-                      <span>Jobs</span>
-                      <ChevronRight size={16} />
-                    </a>
-                    <a href="#" className="admin-modules-container__item">
-                      <GraduationCap size={18} />
-                      <span>Courses</span>
-                      <ChevronRight size={16} />
-                    </a>
-                    <a href="#" className="admin-modules-container__item">
-                      <MessageSquare size={18} />
-                      <span>Forums</span>
-                      <ChevronRight size={16} />
-                    </a>
-                    <a href="#" className="admin-modules-container__item">
-                      <Film size={18} />
-                      <span>Movies</span>
-                      <ChevronRight size={16} />
-                    </a>
-                    <a href="#" className="admin-modules-container__item">
-                      <Gamepad2 size={18} />
-                      <span>Games</span>
-                      <ChevronRight size={16} />
-                    </a>
                   </div>
                 </div>
               </div>
@@ -692,15 +601,6 @@ const Admin: React.FC = () => {
                   </div>
                   {expandedSections.money && (
                     <div className="admin-sidebar-section-container__list">
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="admin-sidebar-section-container__item">
-                        <DollarSign size={18} />
-                        <span>Earnings</span>
-                      </button>
                       <button
                         onClick={(e) => {
                           e.preventDefault();
@@ -803,40 +703,8 @@ const Admin: React.FC = () => {
                         <TrendingUp size={18} />
                         <span>Monetization</span>
                       </button>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="admin-sidebar-section-container__item">
-                        <Gift size={18} />
-                        <span>Tips</span>
-                      </button>
                     </div>
                   )}
-                </div>
-              </div>
-
-              {/* Payments Section */}
-              <div className="admin-sidebar__section">
-                <div className="admin-sidebar-section-container">
-                  <div className="admin-sidebar-section-container__title">
-                    Payments
-                  </div>
-                  <div className="admin-sidebar-section-container__list">
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <Coins size={18} />
-                      <span>Coin Payments</span>
-                    </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <CreditCard size={18} />
-                      <span>Bank Receipts</span>
-                    </a>
-                  </div>
                 </div>
               </div>
 
@@ -939,15 +807,6 @@ const Admin: React.FC = () => {
                       <button
                         onClick={(e) => {
                           e.preventDefault();
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="admin-sidebar-section-container__item">
-                        <XCircle size={18} />
-                        <span>Blacklist</span>
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
                           setActiveView("verification");
                           setIsMobileMenuOpen(false);
                         }}
@@ -958,76 +817,8 @@ const Admin: React.FC = () => {
                         <span>Verification</span>
                         <AdminNavBadge count={attention.pendingVerifications} />
                       </button>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="admin-sidebar-section-container__item">
-                        <Settings size={18} />
-                        <span>Tools</span>
-                      </button>
                     </div>
                   )}
-                </div>
-              </div>
-
-              {/* Customization Section */}
-              <div className="admin-sidebar__section">
-                <div className="admin-sidebar-section-container">
-                  <div className="admin-sidebar-section-container__title">
-                    Customization
-                  </div>
-                  <div className="admin-sidebar-section-container__list">
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <Settings size={18} />
-                      <span>Custom Fields</span>
-                    </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <FileText size={18} />
-                      <span>Static Pages</span>
-                    </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <Palette size={18} />
-                      <span>Colored Posts</span>
-                    </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <LayoutDashboard size={18} />
-                      <span>Widgets</span>
-                    </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <Heart size={18} />
-                      <span>Reactions</span>
-                    </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <Smile size={18} />
-                      <span>Emojis</span>
-                    </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <Image size={18} />
-                      <span>Stickers</span>
-                    </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <Gift size={18} />
-                      <span>Gifts</span>
-                    </a>
-                  </div>
                 </div>
               </div>
 
@@ -1054,34 +845,6 @@ const Admin: React.FC = () => {
                 </div>
               </div>
 
-              {/* Plugins Section */}
-              <div className="admin-sidebar__section">
-                <div className="admin-sidebar-section-container">
-                  <div
-                    className="admin-sidebar-section-container__header"
-                    onClick={() => toggleSection("plugins")}>
-                    <div className="admin-sidebar-section-container__title">
-                      Plugins
-                    </div>
-                    {expandedSections.plugins ? (
-                      <ChevronDown size={16} />
-                    ) : (
-                      <ChevronRight size={16} />
-                    )}
-                  </div>
-                  {expandedSections.plugins && (
-                    <div className="admin-sidebar-section-container__list">
-                      <a
-                        href="#"
-                        className="admin-sidebar-section-container__item">
-                        <Package size={18} />
-                        <span>Manage</span>
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
-
               {/* Apps Section */}
               <div className="admin-sidebar__section">
                 <div className="admin-sidebar-section-container">
@@ -1098,41 +861,6 @@ const Admin: React.FC = () => {
                       }}>
                       <Zap size={18} />
                       <span>PWA</span>
-                    </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <Code size={18} />
-                      <span>APIs Settings</span>
-                    </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <Smartphone size={18} />
-                      <span>Native Apps</span>
-                    </a>
-                  </div>
-                </div>
-              </div>
-
-              {/* Info Section */}
-              <div className="admin-sidebar__section">
-                <div className="admin-sidebar-section-container">
-                  <div className="admin-sidebar-section-container__title">
-                    Info
-                  </div>
-                  <div className="admin-sidebar-section-container__list">
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <History size={18} />
-                      <span>Changelog</span>
-                    </a>
-                    <a
-                      href="#"
-                      className="admin-sidebar-section-container__item">
-                      <Tag size={18} />
-                      <span>Build v4.11</span>
                     </a>
                   </div>
                 </div>
@@ -1260,6 +988,8 @@ const Admin: React.FC = () => {
               <AdminNews />
             ) : activeView === "developers" ? (
               <AdminDevelopers />
+            ) : activeView === "memberships" ? (
+              <AdminMembershipList />
             ) : (
               <div className="admin-dashboard">
                 <div className="admin-dashboard__search">

@@ -1071,67 +1071,6 @@ export const updateAppFeature = async (
   return response.json();
 };
 
-// ==================== APP LANGUAGES (mobile UI translations) ====================
-export interface AppLanguageGroup {
-  id: string;
-  label: string;
-  keys: string[];
-}
-
-export interface AppLanguageRow {
-  code: string;
-  label: string;
-  enabled: boolean;
-  is_default: boolean;
-  sort_order?: number;
-  key_count: number;
-  translated_count: number;
-  translations: Record<string, string>;
-}
-
-export const getAppLanguages = async (): Promise<{
-  success: boolean;
-  data: {
-    languages: AppLanguageRow[];
-    english: Record<string, string>;
-    groups: AppLanguageGroup[];
-  };
-}> => {
-  const response = await adminApiRequest("/app-languages");
-  return response.json();
-};
-
-export const addAppLanguage = async (
-  code: string,
-  label: string
-): Promise<{ success: boolean; message: string; data: { languages: AppLanguageRow[] } }> => {
-  const response = await adminApiRequest("/app-languages", {
-    method: "POST",
-    body: JSON.stringify({ code, label }),
-  });
-  return response.json();
-};
-
-export const updateAppLanguage = async (
-  code: string,
-  payload: { label?: string; enabled?: boolean; translations?: Record<string, string> }
-): Promise<{ success: boolean; message: string; data: { languages: AppLanguageRow[] } }> => {
-  const response = await adminApiRequest(`/app-languages/${encodeURIComponent(code)}`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-  return response.json();
-};
-
-export const deleteAppLanguage = async (
-  code: string
-): Promise<{ success: boolean; message: string; data: { languages: AppLanguageRow[] } }> => {
-  const response = await adminApiRequest(`/app-languages/${encodeURIComponent(code)}`, {
-    method: "DELETE",
-  });
-  return response.json();
-};
-
 // ==================== MEMBERSHIP (personal / business) ====================
 export interface MembershipPlanItem {
   id?: string;
@@ -1139,6 +1078,10 @@ export interface MembershipPlanItem {
   amount: number;
   description: string;
   josride_discount_percent?: number;
+  /** NGN credited to the wallet every 30 days. 0 / omitted = no cashback. */
+  cashback_amount?: number;
+  /** How many 30-day cycles to credit cashback. Independent of resubscription. */
+  cashback_duration_months?: number;
 }
 
 export interface MembershipPlanSettings {
@@ -1174,6 +1117,60 @@ export const updateMembershipSettings = async (
     method: "PUT",
     body: JSON.stringify(settings),
   });
+  return response.json();
+};
+
+export type AdminMembershipRow = {
+  user_id: number;
+  name: string;
+  email: string;
+  account_type: string;
+  package_id: string;
+  package_title: string;
+  amount: number;
+  status: "ACTIVE" | "EXPIRED" | "STOPPED";
+  cancelled: boolean;
+  admin_cancelled: boolean;
+  expires_at: string | null;
+  josride_discount_percent: number;
+  cashback_sent: number;
+  cashback_remaining_months: number;
+  cashback_amount: number;
+  cashback_next_at: string | null;
+  cashback_active: boolean;
+};
+
+export const getAdminMemberships = async (params?: {
+  search?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{
+  success: boolean;
+  data: AdminMembershipRow[];
+  page: number;
+  limit: number;
+  total: number;
+  total_pages: number;
+  message?: string;
+}> => {
+  const query = new URLSearchParams();
+  if (params?.search) query.set("search", params.search);
+  if (params?.status) query.set("status", params.status);
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  const response = await adminApiRequest(`/membership/subscribers${suffix}`);
+  return response.json();
+};
+
+export const hardCancelAdminMembership = async (
+  userId: number
+): Promise<{ success: boolean; message: string }> => {
+  const response = await adminApiRequest(
+    `/membership/subscribers/${userId}/hard-cancel`,
+    { method: "POST" }
+  );
   return response.json();
 };
 

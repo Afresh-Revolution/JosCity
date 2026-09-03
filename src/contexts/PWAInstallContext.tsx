@@ -47,7 +47,6 @@ function isAppleTouchDevice(): boolean {
 export function PWAInstallProvider({ children }: { children: React.ReactNode }) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState(getIsStandalone);
-  const [showIOSHelp, setShowIOSHelp] = useState(false);
 
   useEffect(() => {
     const onBeforeInstall = (e: Event) => {
@@ -69,31 +68,21 @@ export function PWAInstallProvider({ children }: { children: React.ReactNode }) 
   const needsManualIOSInstall = isAppleTouchDevice() && !isStandalone;
 
   const promptInstall = useCallback(async (): Promise<boolean> => {
-    if (isStandalone) return false;
-
-    if (deferredPrompt) {
-      try {
-        await deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        setDeferredPrompt(null);
-        if (outcome === "accepted") {
-          setIsStandalone(true);
-          return true;
-        }
-        return false;
-      } catch {
-        setDeferredPrompt(null);
-        return false;
+    if (isStandalone || !deferredPrompt) return false;
+    try {
+      await deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      setDeferredPrompt(null);
+      if (outcome === "accepted") {
+        setIsStandalone(true);
+        return true;
       }
-    }
-
-    if (needsManualIOSInstall) {
-      setShowIOSHelp(true);
+      return false;
+    } catch {
+      setDeferredPrompt(null);
       return false;
     }
-
-    return false;
-  }, [deferredPrompt, isStandalone, needsManualIOSInstall]);
+  }, [deferredPrompt, isStandalone]);
 
   const value = useMemo<PWAInstallContextValue>(
     () => ({
@@ -105,47 +94,8 @@ export function PWAInstallProvider({ children }: { children: React.ReactNode }) 
     [deferredPrompt, isStandalone, promptInstall, needsManualIOSInstall]
   );
 
-  const showFab =
-    !isStandalone && (Boolean(deferredPrompt) || needsManualIOSInstall);
-
   return (
-    <PWAInstallContext.Provider value={value}>
-      {children}
-      {showFab && (
-        <button
-          type="button"
-          className="pwa-install-fab"
-          onClick={() => void promptInstall()}
-          aria-label={
-            deferredPrompt ? "Install JosCity app" : "How to add JosCity to Home Screen"
-          }
-        >
-          {deferredPrompt ? "Install app" : "Add to Home Screen"}
-        </button>
-      )}
-      {showIOSHelp && (
-        <div className="pwa-install-ios-backdrop" role="presentation" onClick={() => setShowIOSHelp(false)}>
-          <div
-            className="pwa-install-ios-dialog"
-            role="dialog"
-            aria-labelledby="pwa-ios-install-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 id="pwa-ios-install-title" className="pwa-install-ios-dialog__title">
-              Install JosCity on your iPhone or iPad
-            </h2>
-            <ol className="pwa-install-ios-dialog__steps">
-              <li>Tap the <strong>Share</strong> button <span aria-hidden>(□↑)</span> in Safari.</li>
-              <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
-              <li>Tap <strong>Add</strong>. Open JosCity from your home screen for the full app experience.</li>
-            </ol>
-            <button type="button" className="pwa-install-ios-dialog__btn" onClick={() => setShowIOSHelp(false)}>
-              Got it
-            </button>
-          </div>
-        </div>
-      )}
-    </PWAInstallContext.Provider>
+    <PWAInstallContext.Provider value={value}>{children}</PWAInstallContext.Provider>
   );
 }
 

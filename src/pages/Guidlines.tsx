@@ -4,6 +4,7 @@ import "../scss/_guidelines.scss";
 import primaryLogo from "../image/primary-logo.png"; // Fallback
 import { useScrollAnimation } from "../hooks/useScrollAnimation";
 import LazyImage from "../components/LazyImage";
+import AppStoreDownload from "../components/AppStoreDownload";
 
 interface Guideline {
   id: string;
@@ -30,7 +31,7 @@ const Guidelines: React.FC = () => {
     },
   ];
   const [badgeText, setBadgeText] = useState<string>("Guidelines");
-  const [heading, setHeading] = useState<string>("PWA Guidelines");
+  const [heading, setHeading] = useState<string>("Guidelines");
 
   // Scroll animations
   const badgeAnimation = useScrollAnimation({
@@ -53,11 +54,16 @@ const Guidelines: React.FC = () => {
     animationClass: "scroll-in",
     scrollOutClass: "scroll-out",
   });
+  const downloadAnimation = useScrollAnimation({
+    threshold: 0.15,
+    animationClass: "fade-in",
+    scrollOutClass: "",
+  });
 
   useEffect(() => {
     // Use default values (no API calls)
     setBadgeText("Guidelines");
-    setHeading("PWA Guidelines");
+    setHeading("Guidelines");
     // Guidelines state already has default value
   }, []);
 
@@ -183,6 +189,13 @@ const Guidelines: React.FC = () => {
               />
             </svg>
           </button>
+        </div>
+
+        <div
+          ref={downloadAnimation.ref as React.RefObject<HTMLDivElement>}
+          className={`guidelines__download ${downloadAnimation.className}`}
+        >
+          <AppStoreDownload />
         </div>
       </div>
     </section>

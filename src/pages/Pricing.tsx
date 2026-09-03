@@ -5,6 +5,7 @@ import {
   getAccountMembership,
   cancelMembership,
   resumeMembership,
+  PLAN_REVISED_COPY,
   type CurrentMembership,
   type PublicMembershipPlan,
 } from "../services/membershipApi";
@@ -282,13 +283,16 @@ const Pricing: React.FC = () => {
               const isCurrent =
                 current?.status === "ACTIVE" &&
                 String(current.package_id) === String(plan.id);
+              const isRevised = Boolean(isCurrent && current?.plan_revised);
               return (
                 <div
                   key={plan.id}
                   data-card-index={index}
                   className={`pricing__card pricing__card--${sizeClass}${
                     featured ? " pricing__card--featured" : ""
-                  }${isCurrent ? " pricing__card--subscribed" : ""} ${
+                  }${isCurrent ? " pricing__card--subscribed" : ""}${
+                    isRevised ? " pricing__card--revised" : ""
+                  } ${
                     visibleCards.has(index) ? "fade-in-up" : ""
                   }`}
                 >
@@ -296,11 +300,21 @@ const Pricing: React.FC = () => {
                     <div className="pricing__card-name-row">
                       <h3 className="pricing__card-name">{plan.title}</h3>
                       {isCurrent ? (
-                        <span className="pricing__subscribed-badge">
-                          {current?.cancelled ? "Cancelled" : "Subscribed"}
-                        </span>
+                        <div className="pricing__card-badges">
+                          <span className="pricing__subscribed-badge">
+                            {current?.cancelled ? "Cancelled" : "Subscribed"}
+                          </span>
+                          {isRevised ? (
+                            <span className="pricing__subscribed-badge pricing__subscribed-badge--revised">
+                              Plan revised
+                            </span>
+                          ) : null}
+                        </div>
                       ) : null}
                     </div>
+                    {isRevised ? (
+                      <p className="pricing__card-revised">{PLAN_REVISED_COPY}</p>
+                    ) : null}
                     <div className="pricing__card-price">
                       {formatNaira(plan.amount)}
                     </div>
@@ -343,14 +357,25 @@ const Pricing: React.FC = () => {
                         cancelled={Boolean(current?.cancelled)}
                       />
                       {current?.cancelled ? (
-                        <button
-                          type="button"
-                          className="pricing__card-button pricing__card-button--manage"
-                          disabled={resuming}
-                          onClick={() => void undoCancellation()}
-                        >
-                          {resuming ? "Resuming..." : "Undo cancellation"}
-                        </button>
+                        <>
+                          {current?.plan_revised ? (
+                            <button
+                              type="button"
+                              className="pricing__card-button pricing__card-button--manage"
+                              onClick={goToSubscribe}
+                            >
+                              Resubscribe
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="pricing__card-button pricing__card-button--manage"
+                            disabled={resuming}
+                            onClick={() => void undoCancellation()}
+                          >
+                            {resuming ? "Resuming..." : "Undo cancellation"}
+                          </button>
+                        </>
                       ) : (
                         <>
                           <button
@@ -358,7 +383,9 @@ const Pricing: React.FC = () => {
                             className="pricing__card-button pricing__card-button--manage"
                             onClick={goToSubscribe}
                           >
-                            Renew / manage
+                            {current?.plan_revised
+                              ? "Resubscribe"
+                              : "Renew / manage"}
                           </button>
                           <button
                             type="button"
@@ -392,7 +419,7 @@ const Pricing: React.FC = () => {
       onClose={() => setConfirmCancel(false)}
       onConfirm={() => void confirmCancelSubscription()}
       title="Cancel subscription?"
-      message="You keep your paid benefits until the expiry date. You will not be reminded to renew, and this payment is not refunded."
+      message="You keep your paid JosRide discount until the expiry date. Wallet cashback already in progress still credits every 30 days until its duration ends, even after you cancel. You will not be reminded to renew, and this payment is not refunded."
       confirmText="Cancel subscription"
       cancelText="Keep plan"
       type="warning"

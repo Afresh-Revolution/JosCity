@@ -11,6 +11,7 @@ import {
   Newspaper,
 } from "lucide-react";
 import AdminBroadcastStrip from "../components/AdminBroadcastStrip";
+import JosRideModal from "../components/JosRideModal";
 import NewsArticleShareButton from "../components/NewsArticleShareButton";
 import { newsApi, type NewsPost } from "../services/newsApi";
 import { preloadImage } from "../utils/imagePreloader";
@@ -21,10 +22,10 @@ import {
 } from "../utils/citizenCountUtils";
 import "../main.css";
 // Import images as modules for Vite build compatibility (fallback)
-import heroImage1 from "../image/hero-image.png";
-import heroImage2 from "../image/jos.jpg";
-import heroImage3 from "../image/terminus.png";
-import heroImage4 from "../image/discover.jpg";
+import heroImage1 from "../image/jos/shere-hills.jpg";
+import heroImage2 from "../image/jos/jos-city.jpg";
+import heroImage3 from "../image/jos/terminus.jpg";
+import heroImage4 from "../image/jos/jos-carnival.jpg";
 import aboutImage from "../image/3dwOMAN.png";
 
 interface HeroSlide {
@@ -35,6 +36,7 @@ interface HeroSlide {
   description?: string;
   slide_order: number;
   is_active: boolean;
+  photo: { title: string; author: string; source: string; position: string };
 }
 
 // Fallback slides if API fails
@@ -49,6 +51,7 @@ const fallbackSlides = [
   {
     id: "1",
     image_url: heroImage1,
+    photo: { title: "Shere Hills", author: "Samuel Ayenajeh", source: "https://commons.wikimedia.org/wiki/File:Shere_Hills_Jos_Plateau.jpg", position: "center 60%" },
     title: "Welcome to ",
     subtitle: "Jos Smart City, The-Digital Economy",
     description:
@@ -59,6 +62,7 @@ const fallbackSlides = [
   {
     id: "2",
     image_url: heroImage2,
+    photo: { title: "Jos city, May 2025", author: "Ishaku Ajeje", source: "https://commons.wikimedia.org/wiki/File:Jos_plateau.jpg", position: "center 60%" },
     title: "Join the Community!",
     subtitle: "Get a Job!",
     description:
@@ -69,6 +73,7 @@ const fallbackSlides = [
   {
     id: "3",
     image_url: heroImage3,
+    photo: { title: "Market in Jos, May 2025", author: "Mr. Snatch", source: "https://commons.wikimedia.org/wiki/File:Market_in_Jos.jpg", position: "center 75%" },
     title: "Shop at",
     subtitle: "Jos Central Market!",
     description:
@@ -79,6 +84,7 @@ const fallbackSlides = [
   {
     id: "4",
     image_url: heroImage4,
+    photo: { title: "Jos Carnival 2018", author: "Josh Eson", source: "https://commons.wikimedia.org/wiki/File:Jos_Carnival_2.jpg", position: "center 55%" },
     title: "Discover Events &",
     subtitle: "Rich Traditions!",
     description:
@@ -94,6 +100,7 @@ function Hero() {
     navigate("/news");
   };
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isJosRideOpen, setIsJosRideOpen] = useState(false);
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(fallbackSlides);
   const [visibleElements, setVisibleElements] = useState<Set<string>>(
     new Set()
@@ -169,14 +176,14 @@ function Hero() {
   }, [currentSlide, heroSlides]);
 
   useEffect(() => {
-    if (heroSlides.length === 0) return;
+    if (heroSlides.length === 0 || isJosRideOpen) return;
 
     const interval = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
     }, 5000); // Change slide every 5 seconds
 
     return () => clearInterval(interval);
-  }, [heroSlides.length]);
+  }, [heroSlides.length, isJosRideOpen]);
 
   // Reset fade-in on slide change with different directions
   useEffect(() => {
@@ -293,7 +300,7 @@ function Hero() {
               style={{
                 backgroundImage: imageUrl ? `url(${imageUrl})` : "none",
                 backgroundSize: "cover",
-                backgroundPosition: "center",
+                backgroundPosition: slide.photo.position,
                 backgroundRepeat: "no-repeat",
               }}
             >
@@ -376,6 +383,9 @@ function Hero() {
             >
               Learn More
             </button>
+            <button type="button" className="hero__button hero__button--josride" onClick={() => setIsJosRideOpen(true)} aria-haspopup="dialog">
+              Ride with JosRide
+            </button>
           </div>
         </div>
 
@@ -393,6 +403,7 @@ function Hero() {
         </div>
       </div>
 
+      <JosRideModal isOpen={isJosRideOpen} onClose={() => setIsJosRideOpen(false)} />
       <AboutSection />
       <section id="news" className="landing-news" aria-labelledby="landing-news-title">
         <div className="landing-news__ambient" aria-hidden />

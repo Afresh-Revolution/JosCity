@@ -2,8 +2,12 @@
 
 .hero {
   position: relative;
-  height: 100vh;
-  height: 100svh;
+  // Reveal the next section while allowing long content to grow on small screens.
+  min-height: calc(100vh - 48px);
+  min-height: calc(100svh - 48px);
+  height: auto;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   overflow: hidden;
   font-family: $font-family;
@@ -133,7 +137,9 @@
     z-index: 10;
     padding: 3rem 0rem 5rem 5rem;
     max-width: 700px;
-    height: 100%;
+    height: auto;
+    min-height: inherit;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -143,7 +149,7 @@
   // Bigger screens: push content down from navbar
   @media screen and (min-width: 1025px) {
     &__content {
-      margin-top: 15px;
+      margin-top: 0;
     }
   }
 
@@ -552,6 +558,12 @@
           0 0 40px rgba(52, 184, 106, 0.6);
       }
     }
+  }
+
+  // Reserve room for the fixed navigation and carousel dots at every size.
+  & &__content {
+    padding-top: clamp(140px, 18svh, 180px);
+    padding-bottom: 96px;
   }
 
   // Responsive styles

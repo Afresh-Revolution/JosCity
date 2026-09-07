@@ -23,15 +23,15 @@ const Guidelines: React.FC = () => {
     {
       id: "1",
       quote:
-        "Welcome to the Jos Smart City PWA! We're here to help you navigate and enjoy your city with ease. In this phase of the app, kindly click on the green 'Get Started' button to redirect you to an account type panel, select your type of account, carefully fill in your details, an email would be sent to you if submitted successfully, with a login button and an OTP. Your Information is protected and will not be shared with anyone.",
-      author_name: "AfrESH Support",
+        "Welcome to JosCity Discover Jos. Experience more. Stay connected. JosCity brings the city closer to you from events, places and businesses to services, entertainment, opportunities and everything happening around Jos. Explore what’s happening, discover new experiences, connect with local businesses and access the services you need, all from one app. Your city. Your experiences. One app.",
+      author_name: "Joscity, all in one place.",
       rating: 5,
       display_order: 0,
       is_active: true,
     },
   ];
-  const [badgeText, setBadgeText] = useState<string>("Guidelines");
-  const [heading, setHeading] = useState<string>("Guidelines");
+  const [badgeText, setBadgeText] = useState<string>("Your City, Connected");
+  const [heading, setHeading] = useState<string>("Your City, Connected");
 
   // Scroll animations
   const badgeAnimation = useScrollAnimation({
@@ -62,8 +62,8 @@ const Guidelines: React.FC = () => {
 
   useEffect(() => {
     // Use default values (no API calls)
-    setBadgeText("Guidelines");
-    setHeading("Guidelines");
+    setBadgeText("Connected");
+    setHeading("Your City, Connected");
     // Guidelines state already has default value
   }, []);
 

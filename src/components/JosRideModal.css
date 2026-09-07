@@ -1,0 +1,27 @@
+.josride-card { margin: auto; padding: 0; width: min(540px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow: auto; border: 1px solid var(--border-color, #dce6df); border-radius: 24px; background: var(--bg-primary, #fff); color: var(--text-primary, #17291d); box-shadow: 0 30px 100px #0006; }
+.josride-card::backdrop { background: #06170ed1; backdrop-filter: blur(7px); }
+.josride-card__body { position: relative; padding: 32px; }
+.josride-card__close { position: absolute; right: 16px; top: 16px; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--bg-secondary, #edf4ef); color: inherit; cursor: pointer; }
+.josride-card__icon { display: grid; place-items: center; width: 62px; height: 62px; border-radius: 18px; color: #fff; background: #147b3e; margin-bottom: 24px; }
+.josride-card__eyebrow { color: var(--color-primary, #168547); font-size: 11px; letter-spacing: 2px; font-weight: 700; }
+.josride-card h2 { margin: 10px 0; font-size: clamp(25px, 5vw, 32px); line-height: 1.2; }
+.josride-card p { line-height: 1.6; }
+#josride-description, .josride-card__drivers p { color: var(--text-secondary, #53645a); margin: 0 0 24px; font-size: 14px; }
+.josride-card h3 { font-size: 16px; margin: 0 0 12px; }
+.josride-card__options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.josride-card__download { display: flex; align-items: center; gap: 10px; padding: 16px 12px; min-height: 76px; border: 1px solid #20894b; border-radius: 14px; background: #147b3e; color: #fff; text-decoration: none; text-align: left; font: inherit; }
+.josride-card__download span { flex: 1; }
+.josride-card__download strong, .josride-card__download small { display: block; }
+.josride-card__download strong { font-size: 14px; }
+.josride-card__download small { margin-top: 4px; font-size: 11px; }
+.josride-card__download:hover { background: #09622d; }
+.josride-card__download:focus-visible, .josride-card__close:focus-visible { outline: 3px solid #35bf71; outline-offset: 3px; }
+.josride-card__drivers { margin-top: 26px; padding-top: 24px; border-top: 1px solid var(--border-color, #dce6df); }
+.josride-card__drivers p { margin-bottom: 14px; }
+.josride-card__download:disabled { background: var(--bg-secondary, #edf2ef); color: var(--text-secondary, #53645a); border-color: var(--border-color, #dce6df); cursor: not-allowed; }
+.hero .hero__buttons { flex-wrap: wrap; }
+.hero .hero__button--josride { background: #f5fff8; color: #105d2e; border: 1px solid #a6e5bc; white-space: nowrap; }
+.hero .hero__button--josride:hover { background: #d9f7e3; }
+@media (max-width: 480px) { .josride-card__body { padding: 24px 20px; } .josride-card__options { grid-template-columns: 1fr; } }
+@media (min-width: 769px) { .hero .hero__buttons { width: max-content; max-width: calc(100vw - 7rem); } }
+@media (max-width: 768px) { .hero { min-height: 850px; } }

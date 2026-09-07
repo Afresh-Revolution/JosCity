@@ -333,6 +333,7 @@ const Footer: React.FC = () => {
             >
               AfrESH
             </a>
+            {" · "}<a href={`${import.meta.env.BASE_URL}photo-credits.html`} className="footer__link">Photo credits</a>
           </p>
         </div>
       </div>

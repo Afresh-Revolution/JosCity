@@ -13,16 +13,24 @@ const passengerApps = [
   { label: "IOS", store: "App Store", url: "https://apps.apple.com/ng/app/josride/id6805468513" },
 ];
 
-// Paste each driver app's HTTPS store link into its empty url below.
+// Paste each driver app's HTTPS download/store link into its empty url below.
 // Leave it empty to keep that download button disabled.
 const driverApps = [
-  { label: "Android", store: "Google Play", url: "https://expo.dev/artifacts/eas/0OLxeBf0aT1DsLanL2Ptu21u5CSpBBnNm7Wdv8jBJaw.apk" }, // Android driver app link
-  { label: "IOS", store: "App Store", url: "https://apps.apple.com/ng/app/josride-driver/id6805659224" }, // iOS driver app link
+  { label: "Android", store: "Direct download", url: "https://expo.dev/artifacts/eas/0OLxeBf0aT1DsLanL2Ptu21u5CSpBBnNm7Wdv8jBJaw.apk" },
+  { label: "IOS", store: "App Store", url: "https://apps.apple.com/ng/app/josride-driver/id6805659224" },
 ].map((app) => {
   try {
     const url = new URL(app.url.trim());
-    const expectedHost = app.store === "Google Play" ? "play.google.com" : "apps.apple.com";
-    return { ...app, url: url.protocol === "https:" && url.hostname === expectedHost && !url.username && !url.password ? url.href : "" };
+    const allowedHosts =
+      app.store === "App Store"
+        ? ["apps.apple.com"]
+        : ["play.google.com", "expo.dev"];
+    const isAllowed =
+      url.protocol === "https:" &&
+      allowedHosts.includes(url.hostname) &&
+      !url.username &&
+      !url.password;
+    return { ...app, url: isAllowed ? url.href : "" };
   } catch {
     return { ...app, url: "" };
   }

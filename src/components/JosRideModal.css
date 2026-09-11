@@ -24,4 +24,3 @@
 .hero .hero__button--josride:hover { background: #d9f7e3; }
 @media (max-width: 480px) { .josride-card__body { padding: 24px 20px; } .josride-card__options { grid-template-columns: 1fr; } }
 @media (min-width: 769px) { .hero .hero__buttons { width: max-content; max-width: calc(100vw - 7rem); } }
-@media (max-width: 768px) { .hero { min-height: 850px; } }

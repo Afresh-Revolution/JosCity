@@ -9,14 +9,14 @@ interface JosRideModalProps {
 
 // Fixed HTTPS store destinations; no user-provided URLs or HTML.
 const passengerApps = [
-  { label: "Android", store: "Google Play", url: "https://play.google.com/store/apps/details?id=ng.josride.app&pcampaignid=web_share" },
+  { label: "Android", store: "Direct download", url: "https://expo.dev/artifacts/eas/lTYq_OQp4en_Lj41yKa9J8hyWiK1ByVl7GnWwcbXzsg.apk" },
   { label: "IOS", store: "App Store", url: "https://apps.apple.com/ng/app/josride/id6805468513" },
 ];
 
 // Paste each driver app's HTTPS download/store link into its empty url below.
 // Leave it empty to keep that download button disabled.
 const driverApps = [
-  { label: "Android", store: "Direct download", url: "https://expo.dev/artifacts/eas/0OLxeBf0aT1DsLanL2Ptu21u5CSpBBnNm7Wdv8jBJaw.apk" },
+  { label: "Android", store: "Direct download", url: "https://expo.dev/artifacts/eas/47RLOLm_UkGlV_1Rcrcnnni4omoFxyMB2r-6bLn9fEY.aab" },
   { label: "IOS", store: "App Store", url: "https://apps.apple.com/ng/app/josride-driver/id6805659224" },
 ].map((app) => {
   try {

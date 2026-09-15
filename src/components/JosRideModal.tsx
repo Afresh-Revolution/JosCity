@@ -16,7 +16,7 @@ const passengerApps = [
 // Paste each driver app's HTTPS download/store link into its empty url below.
 // Leave it empty to keep that download button disabled.
 const driverApps = [
-  { label: "Android", store: "Direct download", url: "https://expo.dev/artifacts/eas/0OLxeBf0aT1DsLanL2Ptu21u5CSpBBnNm7Wdv8jBJaw.apk" },
+  { label: "Android", store: "Direct download", url: "https://expo.dev/artifacts/eas/47RLOLm_UkGlV_1Rcrcnnni4omoFxyMB2r-6bLn9fEY.aab" },
   { label: "IOS", store: "App Store", url: "https://apps.apple.com/ng/app/josride-driver/id6805659224" },
 ].map((app) => {
   try {

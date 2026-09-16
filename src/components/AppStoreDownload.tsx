@@ -73,7 +73,7 @@ const StoreButton = ({
 const AppStoreDownload: React.FC<AppStoreDownloadProps> = ({
   className = "",
   heading = "Download the app",
-  description = "Carry JosCity with you — Android and iPhone.",
+  description = "Carry JosCity with you Android and iPhone.",
 }) => {
   const { android_url, ios_url } = useAppStoreLinks();
 

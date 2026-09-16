@@ -6,10 +6,14 @@ export type AppStoreLinks = {
   ios_url: string;
 };
 
-const EMPTY: AppStoreLinks = { android_url: "", ios_url: "" };
+const DEFAULT_LINKS: AppStoreLinks = {
+  android_url:
+    "https://play.google.com/store/apps/details?id=com.joscity.app&pcampaignid=web_share",
+  ios_url: "https://apps.apple.com/ng/app/joscity/id6805214004",
+};
 
 export function useAppStoreLinks() {
-  const [links, setLinks] = useState<AppStoreLinks>(EMPTY);
+  const [links, setLinks] = useState<AppStoreLinks>(DEFAULT_LINKS);
 
   useEffect(() => {
     let cancelled = false;
@@ -19,11 +23,11 @@ export function useAppStoreLinks() {
         const json = (await response.json()) as { data?: AppStoreLinks };
         if (cancelled) return;
         setLinks({
-          android_url: String(json.data?.android_url || "").trim(),
+          android_url: DEFAULT_LINKS.android_url,
           ios_url: String(json.data?.ios_url || "").trim(),
         });
       } catch {
-        if (!cancelled) setLinks(EMPTY);
+        if (!cancelled) setLinks(DEFAULT_LINKS);
       }
     })();
     return () => {

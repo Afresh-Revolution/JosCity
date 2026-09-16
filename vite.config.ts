@@ -75,7 +75,7 @@ export default defineConfig({
       strategies: "injectManifest",
       srcDir: "src",
       filename: "sw.ts",
-      registerType: "prompt", // Show "update available" so we can display our badge
+      registerType: "autoUpdate",
       injectRegister: "auto",
       manifest: {
         name: "JosCity",

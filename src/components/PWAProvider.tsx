@@ -56,87 +56,59 @@ export function PullToRefreshIndicator({
   );
 }
 
-/**
- * Update-available badge: when a new deployment is live, show a small banner
- * asking the user to click to upgrade.
- */
-function UpdateBadge({ onUpdate, onDismiss }: { onUpdate: () => void; onDismiss: () => void }) {
-  return (
-    <div className="pwa-update-badge" role="status">
-      <span className="pwa-update-badge__text">New version available</span>
-      <button type="button" className="pwa-update-badge__btn" onClick={onUpdate}>
-        Update
-      </button>
-      <button
-        type="button"
-        className="pwa-update-badge__dismiss"
-        onClick={onDismiss}
-        aria-label="Dismiss"
-      >
-        ×
-      </button>
-    </div>
-  );
-}
-
-/**
- * Registers the service worker only in production builds (not during `vite dev`).
- * Matches vite-plugin-pwa `devOptions.enabled: false` — avoids dev SW / import issues.
- */
-function ProductionServiceWorkerRegistration({
-  onNeedRefresh,
-  updateFnRef,
-}: {
-  onNeedRefresh: (need: boolean) => void;
-  updateFnRef: React.MutableRefObject<((reload?: boolean) => Promise<void>) | null>;
-}) {
-  const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW({
-    onRegistered(registration: ServiceWorkerRegistration | undefined) {
-      if (registration) {
-        setInterval(() => registration.update(), 60 * 60 * 1000);
-      }
-    },
-    onRegisterError(e: unknown) {
-      console.warn("SW registration error:", e);
+/** Register in production and detect deployments promptly while the app is visible. */
+function ProductionServiceWorkerRegistration() {
+  const [registration, setRegistration] = useState<ServiceWorkerRegistration>();
+  useRegisterSW({
+    immediate: true,
+    onRegistered: setRegistration,
+    onRegisterError(error: unknown) {
+      console.warn("SW registration error:", error);
     },
   });
 
   useEffect(() => {
-    updateFnRef.current = updateServiceWorker;
-    return () => {
-      updateFnRef.current = null;
+    if (!registration) return;
+    let checking = false;
+    const checkForUpdate = async () => {
+      if (checking || !navigator.onLine || document.visibilityState !== "visible" || registration.installing) return;
+      checking = true;
+      try {
+        await registration.update();
+      } catch (error) {
+        // Keep the existing offline app usable and retry on the next check.
+        console.warn("SW update check failed:", error);
+      } finally {
+        checking = false;
+      }
     };
-  }, [updateServiceWorker, updateFnRef]);
-
-  useEffect(() => {
-    if (needRefresh) onNeedRefresh(true);
-  }, [needRefresh, onNeedRefresh]);
+    void checkForUpdate();
+    const interval = window.setInterval(checkForUpdate, 30_000);
+    window.addEventListener("focus", checkForUpdate);
+    window.addEventListener("online", checkForUpdate);
+    document.addEventListener("visibilitychange", checkForUpdate);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", checkForUpdate);
+      window.removeEventListener("online", checkForUpdate);
+      document.removeEventListener("visibilitychange", checkForUpdate);
+    };
+  }, [registration]);
 
   return null;
 }
 
 /**
- * PWAProvider: registers SW (prod only), shows update badge, and enables pull-to-refresh.
+ * PWAProvider: registers SW (prod only), applies updates automatically, and enables pull-to-refresh.
  */
 export default function PWAProvider({ children }: { children: React.ReactNode }) {
-  const [showUpdateBadge, setShowUpdateBadge] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const [pulling, setPulling] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const startY = useRef(0);
-  const updateServiceWorkerRef = useRef<((reload?: boolean) => Promise<void>) | null>(null);
 
   const onRefresh = useCallback(() => {
     window.location.reload();
-  }, []);
-
-  const handleNeedRefresh = useCallback((need: boolean) => {
-    if (need) setShowUpdateBadge(true);
-  }, []);
-
-  const handleUpdate = useCallback(() => {
-    void updateServiceWorkerRef.current?.(true);
-    setShowUpdateBadge(false);
   }, []);
 
   // Pull-to-refresh (touch only): only when at top of scroll container (fixes newsfeed glitch)
@@ -223,19 +195,8 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
 
   return (
     <PWAInstallProvider>
-      {import.meta.env.PROD && (
-        <ProductionServiceWorkerRegistration
-          onNeedRefresh={handleNeedRefresh}
-          updateFnRef={updateServiceWorkerRef}
-        />
-      )}
+      {import.meta.env.PROD && <ProductionServiceWorkerRegistration />}
       {children}
-      {showUpdateBadge && (
-        <UpdateBadge
-          onUpdate={handleUpdate}
-          onDismiss={() => setShowUpdateBadge(false)}
-        />
-      )}
       <PullToRefreshIndicator pullDistance={pullDistance} active={pulling} />
       {showScrollTop && (
         <button

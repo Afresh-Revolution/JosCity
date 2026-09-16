@@ -27,6 +27,7 @@ interface ImportMetaEnv {
 
 declare module "virtual:pwa-register/react" {
   export function useRegisterSW(options?: {
+    immediate?: boolean;
     onRegistered?: (registration: ServiceWorkerRegistration | undefined) => void;
     onRegisterError?: (error: unknown) => void;
   }): {

@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import { precacheAndRoute } from "workbox-precaching";
+import { cleanupOutdatedCaches, precacheAndRoute } from "workbox-precaching";
 import { clientsClaim } from "workbox-core";
 
 declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: Array<{ url: string; revision?: string }> };
@@ -7,9 +7,14 @@ declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: Array<{ url: str
 // Precache assets injected by vite-plugin-pwa
 precacheAndRoute(self.__WB_MANIFEST);
 
-// Take control of all clients as soon as the SW activates
-self.addEventListener("activate", () => {
-  clientsClaim();
+// Register activation handling before the activate event fires.
+cleanupOutdatedCaches();
+clientsClaim();
+void self.skipWaiting();
+
+// Support clients still running the previous prompt-based release.
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") void self.skipWaiting();
 });
 
 // Push notifications: show system notification even when PWA is not open

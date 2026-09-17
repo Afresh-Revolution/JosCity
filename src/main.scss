@@ -43,3 +43,30 @@
 @forward "./scss/applicationCard.scss";
 @forward "./scss/storyviewer.scss";
 @forward "./scss/createStoryPopup.scss";
+
+.landing-mobile-app-button {
+  position: fixed;
+  left: max(16px, env(safe-area-inset-left));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 990;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  background: #004018;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+
+  &:hover {
+    background: #016b2a;
+  }
+
+  &:focus-visible {
+    outline: 3px solid #02b449;
+    outline-offset: 3px;
+  }
+}

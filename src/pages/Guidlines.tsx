@@ -193,6 +193,7 @@ const Guidelines: React.FC = () => {
 
         <div
           ref={downloadAnimation.ref as React.RefObject<HTMLDivElement>}
+          id="mobile-app-download"
           className={`guidelines__download ${downloadAnimation.className}`}
         >
           <AppStoreDownload />

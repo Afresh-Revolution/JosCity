@@ -83,6 +83,21 @@ export function LandingPage() {
       <Guidelines />
       <Contact />
       <Footer />
+      <button
+        type="button"
+        className="landing-mobile-app-button"
+        aria-controls="mobile-app-download"
+        onClick={() => {
+          document.getElementById("mobile-app-download")?.scrollIntoView({
+            behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+              ? "instant"
+              : "smooth",
+            block: "center",
+          });
+        }}
+      >
+        Mobile App
+      </button>
     </>
   );
 }

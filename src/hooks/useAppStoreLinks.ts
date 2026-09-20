@@ -8,7 +8,7 @@ export type AppStoreLinks = {
 
 const DEFAULT_LINKS: AppStoreLinks = {
   android_url:
-    "https://play.google.com/store/apps/details?id=com.joscity.app&pcampaignid=web_share",
+    "https://expo.dev/artifacts/eas/A4k01OyriMyNyU3e5N8MlvQmb2fm-4hD48U3VxWD8jc.apk",
   ios_url: "https://apps.apple.com/ng/app/joscity/id6805214004",
 };
 

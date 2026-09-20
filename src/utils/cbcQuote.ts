@@ -13,11 +13,17 @@ export type CbcQuote = {
   updated_at?: string | null;
 };
 
-export function nairaToCbc(naira: number, quote: CbcQuote | null | undefined): number {
+export function nairaToCbc(naira: number, quote?: { cbc_ngn?: number | null } | null): number {
   const perCbc = Number(quote?.cbc_ngn || 0);
   const amount = Number(naira);
   if (!(perCbc > 0) || !Number.isFinite(amount)) return 0;
   return amount / perCbc;
+}
+
+export function formatCbcAmount(naira: number, quote?: { cbc_ngn?: number | null } | null): string {
+  const cbc = nairaToCbc(naira, quote);
+  if (!(cbc > 0)) return "";
+  return `${cbc.toLocaleString("en-US", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} CBC`;
 }
 
 export function cbcToNaira(cbc: number, quote: CbcQuote | null | undefined): number {

@@ -41,6 +41,7 @@ import {
   type BusinessCategory,
 } from "../constants/businessCategories";
 import LazyImage from "../components/LazyImage";
+import AgentAccountSwitcher from "../components/AgentAccountSwitcher";
 import ConfirmationModal from "../components/ConfirmationModal";
 import CacEditUnlock from "../components/CacEditUnlock";
 import { formatMemberDisplayId } from "../utils/memberDisplayId";
@@ -1046,6 +1047,7 @@ const UserProfile: React.FC = () => {
               <div className="user-profile__section">
                 <h2 className="user-profile__section-title">Account Actions</h2>
                 <div className="user-profile__logout-container">
+                  <AgentAccountSwitcher className="user-profile__logout-btn" />
                   <button
                     className="user-profile__logout-btn"
                     onClick={handleLogout}

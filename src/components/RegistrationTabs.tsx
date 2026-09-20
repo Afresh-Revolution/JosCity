@@ -1,8 +1,8 @@
 import React from "react";
 
 interface RegistrationTabsProps {
-  registrationType: "personal" | "business";
-  onTypeChange: (type: "personal" | "business") => void;
+  registrationType: "personal" | "business" | "agent";
+  onTypeChange: (type: "personal" | "business" | "agent") => void;
 }
 
 const RegistrationTabs: React.FC<RegistrationTabsProps> = ({
@@ -27,6 +27,7 @@ const RegistrationTabs: React.FC<RegistrationTabsProps> = ({
       >
         Business
       </button>
+      <button type="button" className={`register-tab register-tab-personal ${registrationType === "agent" ? "active" : ""}`} onClick={() => onTypeChange("agent")}>Agent</button>
     </div>
   );
 };

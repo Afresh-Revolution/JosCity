@@ -25,6 +25,20 @@ export type WalletFundingOptions = {
     account_name?: string;
     account_number?: string;
   };
+  cbc_card?: { enabled?: boolean };
+  cbc_quote?: {
+    symbol?: string;
+    name?: string;
+    cbc_ngn?: number | null;
+    cbc_usd?: number | null;
+  } | null;
+  withdraw?: {
+    min_amount?: number;
+    max_amount?: number;
+    daily_limit?: number;
+    paystack?: { enabled: boolean };
+    manual?: { enabled: boolean };
+  } | null;
 };
 
 export type WalletSnapshot = {
@@ -114,10 +128,10 @@ export const walletApi = {
     });
   },
 
-  withdraw: (amount: number) =>
+  withdraw: (amount: number, method?: "paystack" | "manual") =>
     request("/account/wallet/withdraw", {
       method: "POST",
-      body: JSON.stringify({ amount }),
+      body: JSON.stringify({ amount, method: method || "manual" }),
     }),
 
   updatePayoutAccount: (input: {

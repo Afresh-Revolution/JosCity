@@ -3924,22 +3924,10 @@
 
   &__image-item {
     width: 100%;
-    height: 100%;
-    min-height: 200px;
-    max-height: 400px;
+    height: auto;
     overflow: hidden;
     position: relative;
     box-sizing: border-box;
-
-    @media (max-width: 768px) {
-      min-height: 150px;
-      max-height: 300px;
-    }
-
-    @media (max-width: 480px) {
-      min-height: 120px;
-      max-height: 250px;
-    }
 
     &--last {
       position: relative;
@@ -3987,42 +3975,22 @@
   &__image {
     width: 100% !important;
     max-width: 100% !important;
-    height: 100% !important;
-    max-height: 600px !important;
+    height: auto !important;
+    max-height: none !important;
     -o-object-fit: contain !important;
     object-fit: contain !important;
     display: block;
     box-sizing: border-box;
-
-    @media (max-width: 768px) {
-      max-width: 100vw !important;
-      max-height: 500px !important;
-      width: 100% !important;
-    }
-
-    @media (max-width: 480px) {
-      max-width: 100vw !important;
-      max-height: 400px !important;
-      width: 100% !important;
-    }
   }
 
   // Grid image specific styling
   &__images-grid &__image {
     width: 100% !important;
-    height: 100% !important;
-    max-height: 400px !important;
+    height: auto !important;
+    max-height: none !important;
     -o-object-fit: contain !important;
     object-fit: contain !important;
     display: block;
-
-    @media (max-width: 768px) {
-      max-height: 300px !important;
-    }
-
-    @media (max-width: 480px) {
-      max-height: 250px !important;
-    }
   }
 
   // Ensure images in wrapper also use contain

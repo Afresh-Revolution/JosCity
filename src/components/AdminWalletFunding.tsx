@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   AlertCircle,
+  Banknote,
   Calendar,
   CheckCircle,
   Coins,
@@ -18,10 +19,12 @@ import {
   approveWalletPayment,
   getCbcQuote,
   getWalletPayments,
+  getWithdrawSettings,
   rejectWalletPayment,
-  updateCbcQuote,
+  updateWithdrawSettings,
   type CbcQuote,
   type WalletPaymentRequest,
+  type WithdrawSettings,
 } from "../services/adminApi";
 import {
   DEFAULT_CBC_USD,
@@ -34,6 +37,18 @@ function isFundingRequest(payment: WalletPaymentRequest) {
   return type === "funding";
 }
 
+function isWithdrawalRequest(payment: WalletPaymentRequest) {
+  return String(payment.request_type || "").toLowerCase() === "withdrawal";
+}
+
+const EMPTY_WITHDRAW: WithdrawSettings = {
+  min_amount: 100,
+  max_amount: 2000000,
+  daily_limit: 5000000,
+  paystack_enabled: true,
+  manual_enabled: true,
+};
+
 export default function AdminWalletFunding() {
   const [payments, setPayments] = useState<WalletPaymentRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState("pending");
@@ -44,23 +59,28 @@ export default function AdminWalletFunding() {
   const [quote, setQuote] = useState<CbcQuote | null>(null);
   const [cbcUsdText, setCbcUsdText] = useState(String(DEFAULT_CBC_USD));
   const [usdNgnText, setUsdNgnText] = useState("");
-  const [savingQuote, setSavingQuote] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"funding" | "withdrawal">("funding");
+  const [withdraw, setWithdraw] = useState<WithdrawSettings>(EMPTY_WITHDRAW);
+  const [minText, setMinText] = useState("100");
+  const [maxText, setMaxText] = useState("2000000");
+  const [dailyText, setDailyText] = useState("5000000");
+  const [savingWithdraw, setSavingWithdraw] = useState(false);
 
-  const applyQuote = (next: CbcQuote | null) => {
+  const applyQuote = useCallback((next: CbcQuote | null) => {
     setQuote(next);
     if (!next) return;
     setCbcUsdText(String(next.cbc_usd || DEFAULT_CBC_USD));
     setUsdNgnText(next.usd_ngn ? String(next.usd_ngn) : "");
-  };
+  }, []);
 
   const draftQuote = quoteFromInputs(
     Number(cbcUsdText.replace(/,/g, "")),
     usdNgnText.trim() ? Number(usdNgnText.replace(/,/g, "")) : quote?.usd_ngn || null
   );
-  const activeQuote = quote?.admin_can_edit === false ? quote : { ...quote, ...draftQuote };
-  const locked = quote?.admin_can_edit === false;
+  const activeQuote = quote || draftQuote;
+  const locked = true;
 
   const cbcOf = (payment: WalletPaymentRequest) => {
     if (Number(payment.cbc_amount) > 0 && quote && quote.admin_can_edit === false) {
@@ -69,32 +89,16 @@ export default function AdminWalletFunding() {
     return nairaToCbc(payment.amount, activeQuote);
   };
 
-  const loadPayments = async () => {
+  const loadPayments = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const [response, quoteResult] = await Promise.all([
-        getWalletPayments(),
-        getCbcQuote().catch(() => null),
-      ]);
-      const data = (response.data || []).filter(isFundingRequest);
-      let resolved = quoteResult || response.quote || null;
-      if (!resolved) {
-        try {
-          const fx = await fetch("https://open.er-api.com/v6/latest/USD", {
-            signal: AbortSignal.timeout(8000),
-          });
-          const json = (await fx.json()) as { rates?: { NGN?: number } };
-          const ngn = Number(json?.rates?.NGN);
-          resolved = quoteFromInputs(
-            DEFAULT_CBC_USD,
-            Number.isFinite(ngn) && ngn > 0 ? ngn : null
-          );
-        } catch {
-          resolved = quoteFromInputs(DEFAULT_CBC_USD, null);
-        }
+      const response = await getWalletPayments();
+      if (response.success === false || !Array.isArray(response.data)) {
+        throw new Error("Could not load funding requests: invalid server response.");
       }
-      applyQuote(resolved);
+      const data = response.data;
+      if (response.quote) applyQuote(response.quote);
       setPayments((prev) => {
         const incoming = data;
         const seen = new Set(incoming.map((row) => row.request_id));
@@ -107,26 +111,44 @@ export default function AdminWalletFunding() {
       });
     } catch (err) {
       console.error("Failed to load funding requests:", err);
-      setPayments([]);
+      setError(err instanceof Error ? err.message : "Failed to load funding requests");
     } finally {
       setLoading(false);
     }
-  };
+  }, [applyQuote]);
 
   useEffect(() => {
     void loadPayments();
-  }, []);
+  }, [loadPayments]);
 
+  useEffect(() => {
+    let active = true;
+    void getWithdrawSettings().then((settings) => {
+      if (!active) return;
+      setWithdraw(settings);
+      setMinText(String(settings.min_amount ?? EMPTY_WITHDRAW.min_amount));
+      setMaxText(String(settings.max_amount ?? EMPTY_WITHDRAW.max_amount));
+      setDailyText(String(settings.daily_limit ?? EMPTY_WITHDRAW.daily_limit));
+    }).catch(() => { /* Keep the default settings visible if unavailable. */ });
+    void getCbcQuote().then((next) => {
+      if (active) applyQuote(next);
+    }).catch(() => { /* Rates must not block the funding request list. */ });
+    return () => { active = false; };
+  }, [applyQuote]);
+
+  const scoped = payments.filter((payment) =>
+    typeFilter === "withdrawal" ? isWithdrawalRequest(payment) : isFundingRequest(payment)
+  );
   const filtered =
     statusFilter === "all"
-      ? payments
-      : payments.filter((payment) => payment.status === statusFilter);
+      ? scoped
+      : scoped.filter((payment) => payment.status === statusFilter);
 
   const stats = {
-    pending: payments.filter((p) => p.status === "pending").length,
-    approved: payments.filter((p) => p.status === "approved").length,
-    rejected: payments.filter((p) => p.status === "rejected").length,
-    naira: payments.reduce((sum, p) => sum + (p.amount || 0), 0),
+    pending: scoped.filter((p) => p.status === "pending").length,
+    approved: scoped.filter((p) => p.status === "approved").length,
+    rejected: scoped.filter((p) => p.status === "rejected").length,
+    naira: scoped.reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
   };
 
   const handleApprove = async (id: string) => {
@@ -141,7 +163,7 @@ export default function AdminWalletFunding() {
         )
       );
       setStatusFilter("approved");
-      setSuccess("Funding request approved");
+      setSuccess("Request approved");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to approve payment");
     } finally {
@@ -170,7 +192,7 @@ export default function AdminWalletFunding() {
       setRejectTarget(null);
       setRejectReason("");
       setStatusFilter("rejected");
-      setSuccess("Funding request declined");
+      setSuccess("Request declined");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to reject payment");
     } finally {
@@ -178,28 +200,41 @@ export default function AdminWalletFunding() {
     }
   };
 
-  const saveQuote = async () => {
-    const cbcUsd = Number(String(cbcUsdText).replace(/,/g, ""));
-    if (!Number.isFinite(cbcUsd) || cbcUsd <= 0) {
-      setError("Enter a CBC price in USD greater than 0.");
+  const saveWithdraw = async () => {
+    const minAmount = Number(String(minText).replace(/,/g, ""));
+    const maxAmount = Number(String(maxText).replace(/,/g, ""));
+    const dailyLimit = Number(String(dailyText).replace(/,/g, ""));
+    if (![minAmount, maxAmount, dailyLimit].every((value) => Number.isFinite(value) && value >= 0)) {
+      setError("Enter valid naira amounts for the withdrawal limits.");
       return;
     }
-    const usdNgnRaw = usdNgnText.trim().replace(/,/g, "");
-    const usdNgn = usdNgnRaw ? Number(usdNgnRaw) : null;
-    if (usdNgnRaw && (!Number.isFinite(usdNgn) || Number(usdNgn) <= 0)) {
-      setError("USD to NGN rate must be greater than 0, or leave it blank to use the live rate.");
+    if (minAmount < 1) {
+      setError("Minimum withdrawal must be at least ₦1.");
+      return;
+    }
+    if (maxAmount < minAmount) {
+      setError("Maximum withdrawal cannot be below the minimum.");
       return;
     }
     try {
-      setSavingQuote(true);
+      setSavingWithdraw(true);
       setError(null);
-      applyQuote(await updateCbcQuote({ cbc_usd: cbcUsd, usd_ngn: usdNgn }));
-      setSuccess("CBC price saved.");
-      await loadPayments();
+      const next = await updateWithdrawSettings({
+        min_amount: minAmount,
+        max_amount: maxAmount,
+        daily_limit: dailyLimit,
+        paystack_enabled: withdraw.paystack_enabled,
+        manual_enabled: withdraw.manual_enabled,
+      });
+      setWithdraw(next);
+      setMinText(String(next.min_amount));
+      setMaxText(String(next.max_amount));
+      setDailyText(String(next.daily_limit));
+      setSuccess("Withdrawal limits saved.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save CBC price");
+      setError(err instanceof Error ? err.message : "Could not save withdrawal limits");
     } finally {
-      setSavingQuote(false);
+      setSavingWithdraw(false);
     }
   };
 
@@ -240,9 +275,7 @@ export default function AdminWalletFunding() {
             Cbrilliance (CBC)
           </h2>
           <p>
-            {locked
-              ? "CBC price is coming from the Cbrilliance API."
-              : "Set what 1 CBC costs in USD. Naira funding is converted with CBC = ₦ ÷ (USD price × USD/NGN)."}
+            CBC rate is display only. Admins cannot edit this price.
           </p>
         </div>
         <div className="admin-cbc-quote__fields">
@@ -253,8 +286,8 @@ export default function AdminWalletFunding() {
               min="0"
               step="0.01"
               value={cbcUsdText}
-              disabled={locked || savingQuote}
-              onChange={(event) => setCbcUsdText(event.target.value)}
+              disabled={locked}
+              readOnly
             />
           </label>
           <label className="admin-cbc-quote__field">
@@ -265,8 +298,8 @@ export default function AdminWalletFunding() {
               step="0.01"
               placeholder="Live rate if blank"
               value={usdNgnText}
-              disabled={locked || savingQuote}
-              onChange={(event) => setUsdNgnText(event.target.value)}
+              disabled={locked}
+              readOnly
             />
           </label>
         </div>
@@ -284,21 +317,105 @@ export default function AdminWalletFunding() {
               {activeQuote.cbc_ngn ? `${formatCBC(nairaToCbc(2000, activeQuote))} CBC` : "—"}
             </strong>
           </div>
-          <button
-            type="button"
-            className="admin-action-btn admin-action-btn--approve"
-            onClick={() => void saveQuote()}
-            disabled={locked || savingQuote}
-          >
-            {savingQuote ? <Loader2 size={16} className="spinner" /> : <Save size={16} />}
-            Save price
-          </button>
         </div>
         {quote?.api_configured && (
           <p className="admin-cbc-quote__source">
             Cbrilliance API env is set{quote.api_error ? ` (using admin price: ${quote.api_error})` : ""}.
           </p>
         )}
+      </section>
+
+      <section className="admin-cbc-quote">
+        <div className="admin-cbc-quote__head">
+          <h2>
+            <Banknote size={18} />
+            Withdrawal limits
+          </h2>
+          <p>
+            These limits apply to personal, agent, and business wallet withdrawals. Paystack
+            sends money immediately; manual payouts wait for admin approval.
+          </p>
+        </div>
+        <div className="admin-cbc-quote__fields">
+          <label className="admin-cbc-quote__field">
+            <span>Minimum (₦)</span>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={minText}
+              disabled={savingWithdraw}
+              onChange={(event) => setMinText(event.target.value)}
+            />
+          </label>
+          <label className="admin-cbc-quote__field">
+            <span>Maximum (₦)</span>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={maxText}
+              disabled={savingWithdraw}
+              onChange={(event) => setMaxText(event.target.value)}
+            />
+          </label>
+          <label className="admin-cbc-quote__field">
+            <span>Daily limit (₦)</span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={dailyText}
+              disabled={savingWithdraw}
+              onChange={(event) => setDailyText(event.target.value)}
+            />
+          </label>
+        </div>
+        <div className="admin-cbc-quote__fields">
+          <label className="admin-cbc-quote__field">
+            <span>Paystack payouts</span>
+            <input
+              type="checkbox"
+              checked={withdraw.paystack_enabled}
+              disabled={savingWithdraw}
+              onChange={(event) =>
+                setWithdraw((current) => ({ ...current, paystack_enabled: event.target.checked }))
+              }
+            />
+          </label>
+          <label className="admin-cbc-quote__field">
+            <span>Manual payouts</span>
+            <input
+              type="checkbox"
+              checked={withdraw.manual_enabled}
+              disabled={savingWithdraw}
+              onChange={(event) =>
+                setWithdraw((current) => ({ ...current, manual_enabled: event.target.checked }))
+              }
+            />
+          </label>
+        </div>
+        <div className="admin-cbc-quote__bar">
+          <div>
+            <span>Paystack keys</span>
+            <strong>{withdraw.paystack_configured ? "Configured on API" : "Missing on API"}</strong>
+          </div>
+          <div>
+            <span>Per transaction</span>
+            <strong>
+              {formatNaira(Number(minText) || 0)} – {formatNaira(Number(maxText) || 0)}
+            </strong>
+          </div>
+          <button
+            type="button"
+            className="admin-action-btn admin-action-btn--approve"
+            onClick={() => void saveWithdraw()}
+            disabled={savingWithdraw}
+          >
+            {savingWithdraw ? <Loader2 size={16} className="spinner" /> : <Save size={16} />}
+            Save limits
+          </button>
+        </div>
       </section>
 
       <div className="admin-wallet-stats">
@@ -355,6 +472,15 @@ export default function AdminWalletFunding() {
       </div>
 
       <div className="admin-dashboard__filters">
+        {(["funding", "withdrawal"] as const).map((type) => (
+          <button
+            key={type}
+            className={`admin-filter-btn ${typeFilter === type ? "active" : ""}`}
+            onClick={() => setTypeFilter(type)}
+          >
+            {type === "funding" ? "Funding" : "Withdrawals"}
+          </button>
+        ))}
         {["pending", "all", "approved", "rejected"].map((status) => (
           <button
             key={status}
@@ -371,6 +497,7 @@ export default function AdminWalletFunding() {
         <div className="admin-dashboard__message admin-dashboard__message--error">
           <AlertCircle size={18} />
           <span>{error}</span>
+          <button type="button" disabled={loading} onClick={() => void loadPayments()}>Retry</button>
           <button type="button" onClick={() => setError(null)}>
             <XCircle size={18} />
           </button>
@@ -390,12 +517,15 @@ export default function AdminWalletFunding() {
       {loading ? (
         <div className="admin-dashboard__loading">
           <Loader2 size={32} className="spinner" />
-          <span>Loading funding requests...</span>
+          <span>Loading {typeFilter === "withdrawal" ? "withdrawals" : "funding requests"}...</span>
         </div>
       ) : filtered.length === 0 ? (
         <div className="admin-dashboard__empty-state">
           <Wallet size={48} />
-          <p>No wallet funding requests{statusFilter !== "all" ? ` (${statusFilter})` : ""}</p>
+          <p>
+            No {typeFilter === "withdrawal" ? "withdrawal" : "wallet funding"} requests
+            {statusFilter !== "all" ? ` (${statusFilter})` : ""}
+          </p>
         </div>
       ) : (
         <div className="admin-wallet-grid">
@@ -437,8 +567,14 @@ export default function AdminWalletFunding() {
                 </div>
                 <div className="admin-wallet-card__detail-item">
                   <Coins size={16} />
-                  <span>{payment.method || "Bank transfer"}</span>
+                  <span>{payment.method || (typeFilter === "withdrawal" ? "Payout" : "Bank transfer")}</span>
                 </div>
+                {typeFilter === "withdrawal" && payment.payout_destination ? (
+                  <div className="admin-wallet-card__detail-item">
+                    <Banknote size={16} />
+                    <span>{payment.payout_destination}</span>
+                  </div>
+                ) : null}
                 <div className="admin-wallet-card__status">
                   <span className={`badge badge--${payment.status}`}>{payment.status}</span>
                 </div>

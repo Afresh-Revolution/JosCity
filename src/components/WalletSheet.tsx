@@ -59,10 +59,15 @@ export default function WalletSheet({
   const [paystackFailed, setPaystackFailed] = useState(false);
 
   const funding = wallet?.funding;
-  const paystackOn = Boolean(funding?.paystack?.enabled);
+  const paystackOn =
+    Boolean(funding?.paystack?.enabled) ||
+    Boolean(funding?.paystack?.public_key) ||
+    funding == null;
   const safehavenOn = Boolean(funding?.safehaven?.enabled);
   const manualOn = Boolean(funding?.manual?.enabled);
   const minFund = Number(funding?.min_amount || 100);
+  const withdrawPaystackOn = funding?.withdraw?.paystack?.enabled !== false && paystackOn;
+  const withdrawManualOn = funding?.withdraw?.manual?.enabled !== false;
   const available = Number(wallet?.balance || 0);
   const ownMemberId = String(wallet?.member_id || "");
   const callbackUrl = `${window.location.origin}/membership`;
@@ -228,7 +233,7 @@ export default function WalletSheet({
     }
   };
 
-  const submitBankWithdraw = async () => {
+  const submitBankWithdraw = async (method: "paystack" | "manual") => {
     const amount = parseAmount();
     if (!Number.isFinite(amount) || amount <= 0) {
       showError("Enter a valid naira amount.");
@@ -241,9 +246,11 @@ export default function WalletSheet({
     setBusy(true);
     setNotice(null);
     try {
-      await walletApi.withdraw(amount);
+      await walletApi.withdraw(amount, method);
       showSuccess(
-        "Withdrawal submitted. Payouts stay pending until JOSCITY approves them."
+        method === "paystack"
+          ? "Withdrawal sent. Paystack is paying out to your bank."
+          : "Withdrawal submitted. Payouts stay pending until JOSCITY approves them."
       );
       await refresh();
       setSheet("hub");
@@ -496,16 +503,28 @@ export default function WalletSheet({
                 />
               </div>
             </label>
-            <button
-              type="button"
-              onClick={() =>
-                void (sheet === "bank" ? submitBankWithdraw() : continueFunding())
-              }
-              disabled={busy}
-            >
-              {busy ? <Loader2 size={16} className="spinner" /> : null}
-              {sheet === "bank" ? "Submit for review" : "Continue"}
-            </button>
+            {sheet === "fund" ? (
+              <button type="button" onClick={() => void continueFunding()} disabled={busy}>
+                {busy ? <Loader2 size={16} className="spinner" /> : null}
+                Continue
+              </button>
+            ) : null}
+            {sheet === "bank" && withdrawPaystackOn ? (
+              <button type="button" onClick={() => void submitBankWithdraw("paystack")} disabled={busy}>
+                {busy ? <Loader2 size={16} className="spinner" /> : null}
+                Paystack payout
+              </button>
+            ) : null}
+            {sheet === "bank" && withdrawManualOn ? (
+              <button
+                type="button"
+                className="wallet-sheet__ghost"
+                onClick={() => void submitBankWithdraw("manual")}
+                disabled={busy}
+              >
+                Manual review
+              </button>
+            ) : null}
           </>
         ) : null}
 

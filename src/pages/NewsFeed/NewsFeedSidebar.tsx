@@ -10,6 +10,7 @@ import {
   Film,
   Newspaper,
   MessageSquare,
+  Map,
   Store,
   Tag,
   Briefcase as Jobs,
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react';
 
 import ReportModal from "../../components/ReportModal";
+import { getUserAccountType } from "../../utils/userUtils";
 
 interface NewsFeedSidebarProps {
   isOpen?: boolean;
@@ -58,6 +60,8 @@ const NewsFeedSidebar: React.FC<NewsFeedSidebarProps> = ({ isOpen = false, onClo
       setActiveItem('business');
     } else if (path === '/reels') {
       setActiveItem('reels');
+    } else if (path === '/map' || path === '/business/map' || path === '/agents/map') {
+      setActiveItem('map');
     } else if (path === '/newsfeed' || path === '/') {
       setActiveItem('newsfeed');
     }
@@ -226,6 +230,9 @@ const NewsFeedSidebar: React.FC<NewsFeedSidebarProps> = ({ isOpen = false, onClo
             <MessageSquare size={20} />
             <span>Forums</span>
           </a>
+          {[['Map', getUserAccountType().toLowerCase() === 'business' ? '/business/map' : '/map', 'map'], ['Help me buy', '/agent-services/request?service=buy', 'buy'], ['Help me deliver', '/agent-services/request?service=deliver', 'deliver'], ['Agents', '/agent-services/directory', 'agents'], ['Agent dashboard', '/agents', 'agent-dashboard']].map(([label, path, id]) => (
+            <a key={label} href={path} className={`newsfeed-sidebar__item ${activeItem === id ? 'newsfeed-sidebar__item--active' : ''}`} onClick={e => { e.preventDefault(); setActiveItem(id); navigate(path); onClose?.(); }}>{id === 'map' ? <Map size={20} /> : <Users size={20} />}<span>{label}</span></a>
+          ))}
           <a
             href="/marketplace"
             className={`newsfeed-sidebar__item ${activeItem === 'marketplace' ? 'newsfeed-sidebar__item--active' : ''}`}

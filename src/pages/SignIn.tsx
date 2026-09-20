@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   User,
   Building2,
+  Bike,
 } from "lucide-react";
 import {
   loginPersonal,
@@ -32,8 +33,8 @@ function SignIn() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [accountType, setAccountType] = useState<"personal" | "business">(
-    "personal"
+  const [accountType, setAccountType] = useState<"personal" | "business" | "agent">(
+    new URLSearchParams(location.search).get("type") === "agent" ? "agent" : new URLSearchParams(location.search).get("type") === "business" ? "business" : "personal"
   );
   const [activationRequired, setActivationRequired] = useState(true);
   const [checkingActivation, setCheckingActivation] = useState(false);
@@ -69,6 +70,8 @@ function SignIn() {
   };
 
   useEffect(() => {
+    if (accountType === "agent") { setActivationRequired(false); setCheckingActivation(false); return; }
+    let cancelled = false;
     const canCheck = normalizedEmail && normalizedEmail.includes("@");
     if (!canCheck) {
       setActivationRequired(true);
@@ -78,6 +81,7 @@ function SignIn() {
     const timer = setTimeout(async () => {
       setCheckingActivation(true);
       const response = await checkActivationRequired(normalizedEmail, accountType);
+      if (cancelled) return;
       if (response.success && typeof response.activation_required === "boolean") {
         setActivationRequired(response.activation_required);
       } else {
@@ -86,7 +90,7 @@ function SignIn() {
       setCheckingActivation(false);
     }, 350);
 
-    return () => clearTimeout(timer);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [normalizedEmail, accountType]);
 
   const resetForgotState = () => {
@@ -105,6 +109,7 @@ function SignIn() {
     e.preventDefault();
     setError(null);
     setMessage(null);
+    if (accountType === "agent") { navigate("/agents"); return; }
     setIsLoading(true);
 
     try {
@@ -170,6 +175,7 @@ function SignIn() {
   };
 
   const handleForgotSubmit = async (e: React.FormEvent) => {
+    if (accountType === "agent") { e.preventDefault(); return; }
     e.preventDefault();
     setForgotError(null);
     setForgotMessage(null);
@@ -237,6 +243,7 @@ function SignIn() {
   };
 
   const handleResendActivationOtp = async () => {
+    if (accountType === "agent") return;
     setError(null);
     setMessage(null);
     const email = formData.email.trim();
@@ -283,71 +290,13 @@ function SignIn() {
 
           <h2 className="signin-title">Sign in to your account</h2>
 
-          <div
-            className="signin-account-type-selector"
-            style={{
-              display: "flex",
-              gap: "10px",
-              marginBottom: "20px",
-              padding: "8px",
-              backgroundColor: "rgba(255, 255, 255, 0.05)",
-              borderRadius: "8px",
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setAccountType("personal")}
-              style={{
-                flex: 1,
-                padding: "12px",
-                borderRadius: "6px",
-                border: "none",
-                backgroundColor:
-                  accountType === "personal"
-                    ? "rgba(57, 240, 57, 0.2)"
-                    : "transparent",
-                color: accountType === "personal" ? "#ffffff" : "#ffffff",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                fontWeight: accountType === "personal" ? "600" : "400",
-                transition: "all 0.2s",
-              }}
-            >
-              <User size={18} />
-              Personal
-            </button>
-            <button
-              type="button"
-              onClick={() => setAccountType("business")}
-              style={{
-                flex: 1,
-                padding: "12px",
-                borderRadius: "6px",
-                border: "none",
-                backgroundColor:
-                  accountType === "business"
-                    ? "rgba(53, 207, 76, 0.2)"
-                    : "transparent",
-                color: accountType === "business" ? "#ffffff" : "#ffffff",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                fontWeight: accountType === "business" ? "600" : "400",
-                transition: "all 0.2s",
-              }}
-            >
-              <Building2 size={18} />
-              Business
-            </button>
+          <div className="signin-account-type-selector agent-signin-options" role="tablist" aria-label="Account type">
+            {([ ["personal", "Personal", User], ["business", "Business", Building2], ["agent", "Agent", Bike] ] as const).map(([type, label, Icon]) => <button type="button" role="tab" aria-selected={accountType === type} key={type} disabled={isLoading} onClick={() => { setAccountType(type); setShowForgotPassword(false); setActivationRequired(false); setError(null); setMessage(null); }}><Icon size={18} />{label}</button>)}
           </div>
+          {accountType === "agent" && <p className="agent-auth-note">Agent login is a preview. Your credentials will not be submitted.</p>}
 
           {!showForgotPassword ? (
-            <form className="signin-form" onSubmit={handleSubmit}>
+            <form className="signin-form" noValidate={accountType === "agent"} onSubmit={handleSubmit}>
               <div className="signin-form-group">
                 <label htmlFor="email">Email</label>
                 <div className="signin-input-wrapper">
@@ -456,7 +405,7 @@ function SignIn() {
               <button
                 type="button"
                 className="signin-forgot-password-button"
-                onClick={toggleForgotPassword}
+                onClick={() => accountType === "agent" ? setMessage("Agent password recovery is coming soon.") : toggleForgotPassword()}
               >
                 Forgot password?
               </button>
@@ -470,7 +419,7 @@ function SignIn() {
                   cursor: isLoading ? "not-allowed" : "pointer",
                 }}
               >
-                {isLoading ? "SIGNING IN..." : "SIGN IN"}
+                {isLoading ? "SIGNING IN..." : accountType === "agent" ? "PREVIEW AGENT DASHBOARD" : "SIGN IN"}
               </button>
             </form>
           ) : (
@@ -582,7 +531,7 @@ function SignIn() {
               <button
                 type="button"
                 className="signin-forgot-password-button"
-                onClick={toggleForgotPassword}
+                onClick={() => accountType === "agent" ? setMessage("Agent password recovery is coming soon.") : toggleForgotPassword()}
               >
                 Back to Sign In
               </button>

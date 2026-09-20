@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { X, Heart, Eye, Trash2, Flag } from "lucide-react";
+import { X, Heart, Eye, Trash2, Flag, Send } from "lucide-react";
+import chatService from "../../services/chatService";
 import ReportModal from "../../components/ReportModal";
 import Avatar from "../../components/Avatar";
 import ConfirmationModal from "../../components/ConfirmationModal";
@@ -8,6 +9,7 @@ import { getUserName } from "../../utils/userUtils";
 import { feedApi } from "../../services/feedApi";
 
 interface Story {
+  userId?: number;
   id: number;
   userName: string;
   avatar: string;
@@ -40,6 +42,11 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
   onView,
   onReact,
 }) => {
+  const [reply, setReply] = useState("");
+  const [composing, setComposing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const [feedback, setFeedback] = useState("");
   const [timerProgress, setTimerProgress] = useState(0);
   const [isExpired, setIsExpired] = useState(false);
   const [hasReacted, setHasReacted] = useState(false);
@@ -74,13 +81,13 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
     if (currentIndex >= 0 && currentIndex < stories.length) {
       // Reset state when index changes
       setTimerProgress(0);
-      setIsPaused(false);
+      setIsPaused(false); setReply(""); setFeedback(""); setComposing(false);
     }
   }, [currentIndex, stories.length]);
 
   // Auto-slide to next story after 5 seconds with animated progress
   useEffect(() => {
-    if (!story || isExpired || stories.length === 0) {
+    if (!story || composing || busy || showViews || showReactions || reportOpen || isExpired || stories.length === 0) {
       return;
     }
 
@@ -140,7 +147,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [story, currentIndex, stories.length, isExpired]);
+  }, [story, currentIndex, stories.length, isExpired, composing, busy, showViews, showReactions, reportOpen]);
 
   useEffect(() => {
     if (!story) return;
@@ -194,13 +201,32 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
     onClose,
   ]);
 
-  const handleReact = () => {
-    if (!story || hasReacted || isExpired) return;
+  useEffect(() => {
+    if (composing || busy) videoRef.current?.pause();
+  }, [composing, busy]);
 
-    if (onReact) {
-      onReact(currentStory.id);
-      setHasReacted(true);
-    }
+  const handleReact = async () => {
+    if (!story || isOwner || hasReacted || isExpired || busyRef.current) return;
+    busyRef.current = true; setBusy(true); setFeedback("");
+    try {
+      const result = await feedApi.reactToStory(story.id);
+      if (!result.success) throw new Error(result.message || "Could not react.");
+      onReact?.(story.id); setHasReacted(true); setFeedback("Reaction sent");
+    } catch (error) { setFeedback(error instanceof Error ? error.message : "Could not react. Please try again."); }
+    finally { busyRef.current = false; setBusy(false); }
+  };
+  const sendReply = async () => {
+    if (!story?.userId || !reply.trim() || busyRef.current || isOwner) return;
+    busyRef.current = true; setBusy(true); setFeedback("");
+    try {
+      const result = await chatService.createDirectConversation(story.userId);
+      if (!result.conversation) throw new Error("Chat is unavailable or your message request is awaiting acceptance.");
+      const context = (story.type === "text" ? story.content : story.caption || `${story.type} status`).slice(0, 240);
+      const sent = await chatService.sendMessage(result.conversation.conversationId, `Reply to your status #${story.id}: ${context}\n\n${reply.trim()}`);
+      if (!sent.message) throw new Error("Could not send your reply.");
+      setReply(""); setFeedback("Reply sent to their chat");
+    } catch (error) { setFeedback(error instanceof Error ? error.message : "Could not send. Please try again."); }
+    finally { busyRef.current = false; setBusy(false); }
   };
 
   const handleDelete = () => {
@@ -270,6 +296,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
   };
 
   const handleStoryClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (composing || busy) return;
     const target = e.target as HTMLElement;
     const rect = target.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
@@ -449,15 +476,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
                 alt={currentStory.caption || "Story"}
                 className="story-viewer__image"
               />
-              {currentStory.caption && (
-                <div
-                  className="story-viewer__media-caption"
-                  onClick={(event) => event.stopPropagation()}
-                  title={currentStory.caption}
-                >
-                  <p>{currentStory.caption}</p>
-                </div>
-              )}
+
               {isPaused && (
                 <div
                   style={{
@@ -493,15 +512,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
                 onPlay={() => setIsPaused(false)}
                 onPause={() => setIsPaused(true)}
               />
-              {currentStory.caption && (
-                <div
-                  className="story-viewer__media-caption"
-                  onClick={(event) => event.stopPropagation()}
-                  title={currentStory.caption}
-                >
-                  <p>{currentStory.caption}</p>
-                </div>
-              )}
+
             </div>
           )}
 
@@ -509,18 +520,23 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
 
         {/* Bottom actions (Instagram style) */}
         <div className="story-viewer__bottom-actions">
+          {currentStory.caption && <p className="story-viewer__reply-caption" onClick={event => event.stopPropagation()}>{currentStory.caption}</p>}
+          {!isOwner && <form className="story-viewer__reply" onClick={e => e.stopPropagation()} onSubmit={e => { e.preventDefault(); void sendReply(); }}><input aria-label="Reply to status" placeholder={story.userId ? "Reply privately..." : "Chat unavailable for this status"} disabled={!story.userId || busy} maxLength={2000} value={reply} onChange={e => setReply(e.target.value)} onFocus={() => setComposing(true)} onBlur={() => { if (!reply.trim()) setComposing(false); }} /><button type="submit" aria-label="Send reply to chat" disabled={!story.userId || !reply.trim() || busy}><Send size={22} /></button>{feedback && <small role="status">{feedback}</small>}</form>}
+
           <div className="story-viewer__actions-left">
             <button
               className="story-viewer__bottom-action-btn"
               onClick={(e) => {
                 e.stopPropagation();
                 if (!hasReacted) {
-                  handleReact();
+                  void handleReact();
                 }
-                if (reactionsCount > 0 || hasReacted) {
+                if (hasReacted && reactionsCount > 0) {
                   setShowReactions(true);
                 }
               }}
+              disabled={busy || isOwner}
+              aria-label={hasReacted ? "You reacted" : "React with a heart"}
               title={hasReacted ? "You reacted" : "React"}
             >
               <Heart

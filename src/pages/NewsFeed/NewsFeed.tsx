@@ -18,6 +18,7 @@ import {
   Bell,
   FileText,
 } from "lucide-react";
+import AgentBottomNav from "../../components/AgentBottomNav";
 import NewsFeedSidebar from "./NewsFeedSidebar";
 import NewsFeedHeader from "./NewsFeedHeader";
 import StoriesSection from "./StoriesSection";
@@ -156,7 +157,7 @@ const isFeedItemWithinRecentMonths = (item: unknown, cutoff: number) => {
   return timestamp === null || timestamp >= cutoff;
 };
 
-const NewsFeed: React.FC = () => {
+const NewsFeed: React.FC<{ agentMode?: boolean }> = ({ agentMode = false }) => {
   const navigate = useNavigate();
 
   // Debug: Log when component mounts
@@ -1372,9 +1373,9 @@ const NewsFeed: React.FC = () => {
         onCreateReel={handleCreateReel}
         onAddFriend={() => setIsAddFriendModalOpen(true)}
         onOpenChat={() => openChatPanel()}
-        onOpenNotifications={() => setIsNotificationPanelOpen(true)}
-        onProfileClick={handleProfileClick}
-        unreadNotificationsCount={unreadNotificationsCount}
+        onOpenNotifications={() => agentMode ? navigate("/agents/notifications") : setIsNotificationPanelOpen(true)}
+        onProfileClick={agentMode ? () => navigate("/agents/profile") : handleProfileClick}
+        unreadNotificationsCount={agentMode ? 0 : unreadNotificationsCount}
         unreadMessagesCount={unreadMessagesCount}
         mainContentRef={mainContentRef}
       />
@@ -1399,6 +1400,7 @@ const NewsFeed: React.FC = () => {
 
         {/* Main Content Area */}
         <main className="newsfeed-main" ref={mainContentRef}>
+          {agentMode && <AgentBottomNav />}
           {/* Search Section */}
           <div className="newsfeed-search-section" ref={searchRef}>
             <div className="newsfeed-search-section__input-wrapper">

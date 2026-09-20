@@ -1186,6 +1186,9 @@ export interface WalletPaymentRequest {
   method?: string | null;
   proof_url?: string | null;
   admin_notes?: string | null;
+  payout_destination?: string | null;
+  payout_bank_name?: string | null;
+  payout_account_name?: string | null;
 }
 
 export type { CbcQuote };
@@ -1217,6 +1220,39 @@ export const updateCbcQuote = async (input: {
   });
   const payload = await response.json();
   return (payload.data ?? payload) as CbcQuote;
+};
+
+export type WithdrawSettings = {
+  min_amount: number;
+  max_amount: number;
+  daily_limit: number;
+  paystack_enabled: boolean;
+  manual_enabled: boolean;
+  paystack_configured?: boolean;
+};
+
+export const getWithdrawSettings = async (): Promise<WithdrawSettings> => {
+  const response = await adminApiRequest("/wallet/withdraw-settings");
+  const payload = await response.json();
+  return (payload.data ?? payload) as WithdrawSettings;
+};
+
+export const updateWithdrawSettings = async (input: {
+  min_amount: number;
+  max_amount: number;
+  daily_limit: number;
+  paystack_enabled: boolean;
+  manual_enabled: boolean;
+}): Promise<WithdrawSettings> => {
+  const response = await adminApiRequest("/wallet/withdraw-settings", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.success === false) {
+    throw new Error(payload.message || "Could not save withdrawal limits");
+  }
+  return (payload.data ?? payload) as WithdrawSettings;
 };
 
 export const approveWalletPayment = async (id: string): Promise<{ success: boolean; message: string }> => {

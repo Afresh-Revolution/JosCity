@@ -1,0 +1,38 @@
+.plateau-map-page { background: var(--bg-secondary); }
+.plateau-map-page .newsfeed-main { min-width: 0; }
+.plateau-map-intro { display: grid; gap: 16px; margin-bottom: 20px; }
+.plateau-map-intro h1 { margin: 0; font-size: 28px; }
+.plateau-map-intro p { margin: 0; color: var(--text-tertiary); line-height: 1.6; }
+.plateau-search { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 20px; }
+.plateau-search input { margin: 0 !important; border: 0 !important; background: transparent; width: 100%; color: var(--text-primary); font: inherit; }
+.plateau-layers { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.plateau-layers button { min-height: 42px; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--border-color-strong); background: var(--card-bg); color: var(--text-primary); font: inherit; font-weight: 600; cursor: pointer; }
+.plateau-layers button[aria-pressed="true"] { background: var(--color-primary); color: var(--bg-primary); border-color: var(--color-primary); }
+.plateau-columns { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 24px; align-items: start; }
+.plateau-columns aside { display: grid; gap: 16px; align-content: start; }
+.plateau-canvas { position: relative; min-height: 460px; height: min(62vh, 620px); border-radius: 24px; overflow: hidden; background: repeating-linear-gradient(155deg, var(--bg-tertiary) 0, var(--bg-tertiary) 90px, var(--card-bg) 90px, var(--card-bg) 102px); border: 1px solid var(--border-color); }
+.plateau-live-map { position: absolute; inset: 0; }
+.plateau-google-map { width: 100%; height: 100%; min-height: 460px; }
+.plateau-map-placeholder { position: absolute; inset: 24px; z-index: 1; display: grid; place-items: center; align-content: center; gap: 8px; background: var(--card-bg); border-radius: 20px; text-align: center; padding: 32px; pointer-events: none; }
+.plateau-map-placeholder svg { color: var(--color-primary); }
+.plateau-map-placeholder h2 { margin: 0; font-size: 22px; }
+.plateau-map-placeholder p, .plateau-map-status { margin: 0; color: var(--text-tertiary); }
+.plateau-map-status { position: absolute; left: 16px; right: 16px; bottom: 72px; z-index: 2; background: var(--card-bg); border-radius: 12px; padding: 10px 14px; }
+.plateau-locate { position: absolute; right: 16px; bottom: 16px; z-index: 3; min-height: 44px; padding: 10px 16px; border-radius: 999px; border: 0; background: var(--color-primary); color: var(--bg-primary); font: inherit; font-weight: 700; cursor: pointer; }
+.plateau-panel { display: grid; gap: 12px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 18px; padding: 18px; }
+.plateau-panel h2 { margin: 0; font-size: 18px; }
+.plateau-panel p, .plateau-panel li { margin: 0; color: var(--text-tertiary); line-height: 1.6; }
+.plateau-panel ol { margin: 0; padding-left: 18px; }
+.plateau-panel button, .plateau-panel a { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border-color-strong); background: var(--bg-secondary); color: var(--text-primary); font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; }
+.plateau-panel button.primary { background: var(--color-primary); color: var(--bg-primary); border-color: var(--color-primary); }
+.plateau-panel button:disabled { opacity: 0.5; cursor: default; }
+.plateau-panel label { display: grid; gap: 6px; color: var(--text-primary); font-weight: 600; }
+.plateau-panel input:not([type="checkbox"]) { width: 100%; box-sizing: border-box; border: 1px solid var(--border-color-strong); border-radius: 12px; background: var(--bg-primary); color: var(--text-primary); padding: 12px; font: inherit; }
+.plateau-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.plateau-route { display: grid; gap: 6px; padding: 12px; border-radius: 14px; background: var(--bg-secondary); }
+.plateau-route h3 { margin: 0; font-size: 16px; }
+@media (max-width: 850px) {
+  .plateau-columns { grid-template-columns: 1fr; }
+  .plateau-canvas { min-height: 330px; height: 360px; }
+  .plateau-google-map { min-height: 330px; }
+}

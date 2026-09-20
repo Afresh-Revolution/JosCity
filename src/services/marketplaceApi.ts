@@ -492,11 +492,11 @@ async function listingRequest<T>(
   } catch {
     body = {};
   }
-  const record = body as { success?: boolean; data?: T; message?: string };
+  const record = body as { success?: boolean; data?: T; message?: string; error?: string };
   if (!res.ok) {
     return {
       success: false,
-      message: record.message || `Request failed (${res.status})`,
+      message: record.message || record.error || `Request failed (${res.status})`,
     };
   }
   return {
@@ -620,6 +620,7 @@ export interface CheckoutOrderResult {
   id: number;
   sellerUserId: number;
   totalNaira: number;
+  sellerName?: string;
   sellerBank: {
     bankName: string;
     bankAccountNumber: string;
@@ -636,6 +637,23 @@ export interface CheckoutOrderResult {
 export interface CheckoutResponseData {
   orders: CheckoutOrderResult[];
   buyer: CheckoutBuyerPayload;
+  funding?: {
+    paystack?: { enabled?: boolean };
+    safehaven?: { enabled?: boolean };
+    manual?: {
+      enabled?: boolean;
+      bank_name?: string;
+      account_name?: string;
+      account_number?: string;
+    };
+    cbc_card?: { enabled?: boolean };
+    cbc_quote?: {
+      symbol?: string;
+      name?: string;
+      cbc_ngn?: number | null;
+      cbc_usd?: number | null;
+    } | null;
+  };
 }
 
 export const listingMarketplaceApi = {
@@ -757,6 +775,39 @@ export const listingMarketplaceApi = {
         country: payload.country,
         notes: payload.notes,
       }),
+    });
+  },
+
+  payListingCbcCard(
+    orderId: number,
+    input: { cardNumber: string; cvc: string; cardPin: string }
+  ) {
+    return listingRequest<{
+      amount: number;
+      reference?: string;
+      already?: boolean;
+      order_id: number;
+      cbc_amount?: number;
+      cashback_points?: number | null;
+    }>(`/orders/${orderId}/pay/cbc-card`, {
+      method: "POST",
+      body: JSON.stringify({
+        card_number: input.cardNumber,
+        cvc: input.cvc,
+        card_pin: input.cardPin,
+      }),
+    });
+  },
+
+  payListingWallet(orderId: number) {
+    return listingRequest<{
+      amount: number;
+      reference?: string;
+      already?: boolean;
+      order_id: number;
+      method?: string;
+    }>(`/orders/${orderId}/pay/wallet`, {
+      method: "POST",
     });
   },
 };

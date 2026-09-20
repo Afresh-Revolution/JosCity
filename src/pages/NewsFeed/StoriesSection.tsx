@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { feedApi } from "../../services/feedApi";
 
 interface Story {
+  userId?: number;
   id: number;
   userName: string;
   avatar: string;
@@ -144,6 +145,7 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
                 userStoryGroup.stories.forEach((story) => {
                   const storyObj: Story = {
                     id: story.id || story.story_id || Date.now(),
+                    userId: Number(story.user_id || userStoryGroup.user?.id || 0),
                     userName: storyUserName,
                     avatar:
                       userStoryGroup.user?.picture ||
@@ -498,20 +500,12 @@ const StoriesSection: React.FC<StoriesSectionProps> = ({
               reactions: [
                 ...reactions,
                 {
-                  userId: Date.now(), // In real app, use actual user ID
+                  userId: Number(JSON.parse(localStorage.getItem("user") || "{}").user_id || 0),
                   userName: currentUser,
                   reactedAt: Date.now(),
                 },
               ],
             };
-
-            // Notify story owner (if not the current user)
-            if (story.userName !== currentUser) {
-              // In a real app, you'd send a notification to the backend
-              console.log(
-                `Notification: ${currentUser} reacted to ${story.userName}'s story`
-              );
-            }
 
             return updatedStory;
           }

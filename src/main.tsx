@@ -2,6 +2,9 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import NavBar from "./pages/NavBar";
+import AgentFeed from "./pages/AgentFeed";
+const LazyAgentPreview = React.lazy(() => import('./pages/AgentPreview'));
+function AgentPreview() { return <React.Suspense fallback={<p role="status">Loading…</p>}><LazyAgentPreview /></React.Suspense>; }
 import Services from "./pages/Services";
 import Events from "./pages/Events";
 import EventsPage from "./pages/EventsPage/EventsPage";
@@ -46,6 +49,8 @@ import Scheduled from "./pages/NewsFeed/Scheduled";
 import Saved from "./pages/NewsFeed/Saved";
 import People from "./components/People";
 import PWAProvider from "./components/PWAProvider";
+const LazyPlateauMap = React.lazy(() => import('./pages/PlateauMap'));
+function PlateauMap(props: React.ComponentProps<typeof LazyPlateauMap>) { return <React.Suspense fallback={<p role="status">Loading…</p>}><LazyPlateauMap {...props} /></React.Suspense>; }
 import Business from "./pages/NewsFeed/Business";
 import ProtectedRoute from "./components/ProtectedRoute";
 import News from "./pages/NewsFeed/News";
@@ -144,6 +149,13 @@ if (rootElement) {
                 <ThemeToggleGate />
                 <Routes>
                   <Route path="/" element={<LandingPage />} />
+                  <Route path="/agent-form" element={<AgentPreview />} />
+                  <Route path="/agents/feed" element={<AgentFeed />} />
+                  <Route path="/map" element={<UserRoute><PlateauMap /></UserRoute>} />
+                  <Route path="/business/map" element={<UserRoute><PlateauMap mode="business" /></UserRoute>} />
+                  <Route path="/agents/map" element={<UserRoute><PlateauMap mode="agent" /></UserRoute>} />
+                  <Route path="/agents/*" element={<AgentPreview />} />
+                  <Route path="/agent-services/*" element={<AgentPreview />} />
                   <Route path="/welcome" element={<WelcomePage />} />
                   <Route path="/registernow" element={<Register />} />
                   <Route path="/business-form" element={<Register />} />

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import welcomeVideo from "../vid/welcome-vid.mp4";
 import primaryLogo from "../image/primary-logo.png";
+import { updateAgentPreview, savePendingAgentApplication } from "./agentPreviewState";
 import RegistrationTabs from "../components/RegistrationTabs";
 import PersonalFormFields from "../components/PersonalFormFields";
 import BusinessFormFields from "../components/BusinessFormFields";
@@ -22,17 +23,22 @@ function Register() {
   const navigate = useNavigate();
   const location = useLocation();
   const [registrationType, setRegistrationType] = useState<
-    "personal" | "business"
-  >(location.pathname === "/business-form" ? "business" : "personal");
+    "personal" | "business" | "agent"
+  >(location.pathname === "/agent-form" ? "agent" : location.pathname === "/business-form" ? "business" : "personal");
 
   // Check if we're on the business-form route and set registration type accordingly
   useEffect(() => {
-    if (location.pathname === "/business-form") {
+    if (location.pathname === "/agent-form") { setRegistrationType("agent"); }
+    else if (location.pathname === "/business-form") {
       setRegistrationType("business");
     } else if (location.pathname === "/registernow") {
       setRegistrationType("personal");
     }
   }, [location.pathname]);
+  const [agentServices, setAgentServices] = useState(["Help me buy"]);
+  const [agentBio, setAgentBio] = useState("");
+  const [agentCategories, setAgentCategories] = useState("");
+  const [confirmAgentPassword, setConfirmAgentPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [businessCategories, setBusinessCategories] = useState(BUSINESS_CATEGORIES);
@@ -123,6 +129,13 @@ function Register() {
     setError(null);
     setValidationErrors([]);
 
+    if (registrationType === "agent") {
+      if (!agentServices.length) { setError("Choose at least one agent service."); return; }
+      if (formData.user_password && formData.user_password !== confirmAgentPassword) { setError("Passwords do not match."); return; }
+      updateAgentPreview({ firstName: formData.user_firstname || "John", lastName: formData.user_lastname || "Musa", email: formData.user_email, phone: formData.user_phone, gender: formData.user_gender, address: formData.address, bio: agentBio, category: agentCategories, services: agentServices });
+      savePendingAgentApplication({ bio: agentBio, category: agentCategories, services: agentServices, nin: formData.nin_number });
+      navigate("/agents"); return;
+    }
     if (registrationType === "personal") {
       // Normalize email to lowercase before validation and submission
       const normalizedFormData = {
@@ -241,7 +254,7 @@ function Register() {
 
               <RegistrationTabs
                 registrationType={registrationType}
-                onTypeChange={setRegistrationType}
+                onTypeChange={type => { setRegistrationType(type); setError(null); setValidationErrors([]); }}
               />
 
               <form className="register-form" onSubmit={handleSubmit}>
@@ -252,6 +265,14 @@ function Register() {
                   onTogglePassword={() => setShowPassword(!showPassword)}
                 />
 
+                {registrationType === "agent" && <>
+                  <p className="agent-auth-note">Agent preview only. No account is created and credentials are not submitted.</p>
+                  <div className="agent-service-options">{["Help me buy", "Help me deliver"].map(service => <button type="button" key={service} className="reg-button business-button" aria-pressed={agentServices.includes(service)} onClick={() => setAgentServices(current => current.includes(service) ? current.filter(s => s !== service) : [...current, service])}>{agentServices.includes(service) ? "Selected: " : ""}{service}</button>)}</div>
+                  <div className="register-form-group"><label htmlFor="agent-confirm">Confirm password</label><input id="agent-confirm" type={showPassword ? "text" : "password"} autoComplete="new-password" value={confirmAgentPassword} onChange={e => setConfirmAgentPassword(e.target.value)} /></div>
+                  <div className="register-form-group"><label htmlFor="agent-bio">Agent bio</label><input id="agent-bio" value={agentBio} onChange={e => setAgentBio(e.target.value)} placeholder="How can you help customers?" /></div>
+                  <div className="register-form-group"><label htmlFor="agent-categories">Categories / specialties</label><input id="agent-categories" value={agentCategories} onChange={e => setAgentCategories(e.target.value)} placeholder="Electronics, groceries, fashion..." /></div>
+                  <button type="button" className="register-submit-button" onClick={() => navigate("/agents")}>Explore agent dashboard</button>
+                </>}
                 {validationErrors.length > 0 && (
                   <div
                     className="register-error-message"
@@ -299,7 +320,7 @@ function Register() {
                     cursor: isLoading ? "not-allowed" : "pointer",
                   }}
                 >
-                  {isLoading ? "SUBMITTING..." : "SUBMIT"}
+                  {isLoading ? "SUBMITTING..." : registrationType === "agent" ? "PREVIEW AGENT ACCOUNT" : "SUBMIT"}
                 </button>
               </form>
 
@@ -317,7 +338,7 @@ function Register() {
 
               <RegistrationTabs
                 registrationType={registrationType}
-                onTypeChange={setRegistrationType}
+                onTypeChange={type => { setRegistrationType(type); setError(null); setValidationErrors([]); }}
               />
 
               <form className="register-form" onSubmit={handleSubmit}>

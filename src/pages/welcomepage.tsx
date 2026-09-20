@@ -84,6 +84,7 @@ function WelcomePage() {
             >
               Business
             </button>
+            <button type="button" className="reg-button business-button" onClick={() => navigate("/agent-form")} aria-label="Register as an agent">Agent</button>
           </nav>
         </ScrollAnimate>
       </section>

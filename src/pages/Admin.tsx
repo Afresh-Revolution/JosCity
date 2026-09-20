@@ -40,6 +40,8 @@ import PagesControlPanel from "../components/PagesControlPanel";
 import ProtectedRoute from "../components/ProtectedRoute";
 import AdminSettings from "./AdminSettings";
 import AdminUsers from "./AdminUsers";
+const LazyAdminAgents = React.lazy(() => import('./AdminAgents'));
+function AdminAgents() { return <React.Suspense fallback={<p role="status">Loading agent administration…</p>}><LazyAdminAgents /></React.Suspense>; }
 import AdminPosts from "./AdminPosts";
 import AdminPages from "./AdminPages";
 import AdminGroups from "./AdminGroups";
@@ -108,6 +110,7 @@ const Admin: React.FC = () => {
     | "news"
     | "developers"
     | "memberships"
+    | "agents"
   >("dashboard");
   const [dashboardData, setDashboardData] = useState<DashboardData["data"] | null>(null);
   const [pendingCount, setPendingCount] = useState<number>(0);
@@ -477,6 +480,19 @@ const Admin: React.FC = () => {
                             attention.pendingApprovals
                           }
                         />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setActiveView("agents");
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`admin-sidebar-section-container__item ${
+                          activeView === "agents"
+                            ? "admin-sidebar-section-container__item--active"
+                            : ""
+                        }`}>
+                        <Users size={18} />
+                        <span>Agents & deliveries</span>
                       </button>
                       <button
                         onClick={(e) => {
@@ -944,7 +960,9 @@ const Admin: React.FC = () => {
             {/* Dashboard content - only show when not loading and no error */}
             {!isLoading && !error && (
               <>
-            {activeView === "settings" ? (
+            {activeView === "agents" ? (
+              <AdminAgents />
+            ) : activeView === "settings" ? (
               <AdminSettings />
             ) : activeView === "users" ? (
               <AdminUsers counts={attention} />

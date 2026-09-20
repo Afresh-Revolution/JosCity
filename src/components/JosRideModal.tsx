@@ -9,7 +9,7 @@ interface JosRideModalProps {
 
 // Fixed HTTPS store destinations; no user-provided URLs or HTML.
 const passengerApps = [
-  { label: "Android", store: "Direct download", url: "https://expo.dev/artifacts/eas/DLKIcSLKRHIaIamH79dAxnxAo0Y1IwjXSQe43yvw9DI.apk" },
+  { label: "Android", store: "Play Store", url: "https://play.google.com/store/apps/details?id=ng.josride.app&pcampaignid=web_share" },
   { label: "IOS", store: "App Store", url: "https://apps.apple.com/ng/app/josride/id6805468513" },
 ];
 

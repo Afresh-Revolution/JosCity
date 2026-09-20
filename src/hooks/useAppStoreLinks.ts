@@ -31,7 +31,7 @@ export function useAppStoreLinks() {
       }
     })();
     return () => {
-      cancelled = true;
+      cancelled = true; 
     };
   }, []);
 

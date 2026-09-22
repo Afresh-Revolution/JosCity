@@ -2033,3 +2033,11 @@ export const deleteSupportProblem = async (id: number) => {
 };
 
 
+
+export type ReferralReport = { settings: { bonus_naira: number }; has_more: boolean; users: { user_id:number; name:string; referral_code:string; visits:number; referrals:number; approved:number; earnings_naira:number }[] };
+export const getReferralReport = async (page: number, search = ''): Promise<ReferralReport> => {
+  const params = new URLSearchParams({ page: String(page) });
+  if (search.trim()) params.set('search', search.trim());
+  return (await (await adminApiRequest(`/referrals?${params}`)).json()).data;
+};
+export const saveReferralBonus = async (bonus_naira: number): Promise<{bonus_naira:number}> => (await (await adminApiRequest('/referrals/settings', {method:'PUT',body:JSON.stringify({bonus_naira})})).json()).data;

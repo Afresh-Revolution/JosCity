@@ -14,6 +14,7 @@ interface CreateStoryPopupProps {
   ) => void | Promise<void>;
 }
 
+
 const CreateStoryPopup: React.FC<CreateStoryPopupProps> = ({
   isOpen,
   onClose,

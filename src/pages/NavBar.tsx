@@ -197,6 +197,7 @@ function App() {
             className={`navbar__nav-list ${isMenuOpen ? "active" : ""}`}
             aria-hidden={!isMenuOpen}
           >
+            {isAuthenticated() && <li className="navbar__nav-item"><a href="/referrals">Referrals</a></li>}
             {menuItems.length > 0 ? (
               menuItems.map((item, index) => (
                 <li

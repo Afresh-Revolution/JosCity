@@ -15,6 +15,7 @@ import Hero from "./pages/Hero";
 import Pricing from "./pages/Pricing";
 import Guidelines from "./pages/Guidlines";
 import Register from "./pages/Register";
+import Referrals from "./pages/Referrals";
 import SignIn from "./pages/SignIn";
 import WelcomePage from "./pages/welcomepage";
 import Success from "./pages/Success";
@@ -157,6 +158,8 @@ if (rootElement) {
                   <Route path="/agents/*" element={<AgentPreview />} />
                   <Route path="/agent-services/*" element={<AgentPreview />} />
                   <Route path="/welcome" element={<WelcomePage />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/referrals" element={<Referrals />} />
                   <Route path="/registernow" element={<Register />} />
                   <Route path="/business-form" element={<Register />} />
                   <Route path="/signin" element={<SignIn />} />

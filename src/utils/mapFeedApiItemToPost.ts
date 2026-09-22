@@ -95,6 +95,7 @@ interface FeedItem {
   user_saved?: boolean;
   original_post?: {
     id?: number;
+    post_id?: number;
     text?: string;
     caption?: string;
     time_ago?: string;
@@ -122,6 +123,27 @@ interface FeedItem {
   post_type?: string;
 }
 
+function mediaLooksLikeVideo(url: string, type?: string): boolean {
+  const declared = String(type || "").toLowerCase();
+  if (declared.startsWith("video")) return true;
+  if (declared.startsWith("image") || declared === "photo") return false;
+  return /\.(mp4|mov|webm|m4v)(\?|$)/i.test(url);
+}
+
+function splitMedia(
+  urls: string[],
+  types: Array<string | undefined> = []
+): { photos: string[]; videos: string[] } {
+  const photos: string[] = [];
+  const videos: string[] = [];
+  urls.forEach((url, index) => {
+    if (!url) return;
+    if (mediaLooksLikeVideo(url, types[index])) videos.push(url);
+    else photos.push(url);
+  });
+  return { photos, videos };
+}
+
 export function mapFeedApiItemToPost(feed: unknown): CardPostShape | null {
   const f = feed as FeedItem;
   if (f.post_id === undefined && f.id === undefined) {
@@ -140,46 +162,36 @@ export function mapFeedApiItemToPost(feed: unknown): CardPostShape | null {
 
   if (f.media && Array.isArray(f.media) && f.media.length > 0) {
     const photoUrls = f.media
-      .filter(
-        (m) =>
-          (m.type || "").toLowerCase().startsWith("image") ||
-          (m.type || "").toLowerCase() === "photo"
-      )
+      .filter((m) => m.url && !mediaLooksLikeVideo(m.url, m.type))
       .map((m) => m.url)
       .filter((url): url is string => Boolean(url));
     const videoUrls = f.media
-      .filter((m) => (m.type || "").toLowerCase().startsWith("video"))
+      .filter((m) => m.url && mediaLooksLikeVideo(m.url, m.type))
       .map((m) => m.url)
       .filter((url): url is string => Boolean(url));
     if (photoUrls.length > 0) {
       image = photoUrls[0];
-      if (photoUrls.length > 1) images = photoUrls;
+      images = photoUrls;
     }
     if (videoUrls.length > 0) {
       video = videoUrls[0];
-      if (videoUrls.length > 1) videos = videoUrls;
+      videos = videoUrls;
     }
   } else if (
     (f.media_urls && f.media_urls.length > 0) ||
     (f.media_types && f.media_types.length > 0)
   ) {
-    const urls = f.media_urls || [];
-    const types = f.media_types || [];
-    const photoUrls = urls.filter((_, i) => {
-      const t = (types[i] || "").toLowerCase();
-      return t.startsWith("image") || t === "photo";
-    });
-    const videoUrls = urls.filter((_, i) => {
-      const t = (types[i] || "").toLowerCase();
-      return t.startsWith("video");
-    });
+    const { photos: photoUrls, videos: videoUrls } = splitMedia(
+      f.media_urls || [],
+      f.media_types || []
+    );
     if (photoUrls.length > 0) {
       image = photoUrls[0];
-      if (photoUrls.length > 1) images = photoUrls;
+      images = photoUrls;
     }
     if (videoUrls.length > 0) {
       video = videoUrls[0];
-      if (videoUrls.length > 1) videos = videoUrls;
+      videos = videoUrls;
     }
   }
 
@@ -192,53 +204,39 @@ export function mapFeedApiItemToPost(feed: unknown): CardPostShape | null {
 
     if (om.length > 0) {
       const originalPhotoUrls = om
-        .filter(
-          (item) =>
-            (item.type || "").toLowerCase().startsWith("image") ||
-            (item.type || "").toLowerCase() === "photo"
-        )
+        .filter((item) => item.url && !mediaLooksLikeVideo(item.url, item.type))
         .map((item) => item.url)
         .filter((url): url is string => Boolean(url));
       const originalVideoUrls = om
-        .filter((item) => (item.type || "").toLowerCase().startsWith("video"))
+        .filter((item) => item.url && mediaLooksLikeVideo(item.url, item.type))
         .map((item) => item.url)
         .filter((url): url is string => Boolean(url));
 
       if (originalPhotoUrls.length > 0) {
         originalImage = originalPhotoUrls[0];
-        if (originalPhotoUrls.length > 1) originalImages = originalPhotoUrls;
+        originalImages = originalPhotoUrls;
       }
       if (originalVideoUrls.length > 0) {
         originalVideo = originalVideoUrls[0];
-        if (originalVideoUrls.length > 1) originalVideos = originalVideoUrls;
+        originalVideos = originalVideoUrls;
       }
     } else if (
       (f.original_post.media_urls && f.original_post.media_urls.length > 0) ||
       (f.original_post.media_types && f.original_post.media_types.length > 0)
     ) {
-      const originalUrls = f.original_post.media_urls || [];
-      const originalTypes = f.original_post.media_types || [];
-      const originalPhotoUrls = originalUrls.filter((_, index) => {
-        const mediaType = (originalTypes[index] || "").toLowerCase();
-        return mediaType.startsWith("image") || mediaType === "photo";
-      });
-      const originalVideoUrls = originalUrls.filter((_, index) => {
-        const mediaType = (originalTypes[index] || "").toLowerCase();
-        return mediaType.startsWith("video");
-      });
-
-      if (originalPhotoUrls.length > 0) {
-        originalImage = originalPhotoUrls[0];
-        if (originalPhotoUrls.length > 1) originalImages = originalPhotoUrls;
+      const split = splitMedia(f.original_post.media_urls || [], f.original_post.media_types || []);
+      if (split.photos.length > 0) {
+        originalImage = split.photos[0];
+        originalImages = split.photos;
       }
-      if (originalVideoUrls.length > 0) {
-        originalVideo = originalVideoUrls[0];
-        if (originalVideoUrls.length > 1) originalVideos = originalVideoUrls;
+      if (split.videos.length > 0) {
+        originalVideo = split.videos[0];
+        originalVideos = split.videos;
       }
     }
 
     originalPost = {
-      id: f.original_post.id ?? 0,
+      id: f.original_post.id ?? f.original_post.post_id ?? 0,
       userId: f.original_post.author?.id,
       userName: f.original_post.author?.name || "Unknown User",
       userAvatar: f.original_post.author?.picture || "",
@@ -251,6 +249,10 @@ export function mapFeedApiItemToPost(feed: unknown): CardPostShape | null {
       videos: originalVideos,
       unavailable: Boolean(f.original_post.unavailable),
     };
+    image = "";
+    images = undefined;
+    video = "";
+    videos = undefined;
   }
 
   const likes = f.reactions_count ?? f.likes_count ?? f.likes ?? 0;

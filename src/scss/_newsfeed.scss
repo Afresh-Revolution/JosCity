@@ -940,6 +940,62 @@
     }
   }
 
+  &__referrals {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 12px;
+    border-radius: 10px;
+    text-decoration: none;
+    color: #fff;
+    background: linear-gradient(135deg, #0d4a1f 0%, #1a6b35 55%, #2d8a4e 100%);
+    box-shadow: 0 2px 8px rgba(13, 74, 31, 0.28);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(13, 74, 31, 0.36);
+      filter: brightness(1.05);
+      color: #fff;
+    }
+
+    &--active {
+      box-shadow: 0 0 0 2px rgba(13, 74, 31, 0.35), 0 4px 12px rgba(13, 74, 31, 0.36);
+    }
+  }
+
+  &__referrals-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+  }
+
+  &__referrals-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+
+    strong {
+      font-size: 14px;
+      font-weight: 650;
+      line-height: 1.2;
+    }
+
+    small {
+      font-size: 12px;
+      line-height: 1.3;
+      opacity: 0.88;
+    }
+  }
+
   &__section {
     display: flex;
     flex-direction: column;
@@ -1354,6 +1410,77 @@
     position: relative;
     flex-shrink: 0;
     z-index: 0; // Below add-icon so add icon stays visible
+    background: var(--bg-tertiary, #e8ebe9);
+  }
+
+  // Story media fills the card; DP sits as a small overlay (not stacked below)
+  &__story-preview {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    background: #1a1a1a;
+  }
+
+  &__preview-image,
+  &__preview-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  &__preview-text {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    box-sizing: border-box;
+    background: linear-gradient(160deg, #0d4a1f 0%, #1a6b35 100%);
+
+    p {
+      margin: 0;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.35;
+      text-align: center;
+      display: -webkit-box;
+      -webkit-line-clamp: 5;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      word-break: break-word;
+    }
+  }
+
+  &__avatar-overlay {
+    position: absolute;
+    z-index: 2;
+    overflow: hidden;
+  }
+
+  // With a story preview: small circular DP on top of media
+  &__avatar-wrapper:has(&__story-preview) &__avatar-overlay {
+    top: 8px;
+    left: 8px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  }
+
+  // No story yet: DP fills the whole card
+  &__avatar-wrapper:not(:has(&__story-preview)) &__avatar-overlay {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
   }
 
   &__new-indicator {
@@ -1442,6 +1569,13 @@
       font-size: 14px;
     }
 
+    &__avatar-wrapper:has(&__story-preview) &__avatar-overlay {
+      top: 6px;
+      left: 6px;
+      width: 36px;
+      height: 36px;
+    }
+
     &__avatar-wrapper:not(:has(&__story-preview)) &__avatar--initials {
       font-size: 28px;
     }
@@ -1454,6 +1588,13 @@
       top: 4px;
       left: 4px;
       font-size: 12px;
+    }
+
+    &__avatar-wrapper:has(&__story-preview) &__avatar-overlay {
+      top: 4px;
+      left: 4px;
+      width: 32px;
+      height: 32px;
     }
 
     &__avatar-wrapper:not(:has(&__story-preview)) &__avatar--initials {
@@ -4031,6 +4172,10 @@
     box-sizing: border-box;
     width: 100%;
     max-width: 100%;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
 
     @media (max-width: 768px) {
       padding: 10px 12px;

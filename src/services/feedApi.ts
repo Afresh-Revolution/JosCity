@@ -541,6 +541,8 @@ export const feedApi = {
     success: boolean;
     data: Share | Record<string, unknown>;
     message: string;
+    unshared?: boolean;
+    removed_post_ids?: number[];
   }> => {
     return apiRequest(`/posts/${postId}/share`, {
       method: "POST",

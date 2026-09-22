@@ -18,10 +18,21 @@ import { registerPersonal, registerBusiness, fetchBusinessCategories } from "../
 import { BUSINESS_CATEGORIES } from "../constants/businessCategories";
 import PageBackButton from "../components/PageBackButton";
 import "../main.css";
+import { apiUrl } from '../api/config';
 
 function Register() {
   const navigate = useNavigate();
   const location = useLocation();
+  useEffect(() => {
+    const code = new URLSearchParams(location.search).get('ref')?.trim().toUpperCase();
+    if (!code || !/^JOS[A-Z0-9]{6}$/.test(code)) return;
+    try {
+      sessionStorage.setItem('signupReferral', code);
+      let visitor = localStorage.getItem('referralVisitor');
+      if (!visitor) { visitor = crypto.randomUUID(); localStorage.setItem('referralVisitor', visitor); }
+      void fetch(apiUrl('/account/referrals/visit'), { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ ref: code, visitor_id: visitor }) }).catch(() => {});
+    } catch { /* Signup remains available when browser storage is disabled. */ }
+  }, [location.search]);
   const [registrationType, setRegistrationType] = useState<
     "personal" | "business" | "agent"
   >(location.pathname === "/agent-form" ? "agent" : location.pathname === "/business-form" ? "business" : "personal");
@@ -155,7 +166,9 @@ function Register() {
       setIsLoading(true);
 
       // Call API service with normalized email
-      const result = await registerPersonal(normalizedFormData);
+      let referralCode = new URLSearchParams(location.search).get('ref') || '';
+      try { referralCode ||= sessionStorage.getItem('signupReferral') || ''; } catch { /* Optional storage. */ }
+      const result = await registerPersonal({ ...normalizedFormData, referral_code: referralCode });
 
       if (!result.success) {
         // Handle errors
@@ -167,6 +180,7 @@ function Register() {
         return;
       }
 
+      try { sessionStorage.removeItem("signupReferral"); } catch { /* Optional storage. */ }
       // Success - Navigate to success page
       navigate("/success", {
         state: {
@@ -198,7 +212,9 @@ function Register() {
       setIsLoading(true);
 
       // Call API service with normalized email
-      const result = await registerBusiness(normalizedBusinessFormData);
+      let referralCode = new URLSearchParams(location.search).get('ref') || '';
+      try { referralCode ||= sessionStorage.getItem('signupReferral') || ''; } catch { /* Optional storage. */ }
+      const result = await registerBusiness({ ...normalizedBusinessFormData, referral_code: referralCode });
 
       if (!result.success) {
         // Handle errors
@@ -210,6 +226,7 @@ function Register() {
         return;
       }
 
+      try { sessionStorage.removeItem("signupReferral"); } catch { /* Optional storage. */ }
       // Success - Navigate to success page
       navigate("/success", {
         state: {

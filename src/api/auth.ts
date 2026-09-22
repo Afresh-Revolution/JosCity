@@ -14,7 +14,7 @@ interface ApiResponse<T> {
 }
 
 export const registerPersonal = async (
-  formData: PersonalFormData
+  formData: PersonalFormData & { referral_code?: string }
 ): Promise<ApiResponse<{ userId: string; email: string }>> => {
   try {
     // Normalize email to lowercase for case-insensitive uniqueness
@@ -28,6 +28,7 @@ export const registerPersonal = async (
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          referral_code: formData.referral_code || "",
           user_firstname: formData.user_firstname,
           user_lastname: formData.user_lastname,
           user_gender: formData.user_gender,
@@ -139,7 +140,7 @@ export const fetchBusinessCategories = async (): Promise<
 };
 
 export const registerBusiness = async (
-  formData: BusinessFormData
+  formData: BusinessFormData & { referral_code?: string }
 ): Promise<ApiResponse<{ businessId: string; email: string }>> => {
   try {
     // Normalize email to lowercase for case-insensitive uniqueness
@@ -153,6 +154,7 @@ export const registerBusiness = async (
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          referral_code: formData.referral_code || "",
           business_name: formData.business_name.trim(),
           business_type: formData.business_type.trim(),
           business_email: normalizedEmail,

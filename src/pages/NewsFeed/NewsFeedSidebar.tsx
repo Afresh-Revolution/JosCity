@@ -16,6 +16,7 @@ import {
   Briefcase as Jobs,
   Video,
   Flag,
+  Gift,
   X,
 } from 'lucide-react';
 
@@ -62,6 +63,8 @@ const NewsFeedSidebar: React.FC<NewsFeedSidebarProps> = ({ isOpen = false, onClo
       setActiveItem('reels');
     } else if (path === '/map' || path === '/business/map' || path === '/agents/map') {
       setActiveItem('map');
+    } else if (path === '/referrals') {
+      setActiveItem('referrals');
     } else if (path === '/newsfeed' || path === '/') {
       setActiveItem('newsfeed');
     }
@@ -112,6 +115,24 @@ const NewsFeedSidebar: React.FC<NewsFeedSidebarProps> = ({ isOpen = false, onClo
         )}
       </div>
       <nav className="newsfeed-sidebar__nav">
+        <a
+          href="/referrals"
+          className={`newsfeed-sidebar__referrals ${activeItem === 'referrals' ? 'newsfeed-sidebar__referrals--active' : ''}`}
+          onClick={(e) => {
+            e.preventDefault();
+            setActiveItem('referrals');
+            navigate('/referrals');
+            onClose?.();
+          }}
+        >
+          <span className="newsfeed-sidebar__referrals-icon" aria-hidden="true">
+            <Gift size={20} />
+          </span>
+          <span className="newsfeed-sidebar__referrals-copy">
+            <strong>Referrals &amp; rewards</strong>
+            <small>Invite friends, earn cash</small>
+          </span>
+        </a>
         <div className="newsfeed-sidebar__section">
           <a
             href="/newsfeed"

@@ -39,6 +39,7 @@ import userAvatar from "../image/sky.png";
 import PagesControlPanel from "../components/PagesControlPanel";
 import ProtectedRoute from "../components/ProtectedRoute";
 import AdminSettings from "./AdminSettings";
+import AdminReferrals from "./AdminReferrals";
 import AdminUsers from "./AdminUsers";
 const LazyAdminAgents = React.lazy(() => import('./AdminAgents'));
 function AdminAgents() { return <React.Suspense fallback={<p role="status">Loading agent administration…</p>}><LazyAdminAgents /></React.Suspense>; }
@@ -217,6 +218,14 @@ const Admin: React.FC = () => {
             : payload
         ) as Record<string, unknown> | undefined;
         if (!insights) return;
+        // The backend counts all users, regardless of account type or status.
+        const totalUsers = Number(insights.totalUsers);
+        if (Number.isInteger(totalUsers) && totalUsers >= 0) {
+          setDashboardData(previous => previous ? {
+            ...previous,
+            insights: { ...previous.insights, totalUsers },
+          } : previous);
+        }
         setAttention({
           deactivatedAccounts: Number(insights.deactivatedAccounts || 0),
           pendingApprovals: Number(insights.pendingApprovals || 0),
@@ -275,13 +284,14 @@ const Admin: React.FC = () => {
     ? dashboardData.chart 
     : defaultChartData;
 
-  // Set max value to 100 for y-axis
-  const maxValue = 100;
+  // Total axis runs from zero to 1,000.
+  const maxValue = 1000;
+  const chartTicks = [0, 200, 400, 600, 800, 1000];
 
   const chartHeight = 280;
 
   const getBarHeight = (value: number) => {
-    return (value / maxValue) * chartHeight;
+    return (Math.min(Math.max(value, 0), maxValue) / maxValue) * chartHeight;
   };
 
   return (
@@ -1029,17 +1039,17 @@ const Admin: React.FC = () => {
                   </button>
                   <div className="admin-chart__container">
                     <div className="admin-chart__y-axis">
-                      {[0, 20, 40, 60, 80, 100].map((value) => (
+                      {chartTicks.map((value) => (
                         <div key={value} className="admin-chart__y-label">
-                          {value}
+                          {value === 1000 ? "1k" : value}
                         </div>
                       ))}
                     </div>
                     <div className="admin-chart__total-label">Total</div>
                     <div className="admin-chart__bars-container">
                       {/* Grid lines */}
-                      {[20, 40, 60, 80, 100].map((value) => {
-                        const position = ((100 - value) / 100) * 100;
+                      {chartTicks.slice(1).map((value) => {
+                        const position = ((maxValue - value) / maxValue) * 100;
                         return (
                           <div
                             key={value}
@@ -1124,13 +1134,15 @@ const Admin: React.FC = () => {
                   </div>
                 </div>
 
+                <AdminReferrals />
+
                 {/* Statistics Cards */}
                 <div className="admin-stats">
                   {/* Row 1 - Users (2 columns) */}
                   <div className="admin-stat-card admin-stat-card--green admin-stat-card--span-3">
-                    <div className="admin-stat-card__number">{dashboardData?.insights?.totalUsers ?? 0}</div>
-                    <div className="admin-stat-card__label">Users</div>
-                    <div className="admin-stat-card__action">Manage Users</div>
+                    <div className="admin-stat-card__number">{(dashboardData?.insights?.totalUsers ?? 0).toLocaleString()}</div>
+                    <div className="admin-stat-card__label" title="All personal, business, and agent accounts">Total Users</div>
+                    <button type="button" className="admin-stat-card__action admin-stat-card__manage-users" onClick={() => setActiveView("users")}>Manage Users</button>
                   </div>
                   <div className="admin-stat-card admin-stat-card--blue admin-stat-card--span-3">
                     <div className="admin-stat-card__number">

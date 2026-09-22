@@ -5,6 +5,7 @@ import {
   Eye,
   Star,
   Share2,
+  Repeat2,
   Bookmark,
   MoreVertical,
   Edit,
@@ -287,9 +288,9 @@ const PostCard: React.FC<PostCardProps> = ({
   useEffect(() => {
     setIsLiked(Boolean(post.userReacted));
     setLikeCount(post.likes);
-    setHasShared(Boolean(post.userShared));
+    setHasShared(Boolean(post.userShared) || Boolean(isOwnPost && post.originalPost));
     setIsSaved(Boolean(post.userSaved));
-  }, [post.id, post.likes, post.userReacted, post.userShared, post.userSaved]);
+  }, [post.id, post.likes, post.userReacted, post.userShared, post.userSaved, isOwnPost, post.originalPost]);
 
   const getTotalReactionCount = (
     reactions: PostReactionStat[] | undefined,
@@ -501,8 +502,20 @@ const PostCard: React.FC<PostCardProps> = ({
     }
   };
 
+  const handleLinkShare = async () => {
+    const url = `${window.location.origin}/newsfeed?post=${post.id}`;
+    try {
+      if (navigator.share) await navigator.share({ title: 'JOSCITY', url });
+      else { await navigator.clipboard.writeText(url); alert('Post link copied.'); }
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === 'AbortError')) alert('Could not share the link. Please try again.');
+    }
+  };
+
   const handleShare = async () => {
     if (isLoading) return;
+    const isOwnShare = Boolean(isOwnPost && post.originalPost);
+    if (isOwnPost && !post.originalPost) return;
 
     if (post.isReel) {
       alert("Reels can only be reshared from the reels section on your profile page.");
@@ -516,17 +529,37 @@ const PostCard: React.FC<PostCardProps> = ({
       return;
     }
 
+    const undo = hasShared || isOwnShare;
+    if (
+      !window.confirm(
+        undo
+          ? "Remove this reshare from your profile and the feed?"
+          : "Reshare this post to your profile and the feed?"
+      )
+    ) {
+      return;
+    }
     setIsLoading(true);
     try {
       const response = await feedApi.sharePost(post.id);
-      if (response.success) {
-        setHasShared(true);
+      if (!response.success) throw new Error(response.message || "Could not reshare this post.");
+      if (response.unshared) {
+        setHasShared(false);
+        const removed = (response.removed_post_ids || []).map(Number);
+        if (isOwnShare || removed.includes(post.id)) onPostDeleted?.(post.id);
         window.dispatchEvent(
           new CustomEvent("feedPostShared", {
-            detail: response.data,
+            detail: { ...response.data, unshared: true },
           })
         );
+        return;
       }
+      setHasShared(true);
+      window.dispatchEvent(
+        new CustomEvent("feedPostShared", {
+          detail: response.data,
+        })
+      );
     } catch (error) {
       console.error("Error sharing:", error);
       alert(
@@ -846,7 +879,7 @@ const PostCard: React.FC<PostCardProps> = ({
 
       {post.originalPost && renderSharedOriginalPost(post.originalPost)}
 
-      {(() => {
+      {!post.originalPost && (() => {
         // Get all images - support both single image and images array
         const imageArray: string[] = [];
         if (post.images && post.images.length > 0) {
@@ -929,7 +962,7 @@ const PostCard: React.FC<PostCardProps> = ({
         );
       })()}
 
-      {(() => {
+      {!post.originalPost && (() => {
         // Get all videos - support both single video and videos array
         const videoArray: string[] = [];
         if (post.videos && post.videos.length > 0) {
@@ -1094,15 +1127,31 @@ const PostCard: React.FC<PostCardProps> = ({
               <span>Comment</span>
             </button>
             <button
-              className={`newsfeed-post__action-btn ${
-                hasShared ? "newsfeed-post__action-btn--active" : ""
-              }`}
-              onClick={handleShare}
-              title={hasShared ? "Shared" : "Share"}
+              className="newsfeed-post__action-btn"
+              onClick={handleLinkShare}
+              title="Share link"
             >
               <Share2 size={20} />
-              <span>{hasShared ? "Shared" : "Share"}</span>
+              <span>Share</span>
             </button>
+            {!post.isReel && (
+              <button
+                className={`newsfeed-post__action-btn ${hasShared ? "newsfeed-post__action-btn--active" : ""}`}
+                onClick={handleShare}
+                disabled={isLoading || (isOwnPost && !post.originalPost)}
+                title={
+                  hasShared
+                    ? "Remove reshare"
+                    : isOwnPost && !post.originalPost
+                      ? "Your post"
+                      : "Reshare to your posts and feed"
+                }
+                aria-label={hasShared ? "Undo reshare" : "Reshare post"}
+              >
+                <Repeat2 size={20} />
+                <span>{hasShared ? "Reshared" : "Reshare"}</span>
+              </button>
+            )}
             <button
               className={`newsfeed-post__action-btn newsfeed-post__action-btn--save ${
                 isSaved ? "newsfeed-post__action-btn--active" : ""

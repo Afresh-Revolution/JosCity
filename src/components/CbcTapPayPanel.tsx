@@ -40,7 +40,8 @@ function formatCountdown(seconds: number): string {
 }
 
 export default function CbcTapPayPanel({ orderId, amountNaira, disabled, onPaid, onBusyChange }: Props) {
-  const [enabled, setEnabled] = useState(false);
+  // null while the server config is still loading
+  const [enabled, setEnabled] = useState<boolean | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [cardLast4, setCardLast4] = useState<string | null>(null);
@@ -211,8 +212,6 @@ export default function CbcTapPayPanel({ orderId, amountNaira, disabled, onPaid,
     pinRefs.current[Math.min(digits.length, PIN_LENGTH - 1)]?.focus();
   };
 
-  if (!enabled) return null;
-
   const pinComplete = pin.every(Boolean);
 
   return (
@@ -221,11 +220,20 @@ export default function CbcTapPayPanel({ orderId, amountNaira, disabled, onPaid,
         <Nfc size={18} aria-hidden="true" /> Tap to pay
       </h4>
 
-      {!supported ? (
-        <p>Tap to pay works on Chrome for Android with NFC turned on. Use your card details or wallet instead.</p>
+      {enabled === null ? <p>Checking tap to pay…</p> : null}
+
+      {enabled === false ? (
+        <p>Tap to pay is not available right now. Use your card details or wallet instead.</p>
       ) : null}
 
-      {supported && phase === "idle" ? (
+      {enabled && !supported ? (
+        <p>
+          Tap to pay works on Chrome for Android with NFC turned on. On this device, use your card details or wallet
+          instead.
+        </p>
+      ) : null}
+
+      {enabled && supported && phase === "idle" ? (
         <>
           <p>
             Charge {formatMarketplaceMoney(amountNaira)} from your CBrilliance card by tapping it on the back of your

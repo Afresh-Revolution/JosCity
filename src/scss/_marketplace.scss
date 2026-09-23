@@ -1459,6 +1459,7 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
   width: 100%;
   max-width: 480px;
   max-height: 90vh;
+  max-height: 90dvh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1793,6 +1794,19 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
   line-height: 1.5;
 }
 
+// The "Order placed / pay now" view. It lives inside .marketplace-modal, which is
+// height-capped with overflow hidden, so this container must scroll itself —
+// otherwise the payment options and the Done button are clipped on phones.
+.marketplace-checkout-success {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 18px 22px 22px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 .marketplace-checkout-success__lead {
   font-size: 15px;
   line-height: 1.5;
@@ -1882,6 +1896,164 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
   &__error {
     color: #b42318;
     font-size: 13px;
+  }
+}
+
+.cbc-tap-pay {
+  margin: 0 0 16px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(13, 74, 31, 0.18);
+  background: rgba(13, 74, 31, 0.04);
+  display: grid;
+  gap: 10px;
+
+  h4 {
+    margin: 0;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  &__status,
+  &__pin {
+    display: grid;
+    gap: 10px;
+    justify-items: center;
+    text-align: center;
+  }
+
+  &__pin {
+    justify-items: stretch;
+    text-align: left;
+  }
+
+  &__pulse {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    color: #0d4a1f;
+    background: rgba(13, 74, 31, 0.1);
+    animation: cbc-tap-pulse 1.6s ease-in-out infinite;
+  }
+
+  &__boxes {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+
+    input {
+      width: 48px;
+      height: 56px;
+      padding: 0;
+      text-align: center;
+      font-size: 24px;
+      font-weight: 700;
+      border: 2px solid rgba(13, 74, 31, 0.18);
+      border-radius: 12px;
+
+      &:focus {
+        outline: none;
+        border-color: #0d4a1f;
+      }
+    }
+  }
+
+  &__ghost {
+    min-height: 40px;
+    border: 1px solid rgba(13, 74, 31, 0.25);
+    border-radius: 10px;
+    background: transparent;
+    color: inherit;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  &__error {
+    color: #b42318;
+    font-size: 13px;
+  }
+}
+
+@keyframes cbc-tap-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.85;
+  }
+}
+
+@media (max-width: 520px) {
+  .marketplace-modal-overlay {
+    padding: 10px;
+  }
+
+  .marketplace-modal {
+    max-height: calc(100vh - 20px);
+    max-height: calc(100dvh - 20px);
+    border-radius: 16px;
+  }
+
+  .marketplace-modal__header {
+    padding: 14px 16px;
+  }
+
+  .marketplace-modal__form,
+  .marketplace-checkout-success {
+    padding: 14px 16px 18px;
+  }
+
+  .marketplace-checkout-order {
+    padding: 12px;
+  }
+
+  .marketplace-modal__actions {
+    flex-wrap: wrap;
+
+    > * {
+      flex: 1 1 100%;
+    }
+  }
+
+  // 16px inputs stop iOS Safari zooming the page when a field is focused.
+  .marketplace-modal__input,
+  .marketplace-modal__textarea,
+  .cbc-card-pay input,
+  .cbc-tap-pay__boxes input {
+    font-size: 16px;
+  }
+
+  .cbc-card-pay,
+  .cbc-tap-pay {
+    padding: 12px;
+  }
+
+  .cbc-tap-pay__boxes {
+    gap: 8px;
+
+    input {
+      width: 44px;
+      height: 52px;
+    }
   }
 }
 

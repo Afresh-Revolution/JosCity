@@ -472,7 +472,7 @@ export function clearMarketplaceGuestSession(): void {
 async function listingRequest<T>(
   path: string,
   options: RequestInit = {}
-): Promise<{ success: boolean; data?: T; message?: string }> {
+): Promise<{ success: boolean; data?: T; message?: string; code?: string; attemptsLeft?: number }> {
   const token = userAuthToken();
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -492,11 +492,20 @@ async function listingRequest<T>(
   } catch {
     body = {};
   }
-  const record = body as { success?: boolean; data?: T; message?: string; error?: string };
+  const record = body as {
+    success?: boolean;
+    data?: T;
+    message?: string;
+    error?: string;
+    code?: string;
+    attempts_left?: number;
+  };
   if (!res.ok) {
     return {
       success: false,
       message: record.message || record.error || `Request failed (${res.status})`,
+      code: typeof record.code === "string" ? record.code : undefined,
+      attemptsLeft: typeof record.attempts_left === "number" ? record.attempts_left : undefined,
     };
   }
   return {
@@ -796,6 +805,40 @@ export const listingMarketplaceApi = {
         cvc: input.cvc,
         card_pin: input.cardPin,
       }),
+    });
+  },
+
+  getCbcTapConfig() {
+    return listingRequest<{ enabled: boolean }>(`/pay/cbc-tap/config`);
+  },
+
+  /** Step 1 of tap to pay: send the raw NFC tag data; the server decrypts and verifies it. */
+  startListingCbcTap(orderId: number, tag: { uid: string; payload: string }) {
+    return listingRequest<{
+      order_id: number;
+      amount: number;
+      currency: string;
+      card_last4: string | null;
+      expires_in_seconds: number;
+      pin_attempts_left: number;
+    }>(`/orders/${orderId}/pay/cbc-tap/start`, {
+      method: "POST",
+      body: JSON.stringify({ uid: tag.uid, payload: tag.payload }),
+    });
+  },
+
+  /** Step 2 of tap to pay: the Card PIN, which charges the tapped card. */
+  confirmListingCbcTap(orderId: number, cardPin: string) {
+    return listingRequest<{
+      amount: number;
+      reference?: string;
+      already?: boolean;
+      order_id: number;
+      cbc_amount?: number | null;
+      cashback_points?: number | null;
+    }>(`/orders/${orderId}/pay/cbc-tap/confirm`, {
+      method: "POST",
+      body: JSON.stringify({ card_pin: cardPin }),
     });
   },
 

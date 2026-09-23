@@ -1,6 +1,7 @@
 ﻿import React, { useState } from "react";
 import { X } from "lucide-react";
 import CbcCardPayForm from "../CbcCardPayForm";
+import CbcTapPayPanel from "../CbcTapPayPanel";
 import {
   listingMarketplaceApi,
   type CheckoutBuyerPayload,
@@ -62,6 +63,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckoutResponseData | null>(null);
   const [payBusyId, setPayBusyId] = useState<number | null>(null);
+  const [tapBusyId, setTapBusyId] = useState<number | null>(null);
   const [payError, setPayError] = useState<string | null>(null);
   const [paidOrders, setPaidOrders] = useState<Record<number, true>>({});
   const [walletBalance, setWalletBalance] = useState(0);
@@ -74,6 +76,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setPayError(null);
       setPaidOrders({});
       setPayBusyId(null);
+      setTapBusyId(null);
       if (defaultEmail) setEmail(defaultEmail);
     }
   }, [isOpen, defaultEmail]);
@@ -152,7 +155,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         <button
                           type="button"
                           className="marketplace-modal__btn-primary"
-                          disabled={payBusyId === ord.id}
+                          disabled={payBusyId === ord.id || tapBusyId === ord.id}
                           onClick={() => {
                             void (async () => {
                               setPayBusyId(ord.id);
@@ -173,7 +176,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         <CbcCardPayForm
                           amountNaira={ord.totalNaira}
                           quote={result.funding?.cbc_quote}
-                          busy={payBusyId === ord.id}
+                          busy={payBusyId === ord.id || tapBusyId === ord.id}
                           error={payBusyId === ord.id ? payError : null}
                           onPay={(details) => {
                             void (async () => {
@@ -187,6 +190,16 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                               }
                               setPaidOrders((current) => ({ ...current, [ord.id]: true }));
                             })();
+                          }}
+                        />
+                        <CbcTapPayPanel
+                          orderId={ord.id}
+                          amountNaira={ord.totalNaira}
+                          disabled={payBusyId === ord.id}
+                          onBusyChange={(busy) => setTapBusyId(busy ? ord.id : null)}
+                          onPaid={() => {
+                            setPayError(null);
+                            setPaidOrders((current) => ({ ...current, [ord.id]: true }));
                           }}
                         />
                   </>

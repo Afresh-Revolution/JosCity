@@ -1416,7 +1416,10 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
 }
 
 .marketplace-checkout-main-btn {
-  padding: 16px 48px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 14px 16px;
   border: none;
   border-radius: 14px;
   font-size: 17px;
@@ -1426,6 +1429,7 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
   background: linear-gradient(135deg, #0d4a1f, #1a6b36);
   box-shadow: 0 10px 28px rgba(13, 74, 31, 0.35);
   transition: transform 0.2s, box-shadow 0.2s;
+  white-space: normal;
 
   &:hover {
     transform: translateY(-2px);
@@ -1436,13 +1440,15 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
 .marketplace-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 2000;
+  z-index: 10050;
   background: rgba(10, 20, 15, 0.55);
   backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  overflow: hidden;
   animation: marketplace-fade-in 0.25s ease;
 }
 
@@ -1457,9 +1463,10 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
 
 .marketplace-modal {
   width: 100%;
-  max-width: 480px;
-  max-height: 90vh;
-  max-height: 90dvh;
+  min-width: 0;
+  max-width: min(480px, 100%);
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1467,10 +1474,11 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
   border-radius: 20px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
   animation: marketplace-modal-up 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  box-sizing: border-box;
 }
 
 .marketplace-modal--wide {
-  max-width: 560px;
+  max-width: min(560px, 100%);
 }
 
 .marketplace-modal--create {
@@ -1506,8 +1514,10 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
 
   h2 {
     margin: 0;
+    min-width: 0;
     font-size: 19px;
     font-weight: 700;
+    overflow-wrap: anywhere;
   }
 }
 
@@ -1522,8 +1532,14 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
 }
 
 .marketplace-modal__form {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
   padding: 18px 22px 22px;
+  overflow-x: hidden;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .marketplace-modal__label {
@@ -1542,6 +1558,10 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
 
 .marketplace-modal__input,
 .marketplace-modal__textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 11px 14px;
   border-radius: 10px;
   border: 1px solid rgba(0, 0, 0, 0.12);
@@ -1775,8 +1795,9 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
 
 .marketplace-modal__grid2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
+  min-width: 0;
 
   &--tight {
     gap: 10px 12px;
@@ -1799,23 +1820,30 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
 // otherwise the payment options and the Done button are clipped on phones.
 .marketplace-checkout-success {
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
+  max-width: 100%;
   padding: 18px 22px 22px;
-  overflow-y: auto;
   overflow-x: hidden;
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  box-sizing: border-box;
 }
 
 .marketplace-checkout-success__lead {
   font-size: 15px;
   line-height: 1.5;
   margin: 0 0 18px;
+  overflow-wrap: anywhere;
 }
 
 .marketplace-checkout-order {
   margin-bottom: 22px;
   padding: 16px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   border-radius: 14px;
   border: 1px solid rgba(13, 74, 31, 0.15);
   background: rgba(13, 74, 31, 0.03);
@@ -1850,6 +1878,9 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
 .cbc-card-pay {
   margin: 0 0 16px;
   padding: 14px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   border-radius: 14px;
   border: 1px solid rgba(13, 74, 31, 0.18);
   background: rgba(13, 74, 31, 0.04);
@@ -1865,6 +1896,7 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
     margin: 0;
     font-size: 14px;
     line-height: 1.45;
+    overflow-wrap: anywhere;
   }
 
   &__rate {
@@ -1874,18 +1906,24 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
 
   &__row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 10px;
+    min-width: 0;
   }
 
   label {
     display: grid;
     gap: 6px;
+    min-width: 0;
     font-size: 13px;
     font-weight: 600;
   }
 
   input {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
     min-height: 42px;
     padding: 8px 10px;
     border: 1px solid rgba(13, 74, 31, 0.18);
@@ -1902,6 +1940,9 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
 .cbc-tap-pay {
   margin: 0 0 16px;
   padding: 14px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   border-radius: 14px;
   border: 1px solid rgba(13, 74, 31, 0.18);
   background: rgba(13, 74, 31, 0.04);
@@ -1920,6 +1961,7 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
     margin: 0;
     font-size: 14px;
     line-height: 1.45;
+    overflow-wrap: anywhere;
   }
 
   &__status,
@@ -2045,6 +2087,15 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
   .cbc-card-pay,
   .cbc-tap-pay {
     padding: 12px;
+  }
+
+  .cbc-card-pay__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .marketplace-modal__btn-primary,
+  .marketplace-checkout-main-btn {
+    width: 100%;
   }
 
   .cbc-tap-pay__boxes {

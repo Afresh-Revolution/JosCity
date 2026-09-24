@@ -139,10 +139,22 @@ function scanFailure(error: unknown): NfcReadError {
 
 /**
  * Starts the phone's NFC reader and resolves with the first CBC card tapped.
- * Must be called from a user gesture (Chrome asks for NFC permission). Aborting
- * `signal` stops the reader and rejects with code "aborted".
+ * Must be called from a user gesture (Chrome asks for NFC permission).
+ *
+ * The reader deliberately KEEPS RUNNING after the card has been read, until
+ * `signal` is aborted. While a page holds an active scan, Chrome owns NFC; the
+ * moment the scan stops, Android hands the (still nearby) tag to its own tag
+ * viewer and pops a system "New tag scanned" screen over the payment. Further
+ * taps during the payment are read and ignored. Abort `signal` when the payment
+ * flow ends (cancelled, failed, paid, or the component unmounts).
+ *
+ * A tag that is not a CBC card does not end the scan: `onNotice` is told and we
+ * keep waiting for the right card.
  */
-export async function readCardTap(signal: AbortSignal): Promise<NfcCardRead> {
+export async function readCardTap(
+  signal: AbortSignal,
+  onNotice?: (message: string) => void
+): Promise<NfcCardRead> {
   const Reader = readerConstructor();
   if (!Reader || !window.isSecureContext) {
     throw new NfcReadError("unsupported", "Tap to pay works on Chrome for Android over a secure connection.");
@@ -151,48 +163,50 @@ export async function readCardTap(signal: AbortSignal): Promise<NfcCardRead> {
 
   const reader = new Reader();
   const scan = new AbortController();
-  const onAbort = () => scan.abort();
-  signal.addEventListener("abort", onAbort);
+  const stopScan = () => {
+    reader.onreading = null;
+    reader.onreadingerror = null;
+    scan.abort();
+  };
+  signal.addEventListener("abort", stopScan, { once: true });
 
   try {
     await reader.scan({ signal: scan.signal });
   } catch (error) {
-    signal.removeEventListener("abort", onAbort);
+    signal.removeEventListener("abort", stopScan);
     throw signal.aborted ? new NfcReadError("aborted", "Cancelled.") : scanFailure(error);
   }
 
   return new Promise<NfcCardRead>((resolve, reject) => {
-    const cancelled = () => {
-      finish();
+    let settled = false;
+
+    const onSignalAbort = () => {
+      if (settled) return;
+      settled = true;
       reject(new NfcReadError("aborted", "Cancelled."));
     };
-    const finish = () => {
-      signal.removeEventListener("abort", onAbort);
-      signal.removeEventListener("abort", cancelled);
-      reader.onreading = null;
-      reader.onreadingerror = null;
-      scan.abort();
-    };
-
     if (signal.aborted) {
-      cancelled();
+      onSignalAbort();
       return;
     }
-    signal.addEventListener("abort", cancelled);
+    signal.addEventListener("abort", onSignalAbort, { once: true });
 
     reader.onreading = (event) => {
+      // Once a card has been accepted, keep the scan alive but ignore any later tap.
+      if (settled) return;
       const payload = extractCardPayload(event.message?.records ?? []);
       const uid = normalizeUid(event.serialNumber);
-      finish();
       if (!payload || !uid) {
-        reject(new NfcReadError("not_cbc", "That is not a CBC card. Tap your CBC card and try again."));
+        onNotice?.("That is not a CBC card. Tap your CBC card to continue.");
         return;
       }
+      settled = true;
+      signal.removeEventListener("abort", onSignalAbort);
       resolve({ uid, payload });
     };
     reader.onreadingerror = () => {
-      finish();
-      reject(new NfcReadError("read_error", "Could not read the card. Hold it steady against the back of your phone and try again."));
+      if (settled) return;
+      onNotice?.("Could not read the card. Hold it steady against the back of your phone.");
     };
   });
 }

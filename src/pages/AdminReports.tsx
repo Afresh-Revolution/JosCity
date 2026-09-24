@@ -128,7 +128,7 @@ const AdminReports: React.FC = () => {
         <>
           <div className="admin-reports-list">
             {filtered.map((report) => (
-              <div
+              <article
                 key={report.report_id}
                 className={`admin-report-card ${
                   report.priority === "high" ? "admin-report-card--high" : ""
@@ -137,49 +137,69 @@ const AdminReports: React.FC = () => {
                 <div className="admin-report-card__header">
                   <div className="admin-report-card__info">
                     <h4>Report #{report.report_id}</h4>
-                    <span className="admin-report-card__date">
+                    <time className="admin-report-card__date" dateTime={report.created_at}>
                       {new Date(report.created_at).toLocaleString()}
+                    </time>
+                  </div>
+                  <div className="admin-report-card__badges">
+                    {report.priority === "high" ? (
+                      <span className="admin-report-card__priority">High priority</span>
+                    ) : null}
+                    <span
+                      className={`admin-report-card__status admin-report-card__status--${report.status}`}
+                    >
+                      {report.status.replaceAll("_", " ")}
                     </span>
                   </div>
-                  {report.priority === "high" ? (
-                    <span className="admin-report-card__priority">HIGH PRIORITY</span>
-                  ) : null}
-                  <span className="badge">{report.status}</span>
                 </div>
 
-                <div className="admin-report-card__content">
-                  <p>
-                    <strong>Reason:</strong> {report.reason.replace("_", " ")}
+                <div className="admin-report-card__body">
+                  <p className="admin-report-card__reason">
+                    <span>Reason</span>
+                    {report.reason.replaceAll("_", " ")}
                   </p>
-                  <div className="admin-report-card__meta">
-                    <span>Type: {report.content_type}</span>
-                    <span>Reference: {report.evidence_ref || report.content_id || "general"}</span>
-                    <span>Reporter: {report.reporter_name || report.reporter_id}</span>
+                  <dl className="admin-report-card__meta">
+                    <div>
+                      <dt>Type</dt>
+                      <dd>{report.content_type}</dd>
+                    </div>
+                    <div>
+                      <dt>Reference</dt>
+                      <dd>{report.evidence_ref || report.content_id || "general"}</dd>
+                    </div>
+                    <div>
+                      <dt>Reporter</dt>
+                      <dd>{report.reporter_name || report.reporter_id}</dd>
+                    </div>
                     {report.reported_user_id ? (
-                      <span>Reported account: {report.reported_name || report.reported_user_id}</span>
+                      <div>
+                        <dt>Reported account</dt>
+                        <dd>{report.reported_name || report.reported_user_id}</dd>
+                      </div>
                     ) : null}
-                  </div>
+                  </dl>
                   {report.description ? (
-                    <p>
-                      <strong>Details:</strong> {report.description}
-                    </p>
+                    <p className="admin-report-card__details">{report.description}</p>
                   ) : null}
-                  <p className="admin-report-card__date">
+                  <p className="admin-report-card__hint">
                     Media is not shown here. Use the content reference in a secure review process.
                   </p>
-                  <textarea
-                    rows={3}
-                    value={notes[report.report_id] || ""}
-                    onChange={(e) =>
-                      setNotes((prev) => ({ ...prev, [report.report_id]: e.target.value }))
-                    }
-                    placeholder="Internal notes"
-                  />
+                  <label className="admin-report-card__notes">
+                    <span>Internal notes</span>
+                    <textarea
+                      rows={3}
+                      value={notes[report.report_id] || ""}
+                      onChange={(e) =>
+                        setNotes((prev) => ({ ...prev, [report.report_id]: e.target.value }))
+                      }
+                      placeholder="Add a note for the review record"
+                    />
+                  </label>
                 </div>
 
                 <div className="admin-report-card__actions">
                   <button
-                    className="admin-action-btn"
+                    className="admin-action-btn admin-action-btn--primary"
                     disabled={processing === report.report_id}
                     onClick={() =>
                       void act(report.report_id, () =>
@@ -222,7 +242,7 @@ const AdminReports: React.FC = () => {
                   </button>
                   {report.priority === "high" ? (
                     <button
-                      className="admin-action-btn"
+                      className="admin-action-btn admin-action-btn--escalate"
                       disabled={processing === report.report_id}
                       onClick={() =>
                         void act(report.report_id, () =>
@@ -234,7 +254,7 @@ const AdminReports: React.FC = () => {
                     </button>
                   ) : null}
                 </div>
-              </div>
+              </article>
             ))}
           </div>
           {totalPages > 1 && (

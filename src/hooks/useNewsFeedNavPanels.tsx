@@ -335,9 +335,9 @@ export function useNewsFeedNavPanels(options: UseNewsFeedNavPanelsOptions = {}) 
               title: data.title ?? null,
               expiresAt: data.expires_at ?? null,
               userId: 0,
-              userName: "Admin",
+              userName: "Joscity",
               userAvatar: "",
-              message: data.message || data.title || "Admin update",
+              message: data.message || data.title || "Joscity update",
               timestamp: data.time || new Date().toISOString(),
               isRead: false,
             };
@@ -374,9 +374,9 @@ export function useNewsFeedNavPanels(options: UseNewsFeedNavPanelsOptions = {}) 
         title: data.title ?? null,
         expiresAt: data.expires_at ?? null,
         userId: 0,
-        userName: "Admin",
+        userName: "Joscity",
         userAvatar: "",
-        message: data.message || data.title || "Admin update",
+        message: data.message || data.title || "Joscity update",
         timestamp: data.time || new Date().toISOString(),
         isRead: false,
       };

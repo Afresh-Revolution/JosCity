@@ -1821,6 +1821,7 @@ export const rejectAccount = async (user_id: string, reason?: string): Promise<{
 // ==================== ADMIN NOTIFICATIONS ====================
 export interface AdminNotificationPayload {
   target: "all" | "user";
+  audience?: "all" | "personal" | "business" | "agent";
   user_id?: number;
   title: string;
   message: string;
@@ -1836,7 +1837,9 @@ export interface AdminNotificationItem {
   message?: string | null;
   notification_type?: string;
   is_global?: boolean;
+  audience?: string | null;
   show_on_landing?: boolean;
+  expires_at?: string | null;
   time: string;
   user_firstname?: string | null;
   user_lastname?: string | null;

@@ -351,6 +351,21 @@
       outline: 2px solid $color-primary;
       outline-offset: 2px;
     }
+
+    a {
+      color: inherit;
+      font: inherit;
+      letter-spacing: inherit;
+      text-transform: inherit;
+      text-decoration: none;
+
+      &:hover,
+      &:visited,
+      &:active {
+        color: inherit;
+        text-decoration: none;
+      }
+    }
   }
 
   // Theme toggle in hamburger: hidden on desktop, shown only in mobile menu (must override &__nav-item display)

@@ -118,7 +118,7 @@ export function mapApiRowToFeedPanelNotification(n: {
       n.from_user?.display_name ??
       fallbackCurrentUserName ??
       (item.is_global || isAdminBroadcast
-        ? "Admin"
+        ? "Joscity"
         : nodeTypeLower === "membership"
           ? "JosCity"
           : "Someone"),

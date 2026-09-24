@@ -123,7 +123,10 @@ export function mapApiRowToFeedPanelNotification(n: {
           ? "JosCity"
           : "Someone"),
     userAvatar: n.from_user?.profile_image_url ?? fallbackCurrentUserAvatar,
-    message: item.message || n.action || "",
+    message:
+      actionLower === "new_message" || nodeTypeLower === "message"
+        ? item.title || "sent you a message"
+        : item.message || n.action || "",
     timestamp: n.time ?? "",
     isRead: !!n.is_read,
     relatedPostId: n.node_type === "post" ? n.node_id : undefined,

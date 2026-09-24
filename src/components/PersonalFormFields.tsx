@@ -18,6 +18,7 @@ interface PersonalFormData {
   nin_number: string;
   address: string;
   user_password: string;
+  referral_code?: string;
 }
 
 interface PersonalFormFieldsProps {
@@ -105,6 +106,22 @@ const PersonalFormFields: React.FC<PersonalFormFieldsProps> = ({
             placeholder="Email"
           />
         </div>
+      </div>
+
+      <div className="register-form-group">
+        <label htmlFor="referral_code">Referral code <span>(optional)</span></label>
+        <input
+          type="text"
+          id="referral_code"
+          name="referral_code"
+          value={formData.referral_code || ""}
+          onChange={onInputChange}
+          placeholder="JOSABC123"
+          autoCapitalize="characters"
+          autoComplete="off"
+          maxLength={9}
+        />
+        <p className="register-helper">Enter the code of the person who invited you.</p>
       </div>
 
       <div className="register-form-group">

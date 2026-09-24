@@ -685,6 +685,8 @@ interface UserProfile {
   address?: string;
   user_picture?: string | null;
   user_cover?: string | null;
+  user_bio?: string | null;
+  agent_bio?: string | null;
   user_verified?: boolean;
   is_verified?: boolean;
   account_type?: string;
@@ -699,6 +701,7 @@ interface UserProfile {
   business_email?: string;
   business_phone?: string;
   business_location?: string;
+  business_description?: string;
   CAC_number?: string;
 }
 
@@ -814,6 +817,51 @@ export const uploadProfilePicture = async (
       success: false,
       message:
         error instanceof Error ? error.message : "Network error occurred",
+    };
+  }
+};
+
+export const uploadCoverPicture = async (
+  file: File
+): Promise<{ success: boolean; user_cover?: string; message?: string }> => {
+  const token =
+    localStorage.getItem("token") || localStorage.getItem("authToken");
+  if (!token) {
+    return { success: false, message: "Authentication required. Please sign in." };
+  }
+
+  const formData = new FormData();
+  formData.append("cover", file);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/profile/cover`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        message:
+          (typeof data.message === "string" && data.message) ||
+          (typeof data.error === "string" && data.error) ||
+          "Failed to upload cover photo",
+      };
+    }
+
+    return {
+      success: true,
+      user_cover: data.user_cover,
+      message: data.message || "Cover photo updated successfully",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Network error occurred",
     };
   }
 };

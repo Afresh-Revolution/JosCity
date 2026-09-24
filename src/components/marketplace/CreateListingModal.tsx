@@ -22,20 +22,17 @@ const CATEGORIES = [
   "Other",
 ];
 
-const SERVICE_UNITS = [
-  "per session",
-  "per hour",
-  "per day",
-  "per outfit",
-  "starting from",
-];
+const SERVICE_PLACE_LABELS: Record<string, string> = {
+  studio: "At my shop or studio",
+  client_site: "At the customer's location",
+  both: "At my place or the customer's",
+  remote: "Online / remote",
+};
 
-const SERVICE_PLACES = [
-  { id: "studio", label: "At my studio" },
-  { id: "client_site", label: "At the client's location" },
-  { id: "both", label: "Studio or client location" },
-  { id: "remote", label: "Online / remote" },
-] as const;
+function readableServiceLocation(value?: string | null) {
+  const id = String(value || "").trim();
+  return SERVICE_PLACE_LABELS[id] || id;
+}
 
 const MAX_MEDIA = 8;
 
@@ -124,7 +121,7 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
       setQuantityNote(initialListing.quantity_note || "");
       setUnit(initialListing.unit || "");
       setDurationNote(initialListing.duration_note || "");
-      setServiceLocation(initialListing.service_location || "");
+      setServiceLocation(readableServiceLocation(initialListing.service_location));
       setServiceArea(initialListing.service_area || "");
       setAvailabilityNote(initialListing.availability_note || initialListing.quantity_note || "");
       setBankName(initialListing.bank?.bank_name || "");
@@ -229,6 +226,10 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
       setError("Add at least a contact phone or email for buyers.");
       return;
     }
+    if (!isService && !mediaItems.some((item) => item.type !== "video" && item.url)) {
+      setError("Add at least one photo so buyers can see the product.");
+      return;
+    }
     let stock: number | null = null;
     if (!isService && quantityTracked) {
       const s = Number(stockQuantity);
@@ -320,7 +321,7 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
           </div>
           <p className="marketplace-modal__hint">
             {isService
-              ? "For photography, tailoring, repairs, and other booked work. No stock count needed."
+              ? "For booked work like cleaning, repairs, tutoring, or salon services. No stock count needed."
               : "For items you sell by quantity, like food, clothes, or farm produce."}
           </p>
 
@@ -331,7 +332,7 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={255}
-              placeholder={isService ? "e.g. Wedding photography, Native wear tailoring" : ""}
+              placeholder={isService ? "e.g. Haircut, home cleaning, tutoring" : ""}
               required
             />
           </label>
@@ -344,7 +345,7 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
               rows={3}
               placeholder={
                 isService
-                  ? "What is included, how booking works, and what customers should prepare."
+                  ? "What is included, how booking works, and what customers should know."
                   : ""
               }
             />
@@ -383,18 +384,12 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
               <div className="marketplace-modal__grid2 marketplace-modal__grid2--tight">
                 <label className="marketplace-modal__label">
                   Priced as
-                  <select
+                  <input
                     className="marketplace-modal__input"
                     value={unit}
                     onChange={(e) => setUnit(e.target.value)}
-                  >
-                    <option value="">Select</option>
-                    {SERVICE_UNITS.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="e.g. per hour, per visit"
+                  />
                 </label>
                 <label className="marketplace-modal__label">
                   Duration or package
@@ -402,25 +397,19 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
                     className="marketplace-modal__input"
                     value={durationNote}
                     onChange={(e) => setDurationNote(e.target.value)}
-                    placeholder="e.g. 2 hours, 3 outfits, full-day shoot"
+                    placeholder="e.g. 1 hour, half day, weekly"
                   />
                 </label>
               </div>
               <div className="marketplace-modal__grid2 marketplace-modal__grid2--tight">
                 <label className="marketplace-modal__label">
                   Where you work
-                  <select
+                  <input
                     className="marketplace-modal__input"
                     value={serviceLocation}
                     onChange={(e) => setServiceLocation(e.target.value)}
-                  >
-                    <option value="">Select</option>
-                    {SERVICE_PLACES.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="e.g. At my shop, at the customer's place, online"
+                  />
                 </label>
                 <label className="marketplace-modal__label">
                   Service area
@@ -438,7 +427,7 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
                   className="marketplace-modal__input"
                   value={availabilityNote}
                   onChange={(e) => setAvailabilityNote(e.target.value)}
-                  placeholder="e.g. Weekends, book 3 days ahead"
+                  placeholder="e.g. Weekdays, book ahead"
                 />
               </label>
             </>
@@ -485,7 +474,7 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
             <p className="marketplace-modal__hint">
               {isService
                 ? "Show your work, studio, or finished jobs. Up to " + MAX_MEDIA + " files, 50MB each."
-                : `Upload images or short clips. Up to ${MAX_MEDIA} files, 50MB each.`}
+                : `Add at least one photo so buyers can see the product. Up to ${MAX_MEDIA} files, 50MB each.`}
             </p>
             <input
               ref={fileInputRef}

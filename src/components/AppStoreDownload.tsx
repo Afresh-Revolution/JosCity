@@ -8,11 +8,11 @@ type AppStoreDownloadProps = {
 };
 
 const PlayIcon = () => (
-  <svg viewBox="0 0 24 24" aria-hidden="true" className="app-store-download__glyph">
-    <path
-      fill="currentColor"
-      d="M3.6 2.2c-.4.2-.6.6-.6 1.1v17.4c0 .5.2.9.6 1.1l10.1-9.8L3.6 2.2zm11.2 5.1L12.1 10l2.8 2.7 4.6-2.6c.7-.4.7-1.4 0-1.8l-4.7-2zm-2.7 6.6-2.7 2.7 8.6 4.9c.7.4 1.5-.1 1.5-.9v-.3l-7.4-6.4z"
-    />
+  <svg viewBox="100 75 320 365" aria-hidden="true" className="app-store-download__glyph">
+    <path fill="#4285F4" d="M109.3 106.4Q108 112 108 116v280q0 5 1.3 9.7L259 256" />
+    <path fill="#34A853" d="M109 108c5-25 35-41 61-25l166 96-78 78" />
+    <path fill="#FBBC04" d="M336 333h-77V179h77l72 42a40 40 0 0 1 1 70" />
+    <path fill="#EA4335" d="M170 429c-26 16-56 0-61-25l150-148 77 77" />
   </svg>
 );
 

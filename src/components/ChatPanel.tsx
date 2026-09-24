@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X, Search, Send, Smile, CheckCircle, MessageCircle, ArrowLeft, Flag } from "lucide-react";
+import { X, Search, Send, Smile, CheckCircle, MessageCircle, ArrowLeft, Flag, Trash2, Image as ImageIcon, Video } from "lucide-react";
 import Avatar from "./Avatar";
 import EmojiPicker from "./EmojiPicker";
 import { getUserData } from "../utils/userUtils";
@@ -15,6 +15,36 @@ import { formatChatPresenceLabel } from "../utils/presenceUtils";
 import ReportModal from "./ReportModal";
 import API_BASE_URL from "../api/config";
 import { startVisibleInterval } from "../utils/visibleInterval";
+
+function parseStatusReply(text: string): {
+  label: string;
+  preview?: string;
+  kind: "photo" | "video" | "text";
+  reply: string;
+} | null {
+  const match = text.match(
+    /^Reply to your status #\d+:\s*([^\n]*?)(?:\npreview:(\S+))?(?:\n\n|\n)([\s\S]+)$/
+  );
+  if (!match) return null;
+  const reply = match[3].trim();
+  if (!reply) return null;
+  const raw = (match[1] || "").trim();
+  const preview = match[2]?.trim();
+  const kind = /^photo(?: status)?$/i.test(raw)
+    ? "photo"
+    : /^video(?: status)?$/i.test(raw)
+      ? "video"
+      : preview
+        ? "photo"
+        : "text";
+  const label =
+    kind === "photo" && /^photo(?: status)?$/i.test(raw)
+      ? "Photo"
+      : kind === "video" && /^video(?: status)?$/i.test(raw)
+        ? "Video"
+        : raw || "Status";
+  return { label, preview, kind, reply };
+}
 
 export interface ChatPanelPopupPayload {
   messageId?: number;
@@ -159,6 +189,14 @@ const upsertMessage = (items: ChatMessage[], next: ChatMessage) => {
   updated[existingIndex] = { ...updated[existingIndex], ...next };
   return updated;
 };
+
+const DELETED_WATERMARK = "Message deleted";
+
+const asDeletedMessage = (message: ChatMessage): ChatMessage => ({
+  ...message,
+  isDeleted: true,
+  messageContent: DELETED_WATERMARK,
+});
 
 const mergeRemotePresence = (
   conversation: ChatConversation,
@@ -643,6 +681,44 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           setMessages((prev) => upsertMessage(prev, message));
         }
       }),
+      chatService.onMessageDeleted((payload) => {
+        const record = payload as Record<string, unknown>;
+        const message =
+          normalizeChatMessage((record as Record<string, unknown>)?.message) ||
+          normalizeChatMessage(payload);
+        const messageId =
+          message?.messageId ??
+          (typeof record.messageId === "number"
+            ? record.messageId
+            : typeof record.message_id === "number"
+              ? record.message_id
+              : null);
+        const conversationId =
+          message?.conversationId ??
+          (typeof record.conversationId === "number"
+            ? record.conversationId
+            : typeof record.conversation_id === "number"
+              ? record.conversation_id
+              : null);
+        if (!messageId) return;
+        setMessages((prev) => {
+          const next = prev.map((row) =>
+            row.messageId === messageId ? asDeletedMessage(row) : row
+          );
+          const last = next[next.length - 1];
+          if (last?.messageId === messageId && conversationId != null) {
+            setActiveChats((chats) =>
+              chats.map((conversation) =>
+                conversation.conversationId === conversationId
+                  ? { ...conversation, lastMessageContent: DELETED_WATERMARK }
+                  : conversation
+              )
+            );
+          }
+          return next;
+        });
+        void loadConversations();
+      }),
       chatService.onUserTyping((payload) => {
         const record = payload as Record<string, unknown>;
         const conversationId =
@@ -802,6 +878,35 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   };
 
+  const handleDeleteMessage = async (message: ChatMessage) => {
+    if (!message.messageId || message.isDeleted || message.senderId !== userId) return;
+    const confirmed = window.confirm(
+      "Permanently delete this message? Both of you will see “Message deleted”."
+    );
+    if (!confirmed) return;
+    try {
+      await chatService.deleteMessage(message.messageId);
+      setMessages((prev) => {
+        const next = prev.map((row) =>
+          row.messageId === message.messageId ? asDeletedMessage(row) : row
+        );
+        const last = next[next.length - 1];
+        if (last?.messageId === message.messageId) {
+          setActiveChats((chats) =>
+            chats.map((conversation) =>
+              conversation.conversationId === message.conversationId
+                ? { ...conversation, lastMessageContent: DELETED_WATERMARK }
+                : conversation
+            )
+          );
+        }
+        return next;
+      });
+    } catch (error) {
+      setChatError(error instanceof Error ? error.message : "Could not delete this message.");
+    }
+  };
+
   const headerPresence = useMemo(() => {
     if (!selectedConversation) {
       return { showDot: false, label: "" };
@@ -911,7 +1016,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                             </span>
                           </div>
                           <div className="newsfeed-chat-panel__conversation-preview">
-                            <p className="newsfeed-chat-panel__conversation-message">
+                            <p
+                              className={`newsfeed-chat-panel__conversation-message${
+                                conversation.lastMessageContent === DELETED_WATERMARK
+                                  ? " newsfeed-chat-panel__conversation-message--deleted"
+                                  : ""
+                              }`}
+                            >
                               {conversation.lastMessageContent ||
                                 "No messages yet"}
                             </p>
@@ -1064,6 +1175,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                   ) : messages.length > 0 ? (
                     messages.map((message) => {
                       const isCurrentUser = message.senderId === userId;
+                      const deleted = Boolean(message.isDeleted);
                       return (
                         <div
                           key={message.messageId}
@@ -1071,7 +1183,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                             isCurrentUser
                               ? "newsfeed-chat-panel__message--sent"
                               : "newsfeed-chat-panel__message--received"
-                          }`}
+                          } ${deleted ? "newsfeed-chat-panel__message--deleted" : ""}`}
                         >
                           {!isCurrentUser && (
                             <Avatar
@@ -1082,14 +1194,44 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                             />
                           )}
                           <div className="newsfeed-chat-panel__message-content">
-                            <p className="newsfeed-chat-panel__message-text">
-                              {message.messageContent}
-                            </p>
+                            {deleted ? (
+                              <p className="newsfeed-chat-panel__message-text newsfeed-chat-panel__message-text--deleted">
+                                {DELETED_WATERMARK}
+                              </p>
+                            ) : parseStatusReply(message.messageContent) ? (
+                              (() => {
+                                const statusReply = parseStatusReply(message.messageContent)!;
+                                return (
+                                  <>
+                                    <div className="newsfeed-chat-panel__status-reply">
+                                      <div className="newsfeed-chat-panel__status-reply-copy">
+                                        <span>{isCurrentUser ? selectedConversation.conversationName : "You"}</span>
+                                        <p>{statusReply.label}</p>
+                                      </div>
+                                      {statusReply.kind !== "text" ? (
+                                        statusReply.preview ? (
+                                          <img src={statusReply.preview} alt="" />
+                                        ) : statusReply.kind === "video" ? (
+                                          <Video size={16} />
+                                        ) : (
+                                          <ImageIcon size={16} />
+                                        )
+                                      ) : null}
+                                    </div>
+                                    <p className="newsfeed-chat-panel__message-text">{statusReply.reply}</p>
+                                  </>
+                                );
+                              })()
+                            ) : (
+                              <p className="newsfeed-chat-panel__message-text">
+                                {message.messageContent}
+                              </p>
+                            )}
                             <div className="newsfeed-chat-panel__message-footer">
                               <span className="newsfeed-chat-panel__message-time">
                                 {timeLabel(message.createdAt)}
                               </span>
-                              {isCurrentUser && (
+                              {isCurrentUser && !deleted && (
                                 <span
                                   className={`newsfeed-chat-panel__message-status ${
                                     isOutgoingReadByPeer(message)
@@ -1099,6 +1241,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                                 >
                                   <CheckCircle size={14} />
                                 </span>
+                              )}
+                              {isCurrentUser && !deleted && (
+                                <button
+                                  type="button"
+                                  className="newsfeed-chat-panel__message-delete"
+                                  onClick={() => void handleDeleteMessage(message)}
+                                  aria-label="Delete message"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
                               )}
                             </div>
                           </div>

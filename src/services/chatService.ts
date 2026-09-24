@@ -57,6 +57,8 @@ export interface ChatMessage {
   senderAvatar?: string;
   messageContent: string;
   messageType: string;
+  attachmentUrl?: string;
+  duration?: number;
   replyToId?: number | null;
   isEdited: boolean;
   isDeleted: boolean;
@@ -346,9 +348,19 @@ export const normalizeChatMessage = (value: unknown): ChatMessage | null => {
       sender.picture,
       sender.avatar
     ),
-    messageContent: isDeleted && !messageContent ? "Message deleted" : messageContent,
+    messageContent:
+      isDeleted
+        ? "Message deleted"
+        : pickString(record.message_type, record.messageType) === "voice"
+          ? "Voice message"
+          : messageContent,
     messageType:
       pickString(record.message_type, record.messageType, record.type) || "text",
+    attachmentUrl: pickString(record.attachment_url, record.attachmentUrl),
+    duration: pickNumber(
+      toRecord(record.attachment_meta ?? record.attachmentMeta).duration,
+      record.duration
+    ),
     replyToId:
       pickNumber(record.reply_to_id, record.replyToId) ?? null,
     isEdited: pickBoolean(record.is_edited, record.isEdited) ?? false,
@@ -566,7 +578,7 @@ class ChatService {
 
   async getUserConversations(
     page = 1,
-    limit = 20
+    limit = 50
   ): Promise<{ conversations: ChatConversation[] }> {
     const response = await this.apiRequest<JsonRecord>(
       `/conversations?page=${page}&limit=${limit}`

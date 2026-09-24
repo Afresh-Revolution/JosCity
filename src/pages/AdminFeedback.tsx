@@ -113,7 +113,7 @@ const AdminFeedback: React.FC = () => {
           Feedback
         </h1>
       </div>
-      <p style={{ marginTop: -8, marginBottom: 16, color: "var(--text-tertiary)" }}>
+      <p className="admin-support__lede">
         App Help & support: member feedback, problem reports, FAQs, emails and phone numbers.
       </p>
 
@@ -136,24 +136,25 @@ const AdminFeedback: React.FC = () => {
         </div>
       ) : null}
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+      <div className="admin-support__tabs" role="tablist" aria-label="Support sections">
         {(
           [
-            ["feedback", `Feedback (${data.feedback.length})`],
-            ["problems", `Problems (${data.problems.length})`],
-            ["faq", "FAQ"],
-            ["contacts", "Contacts"],
-          ] as Array<[Tab, string]>
-        ).map(([id, label]) => (
+            ["feedback", "Feedback", data.feedback.length],
+            ["problems", "Problems", data.problems.length],
+            ["faq", "FAQ", null],
+            ["contacts", "Contacts", null],
+          ] as Array<[Tab, string, number | null]>
+        ).map(([id, label, count]) => (
           <button
             key={id}
             type="button"
+            role="tab"
+            aria-selected={tab === id}
             onClick={() => setTab(id)}
-            className={`admin-sidebar-section-container__item ${
-              tab === id ? "admin-sidebar-section-container__item--active" : ""
-            }`}
+            className={`admin-support__tab${tab === id ? " admin-support__tab--active" : ""}`}
           >
             {label}
+            {count !== null ? <span className="admin-support__count">{count}</span> : null}
           </button>
         ))}
       </div>
@@ -168,45 +169,43 @@ const AdminFeedback: React.FC = () => {
       {!loading && tab === "feedback" ? (
         <div className="admin-panel-card">
           {!data.feedback.length ? (
-            <p>No app feedback yet.</p>
+            <div className="admin-support__empty">
+              <MessageSquare size={28} />
+              <p>No app feedback yet.</p>
+              <span>Member ratings and comments will show up here.</span>
+            </div>
           ) : (
             data.feedback.map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  borderBottom: "1px solid var(--border-color, #e6e6e6)",
-                  padding: "12px 0",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <div>
-                    <strong>{item.member_name}</strong>
-                    <div style={{ color: "var(--text-tertiary)", fontSize: 13 }}>
-                      {item.user_email || "—"} · {formatDate(item.created_at)}
-                    </div>
-                    <div style={{ marginTop: 6 }}>
-                      {Array.from({ length: 5 }).map((_, index) => (
-                        <Star
-                          key={index}
-                          size={14}
-                          fill={index < item.rating ? "#0F3D26" : "none"}
-                          color="#0F3D26"
-                        />
-                      ))}
-                    </div>
-                    {item.comment ? <p style={{ marginTop: 8 }}>{item.comment}</p> : null}
+              <article key={item.id} className="admin-support__item">
+                <div>
+                  <strong>{item.member_name}</strong>
+                  <div className="admin-support__meta">
+                    {item.user_email || "—"} · {formatDate(item.created_at)}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!window.confirm("Delete this feedback?")) return;
-                      void deleteSupportFeedback(item.id).then(load);
-                    }}
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  <div className="admin-support__stars" aria-label={`${item.rating} out of 5`}>
+                    {Array.from({ length: 5 }).map((_, index) => (
+                      <Star
+                        key={index}
+                        size={14}
+                        fill={index < item.rating ? "#0d4a1f" : "none"}
+                        color="#0d4a1f"
+                      />
+                    ))}
+                  </div>
+                  {item.comment ? <p className="admin-support__comment">{item.comment}</p> : null}
                 </div>
-              </div>
+                <button
+                  type="button"
+                  className="admin-support__icon-btn"
+                  aria-label="Delete feedback"
+                  onClick={() => {
+                    if (!window.confirm("Delete this feedback?")) return;
+                    void deleteSupportFeedback(item.id).then(load);
+                  }}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </article>
             ))
           )}
         </div>
@@ -215,48 +214,54 @@ const AdminFeedback: React.FC = () => {
       {!loading && tab === "problems" ? (
         <div className="admin-panel-card">
           {!data.problems.length ? (
-            <p>No problem reports yet.</p>
+            <div className="admin-support__empty">
+              <AlertCircle size={28} />
+              <p>No problem reports yet.</p>
+              <span>Reports members send from the app will show up here.</span>
+            </div>
           ) : (
             data.problems.map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  borderBottom: "1px solid var(--border-color, #e6e6e6)",
-                  padding: "12px 0",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <div>
-                    <strong>{item.category}</strong> · {item.status}
-                    <div style={{ color: "var(--text-tertiary)", fontSize: 13 }}>
-                      {item.member_name} · {item.user_email || "—"} · {formatDate(item.created_at)}
-                    </div>
-                    <p style={{ marginTop: 8 }}>{item.message}</p>
+              <article key={item.id} className="admin-support__item">
+                <div>
+                  <strong>{item.category}</strong>
+                  <span
+                    className={`admin-support__status${
+                      item.status === "resolved" ? " admin-support__status--resolved" : ""
+                    }`}
+                  >
+                    {item.status}
+                  </span>
+                  <div className="admin-support__meta">
+                    {item.member_name} · {item.user_email || "—"} · {formatDate(item.created_at)}
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void updateSupportProblem(
-                          item.id,
-                          item.status === "resolved" ? "open" : "resolved"
-                        ).then(load)
-                      }
-                    >
-                      {item.status === "resolved" ? "Reopen" : "Resolve"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!window.confirm("Delete this report?")) return;
-                        void deleteSupportProblem(item.id).then(load);
-                      }}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                  <p className="admin-support__comment">{item.message}</p>
                 </div>
-              </div>
+                <div className="admin-support__actions">
+                  <button
+                    type="button"
+                    className="admin-panel-button admin-panel-button--secondary"
+                    onClick={() =>
+                      void updateSupportProblem(
+                        item.id,
+                        item.status === "resolved" ? "open" : "resolved"
+                      ).then(load)
+                    }
+                  >
+                    {item.status === "resolved" ? "Reopen" : "Resolve"}
+                  </button>
+                  <button
+                    type="button"
+                    className="admin-support__icon-btn"
+                    aria-label="Delete report"
+                    onClick={() => {
+                      if (!window.confirm("Delete this report?")) return;
+                      void deleteSupportProblem(item.id).then(load);
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </article>
             ))
           )}
         </div>
@@ -328,14 +333,13 @@ const AdminFeedback: React.FC = () => {
                 }
               />
             </label>
-            <button type="submit" disabled={saving}>
-              Save settings
+            <button type="submit" className="admin-panel-button admin-panel-button--primary" disabled={saving}>
+              {saving ? "Saving…" : "Save settings"}
             </button>
           </form>
 
           <form
             className="admin-panel-card admin-panel-card--form"
-            style={{ marginTop: 16 }}
             onSubmit={(event) => {
               event.preventDefault();
               if (!contactForm.value.trim()) {
@@ -392,17 +396,18 @@ const AdminFeedback: React.FC = () => {
                 placeholder="support@joscity.com"
               />
             </label>
-            <button type="submit">
+            <button type="submit" className="admin-panel-button admin-panel-button--primary">
               <Plus size={16} /> Add contact
             </button>
             {data.contacts.map((item) => (
-              <div key={item.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0" }}>
+              <div key={item.id} className="admin-support__row">
                 <span>
                   {item.kind}: {item.label ? `${item.label} — ` : ""}
                   {item.value}
                 </span>
                 <button
                   type="button"
+                  className="admin-panel-button admin-panel-button--secondary"
                   onClick={() => {
                     if (!window.confirm("Remove this contact?")) return;
                     void deleteSupportContact(item.id).then(load);
@@ -416,7 +421,6 @@ const AdminFeedback: React.FC = () => {
 
           <form
             className="admin-panel-card admin-panel-card--form"
-            style={{ marginTop: 16 }}
             onSubmit={(event) => {
               event.preventDefault();
               if (!categoryLabel.trim()) return;
@@ -440,12 +444,15 @@ const AdminFeedback: React.FC = () => {
                 onChange={(event) => setCategoryLabel(event.target.value)}
               />
             </label>
-            <button type="submit">Add category</button>
+            <button type="submit" className="admin-panel-button admin-panel-button--primary">
+              Add category
+            </button>
             {data.categories.map((item) => (
-              <div key={item.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0" }}>
+              <div key={item.id} className="admin-support__row">
                 <span>{item.label}</span>
                 <button
                   type="button"
+                  className="admin-panel-button admin-panel-button--secondary"
                   onClick={() => {
                     if (!window.confirm("Remove this category?")) return;
                     void deleteSupportCategory(item.id).then(load);

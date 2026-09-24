@@ -1,20 +1,44 @@
 /// <reference lib="webworker" />
-import { cleanupOutdatedCaches, precacheAndRoute } from "workbox-precaching";
-import { clientsClaim } from "workbox-core";
+import { cleanupOutdatedCaches } from "workbox-precaching";
 
-declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: Array<{ url: string; revision?: string }> };
+declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: unknown };
 
-// Precache assets injected by vite-plugin-pwa
-precacheAndRoute(self.__WB_MANIFEST);
+// The build still injects this list. Do not precache it: a cache-first app shell
+// kept serving the previous deployment until several refreshes.
+void self.__WB_MANIFEST;
 
-// Register activation handling before the activate event fires.
 cleanupOutdatedCaches();
-clientsClaim();
-void self.skipWaiting();
 
-// Support clients still running the previous prompt-based release.
+self.addEventListener("install", (event) => {
+  event.waitUntil(self.skipWaiting());
+});
+
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") void self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+      await self.clients.claim();
+      const windows = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      await Promise.all(
+        windows.map(async (client) => {
+          if (!("navigate" in client)) return;
+          try {
+            await client.navigate(client.url);
+          } catch {
+            // The tab may already be refreshing.
+          }
+        })
+      );
+    })()
+  );
 });
 
 // Push notifications: show system notification even when PWA is not open

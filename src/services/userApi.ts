@@ -47,6 +47,8 @@ export interface UserProfile {
   address: string;
   user_picture?: string | null;
   user_cover?: string | null;
+  user_bio?: string | null;
+  agent_bio?: string | null;
   user_verified: boolean;
   is_verified: boolean;
   account_type: string;
@@ -61,6 +63,7 @@ export interface UserProfile {
   business_email?: string;
   business_phone?: string;
   business_location?: string;
+  business_description?: string;
   CAC_number?: string;
 }
 
@@ -88,7 +91,11 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     const error = await response.json().catch(() => ({
       error: response.statusText,
     }));
-    throw new Error(error.error || error.message || "Request failed");
+    const message =
+      (typeof error.message === "string" && error.message) ||
+      (typeof error.error === "string" && error.error) ||
+      "Request failed";
+    throw new Error(message);
   }
 
   return response.json();

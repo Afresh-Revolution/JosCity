@@ -20,6 +20,7 @@ export interface PersonalFormData {
   nin_number: string;
   address: string;
   user_password: string;
+  referral_code?: string;
 }
 
 // Business Form Validation Schema
@@ -34,6 +35,7 @@ export interface BusinessFormData {
   business_password_confirm: string;
   business_description: string;
   terms_accepted: boolean;
+  referral_code?: string;
 }
 
 // Validation functions
@@ -103,6 +105,11 @@ export const validatePersonalForm = (
       field: "nin_number",
       message: "NIN number must be 11 digits",
     });
+  }
+
+  const referralError = referralCodeError(data.referral_code);
+  if (referralError) {
+    errors.push({ field: "referral_code", message: referralError });
   }
 
   // Password validation
@@ -245,8 +252,22 @@ export const validateBusinessForm = (
     });
   }
 
+  const referralError = referralCodeError(data.referral_code);
+  if (referralError) {
+    errors.push({ field: "referral_code", message: referralError });
+  }
+
   return errors;
 };
+
+function referralCodeError(value?: string) {
+  const code = String(value || "").trim().toUpperCase();
+  if (!code) return null;
+  if (!/^JOS[A-Z0-9]{6}$/.test(code)) {
+    return "Enter a valid referral code, such as JOSABC123.";
+  }
+  return null;
+}
 
 // Helper function to get error message for a specific field
 export const getFieldError = (

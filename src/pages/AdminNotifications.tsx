@@ -9,15 +9,43 @@ import {
 } from "../services/adminApi";
 
 type NotificationType = "normal" | "info" | "success" | "warning" | "danger";
+type Audience = "all" | "personal" | "business" | "agent";
+
+const AUDIENCE_LABEL: Record<Audience, string> = {
+  all: "Everyone",
+  personal: "Personal accounts",
+  business: "Business accounts",
+  agent: "Agents",
+};
+
+const TYPE_LABEL: Record<NotificationType, string> = {
+  normal: "Normal",
+  info: "Info",
+  success: "Success",
+  warning: "Warning",
+  danger: "Danger alert",
+};
+
+function asAudience(value?: string | null): Audience {
+  const audience = String(value || "all").toLowerCase();
+  if (audience === "personal" || audience === "business" || audience === "agent") return audience;
+  return "all";
+}
+
+function asType(value?: string | null): NotificationType {
+  const type = String(value || "normal").toLowerCase();
+  if (type === "info" || type === "success" || type === "warning" || type === "danger") return type;
+  return "normal";
+}
 
 const AdminNotifications: React.FC = () => {
   const [target, setTarget] = useState<"all" | "user">("all");
+  const [audience, setAudience] = useState<Audience>("all");
   const [userId, setUserId] = useState<string>("");
   const [recipientSearch, setRecipientSearch] = useState("");
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
-  const [notificationType, setNotificationType] =
-    useState<NotificationType>("normal");
+  const [notificationType, setNotificationType] = useState<NotificationType>("normal");
   const [showOnLanding, setShowOnLanding] = useState(false);
   const [expiresAt, setExpiresAt] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -26,7 +54,13 @@ const AdminNotifications: React.FC = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [notifications, setNotifications] = useState<AdminNotificationItem[]>([]);
   const [users, setUsers] = useState<
-    Array<{ user_id: string; user_firstname?: string; user_lastname?: string; user_email?: string }>
+    Array<{
+      user_id: string;
+      user_firstname?: string;
+      user_lastname?: string;
+      user_email?: string;
+      account_type?: string;
+    }>
   >([]);
   const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
@@ -47,8 +81,7 @@ const AdminNotifications: React.FC = () => {
     } else {
       setNotifications([]);
       const err = notifResult.reason;
-      const msg =
-        err instanceof Error ? err.message : "Could not load announcements.";
+      const msg = err instanceof Error ? err.message : "Could not load announcements.";
       setListError(msg);
     }
 
@@ -70,36 +103,36 @@ const AdminNotifications: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (notificationType !== "danger") {
-      setShowOnLanding(false);
+    if (notificationType === "danger" && target === "all" && audience === "all") {
+      setShowOnLanding(true);
       return;
     }
-    if (target === "all") {
-      setShowOnLanding(true);
-    } else {
-      setShowOnLanding(false);
-    }
-  }, [notificationType, target]);
+    setShowOnLanding(false);
+  }, [notificationType, target, audience]);
 
   const filteredUsers = useMemo(() => {
     const q = recipientSearch.trim().toLowerCase();
-    const list = users.slice(0, 1000);
-    if (!q) return list.slice(0, 30);
-    return list
-      .filter((u) => {
-        const fullName = [u.user_firstname, u.user_lastname].filter(Boolean).join(" ");
-        return fullName.toLowerCase().includes(q) || (u.user_email || "").toLowerCase().includes(q);
-      })
-      .slice(0, 30);
-  }, [users, recipientSearch]);
+    const list = users.filter((user) => {
+      if (audience === "all") return true;
+      return String(user.account_type || "personal").toLowerCase() === audience;
+    });
+    const matched = !q
+      ? list
+      : list.filter((user) => {
+          const fullName = [user.user_firstname, user.user_lastname].filter(Boolean).join(" ");
+          return fullName.toLowerCase().includes(q) || (user.user_email || "").toLowerCase().includes(q);
+        });
+    return matched.slice(0, 30);
+  }, [users, recipientSearch, audience]);
 
   const selectedUser = useMemo(
-    () => users.find((u) => String(u.user_id) === userId),
+    () => users.find((user) => String(user.user_id) === userId),
     [users, userId]
   );
 
   const resetForm = () => {
     setTarget("all");
+    setAudience("all");
     setUserId("");
     setRecipientSearch("");
     setTitle("");
@@ -121,39 +154,40 @@ const AdminNotifications: React.FC = () => {
       return;
     }
     if (target === "user" && !userId) {
-      setStatusMessage("Please select a user.");
+      setStatusMessage("Please select a person in this audience.");
       setStatusIsError(true);
       return;
     }
 
     try {
       setIsSubmitting(true);
+      const landing = notificationType === "danger" && target === "all" && audience === "all" && showOnLanding;
       if (editingId) {
         const response = await updateAdminNotification(editingId, {
           title: title.trim(),
           message: message.trim(),
           notification_type: notificationType,
-          show_on_landing: notificationType === "danger" ? showOnLanding : false,
+          show_on_landing: landing,
           expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
         });
-        setStatusMessage(response.message || "Notification updated.");
+        setStatusMessage(response.message || "Announcement updated.");
       } else {
-        const payload = {
+        const response = await sendAdminNotification({
           target,
+          audience,
           user_id: target === "user" ? Number(userId) : undefined,
           title: title.trim(),
           message: message.trim(),
           notification_type: notificationType,
-          show_on_landing: notificationType === "danger" ? showOnLanding : false,
+          show_on_landing: landing,
           expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
-        } as const;
-        const response = await sendAdminNotification(payload);
-        setStatusMessage(response.message || "Notification sent.");
+        });
+        setStatusMessage(response.message || "Announcement published.");
       }
       resetForm();
       await loadData();
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : "Failed to send notification");
+      setStatusMessage(error instanceof Error ? error.message : "Failed to publish announcement");
       setStatusIsError(true);
     } finally {
       setIsSubmitting(false);
@@ -163,26 +197,27 @@ const AdminNotifications: React.FC = () => {
   const startEdit = (item: AdminNotificationItem) => {
     setEditingId(item.id);
     setTarget(item.is_global ? "all" : "user");
+    setAudience(asAudience(item.audience));
     setUserId(item.to_user_id ? String(item.to_user_id) : "");
     setTitle(item.title || "");
     setMessage(item.message || "");
-    setNotificationType((item.notification_type as NotificationType) || "normal");
+    setNotificationType(asType(item.notification_type));
     setShowOnLanding(Boolean(item.show_on_landing));
-    setExpiresAt("");
+    setExpiresAt(item.expires_at ? item.expires_at.slice(0, 16) : "");
     setRecipientSearch("");
   };
 
   const handleDelete = async (id: number) => {
-    const ok = window.confirm("Delete this admin notification?");
+    const ok = window.confirm("Delete this announcement?");
     if (!ok) return;
     try {
       const response = await deleteAdminNotification(id);
-      setStatusMessage(response.message || "Notification deleted.");
+      setStatusMessage(response.message || "Announcement deleted.");
       setStatusIsError(false);
       await loadData();
       if (editingId === id) resetForm();
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : "Failed to delete notification");
+      setStatusMessage(error instanceof Error ? error.message : "Failed to delete announcement");
       setStatusIsError(true);
     }
   };
@@ -193,8 +228,8 @@ const AdminNotifications: React.FC = () => {
         <div>
           <h1>Announcements</h1>
           <p className="admin-panel-lede">
-            Broadcast in-app announcements. Danger-type alerts can optionally appear on the public landing page when
-            targeted to all users.
+            Publish a Joscity announcement to an audience. People with the app get a push notification.
+            Danger alerts use an alarm sound.
           </p>
         </div>
       </div>
@@ -208,118 +243,161 @@ const AdminNotifications: React.FC = () => {
       )}
 
       <form onSubmit={onSubmit} className="admin-panel-card admin-panel-card--form">
-        <div className="admin-panel-grid">
-          <label className="admin-panel-field" style={{ marginTop: 0 }}>
-            Target
-            <select
-              className="admin-panel-select"
-              value={target}
-              disabled={Boolean(editingId)}
-              onChange={(e) => setTarget(e.target.value as "all" | "user")}
-            >
-              <option value="all">All users</option>
-              <option value="user">Single user</option>
-            </select>
-          </label>
+        <section className="admin-panel-section">
+          <h2 className="admin-panel-section__title">Who receives it</h2>
+          <p className="admin-panel-section__hint">
+            Choose the account audience, then send it to everyone in that audience or one person.
+          </p>
+          <div className="admin-panel-grid">
+            <label className="admin-panel-field" style={{ marginTop: 0 }}>
+              Audience
+              <select
+                className="admin-panel-select"
+                value={audience}
+                disabled={Boolean(editingId)}
+                onChange={(e) => {
+                  setAudience(e.target.value as Audience);
+                  setUserId("");
+                }}
+              >
+                <option value="all">Everyone</option>
+                <option value="personal">Personal accounts</option>
+                <option value="business">Business accounts</option>
+                <option value="agent">Agents</option>
+              </select>
+            </label>
+            <label className="admin-panel-field" style={{ marginTop: 0 }}>
+              Target
+              <select
+                className="admin-panel-select"
+                value={target}
+                disabled={Boolean(editingId)}
+                onChange={(e) => setTarget(e.target.value as "all" | "user")}
+              >
+                <option value="all">Everyone in this audience</option>
+                <option value="user">One person</option>
+              </select>
+            </label>
+          </div>
 
-          <label className="admin-panel-field" style={{ marginTop: 0 }}>
-            Type
-            <select
-              className="admin-panel-select"
-              value={notificationType}
-              onChange={(e) => setNotificationType(e.target.value as NotificationType)}
-            >
-              <option value="normal">Normal</option>
-              <option value="info">Info</option>
-              <option value="success">Success</option>
-              <option value="warning">Warning</option>
-              <option value="danger">Danger</option>
-            </select>
-          </label>
+          {target === "user" && (
+            <div className="admin-panel-field">
+              <label>
+                Search by name or email
+                <input
+                  className="admin-panel-input"
+                  value={recipientSearch}
+                  disabled={Boolean(editingId)}
+                  onChange={(e) => setRecipientSearch(e.target.value)}
+                  placeholder="Type a name or email"
+                />
+              </label>
+              <div className="admin-panel-user-pick">
+                {filteredUsers.length === 0 ? (
+                  <p className="admin-panel-status">No matching people in this audience.</p>
+                ) : (
+                  filteredUsers.map((user) => {
+                    const fullName =
+                      [user.user_firstname, user.user_lastname].filter(Boolean).join(" ") || "Unnamed";
+                    const isSelected = String(user.user_id) === userId;
+                    return (
+                      <button
+                        key={user.user_id}
+                        type="button"
+                        disabled={Boolean(editingId)}
+                        className={`admin-panel-user-pick__row ${isSelected ? "admin-panel-user-pick__row--selected" : ""}`}
+                        onClick={() => setUserId(String(user.user_id))}
+                      >
+                        <strong>{fullName}</strong>
+                        <div className="admin-panel-user-pick__meta">
+                          {user.user_email || `User #${user.user_id}`}
+                          {user.account_type ? ` · ${user.account_type}` : ""}
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+              {selectedUser && (
+                <small className="admin-panel-status">
+                  Selected:{" "}
+                  {[selectedUser.user_firstname, selectedUser.user_lastname].filter(Boolean).join(" ") ||
+                    selectedUser.user_email ||
+                    `User #${selectedUser.user_id}`}
+                </small>
+              )}
+            </div>
+          )}
+        </section>
 
-          <label className="admin-panel-field" style={{ marginTop: 0 }}>
-            Expires at (optional)
-            <input
-              className="admin-panel-input"
-              type="datetime-local"
-              value={expiresAt}
-              onChange={(e) => setExpiresAt(e.target.value)}
-            />
-          </label>
-        </div>
-
-        {target === "user" && (
-          <div className="admin-panel-field">
-            <label>
-              Search user by name or email
+        <section className="admin-panel-section">
+          <h2 className="admin-panel-section__title">What kind</h2>
+          <p className="admin-panel-section__hint">
+            Danger alerts arrive as a push notification with an alarm sound.
+          </p>
+          <div className="admin-panel-grid">
+            <label className="admin-panel-field" style={{ marginTop: 0 }}>
+              Type
+              <select
+                className="admin-panel-select"
+                value={notificationType}
+                onChange={(e) => setNotificationType(e.target.value as NotificationType)}
+              >
+                <option value="normal">Normal</option>
+                <option value="info">Info</option>
+                <option value="success">Success</option>
+                <option value="warning">Warning</option>
+                <option value="danger">Danger alert</option>
+              </select>
+            </label>
+            <label className="admin-panel-field" style={{ marginTop: 0 }}>
+              Expires at (optional)
               <input
                 className="admin-panel-input"
-                value={recipientSearch}
-                disabled={Boolean(editingId)}
-                onChange={(e) => setRecipientSearch(e.target.value)}
-                placeholder="Type a name or email"
+                type="datetime-local"
+                value={expiresAt}
+                onChange={(e) => setExpiresAt(e.target.value)}
               />
             </label>
-            <div className="admin-panel-user-pick">
-              {filteredUsers.map((u) => {
-                const fullName = [u.user_firstname, u.user_lastname].filter(Boolean).join(" ") || "Unnamed";
-                const isSelected = String(u.user_id) === userId;
-                return (
-                  <button
-                    key={u.user_id}
-                    type="button"
-                    disabled={Boolean(editingId)}
-                    className={`admin-panel-user-pick__row ${isSelected ? "admin-panel-user-pick__row--selected" : ""}`}
-                    onClick={() => setUserId(String(u.user_id))}
-                  >
-                    <strong>{fullName}</strong>
-                    <div className="admin-panel-user-pick__meta">
-                      {u.user_email || `User #${u.user_id}`}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-            {selectedUser && (
-              <small className="admin-panel-status">
-                Selected:{" "}
-                {[selectedUser.user_firstname, selectedUser.user_lastname].filter(Boolean).join(" ") ||
-                  selectedUser.user_email ||
-                  `User #${selectedUser.user_id}`}
-              </small>
-            )}
           </div>
-        )}
+          {notificationType === "danger" && target === "all" && audience === "all" && (
+            <label className="admin-panel-check" style={{ marginTop: "0.75rem" }}>
+              <input
+                type="checkbox"
+                checked={showOnLanding}
+                onChange={(e) => setShowOnLanding(e.target.checked)}
+              />
+              Show this danger alert on the public landing page
+            </label>
+          )}
+        </section>
 
-        <label className="admin-panel-field">
-          Title
-          <input
-            className="admin-panel-input"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            maxLength={255}
-          />
-        </label>
-        <label className="admin-panel-field">
-          Message
-          <textarea
-            className="admin-panel-textarea"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            rows={4}
-          />
-        </label>
-
-        {notificationType === "danger" && target === "all" && (
-          <label className="admin-panel-check" style={{ marginTop: "0.75rem" }}>
+        <section className="admin-panel-section">
+          <h2 className="admin-panel-section__title">Announcement</h2>
+          <p className="admin-panel-section__hint">
+            People see this from Joscity. The word Admin is not used on the notification.
+          </p>
+          <label className="admin-panel-field" style={{ marginTop: 0 }}>
+            Title
             <input
-              type="checkbox"
-              checked={showOnLanding}
-              onChange={(e) => setShowOnLanding(e.target.checked)}
+              className="admin-panel-input"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              maxLength={255}
+              placeholder="Short headline"
             />
-            Show this danger alert on the landing page
           </label>
-        )}
+          <label className="admin-panel-field">
+            Message
+            <textarea
+              className="admin-panel-textarea"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={5}
+              placeholder="Full announcement"
+            />
+          </label>
+        </section>
 
         <div className="admin-panel-actions">
           <button
@@ -350,32 +428,41 @@ const AdminNotifications: React.FC = () => {
           </p>
         ) : (
           <div className="admin-panel-list">
-            {notifications.map((item) => (
-              <div key={item.id} className="admin-panel-list-item">
-                <strong>{item.title || "Notification"}</strong>
-                <p className="admin-panel-list-content">{item.message || "—"}</p>
-                <small className="admin-panel-status">
-                  {item.is_global ? "All users" : `User #${item.to_user_id || "—"}`} · Type:{" "}
-                  {item.notification_type || "normal"} · {new Date(item.time).toLocaleString()}
-                </small>
-                <div className="admin-panel-actions admin-panel-actions--compact">
-                  <button
-                    type="button"
-                    onClick={() => startEdit(item)}
-                    className="admin-panel-button admin-panel-button--secondary"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(item.id)}
-                    className="admin-panel-button admin-panel-button--danger"
-                  >
-                    Delete
-                  </button>
+            {notifications.map((item) => {
+              const person =
+                [item.user_firstname, item.user_lastname].filter(Boolean).join(" ") ||
+                item.user_email ||
+                (item.to_user_id ? `User #${item.to_user_id}` : "");
+              return (
+                <div key={item.id} className="admin-panel-list-item">
+                  <strong>{item.title || "Announcement"}</strong>
+                  <p className="admin-panel-list-content">{item.message || "—"}</p>
+                  <small className="admin-panel-status">
+                    <span className="admin-panel-badge">{AUDIENCE_LABEL[asAudience(item.audience)]}</span>
+                    <span className="admin-panel-badge">{item.is_global ? "Everyone in audience" : person || "One person"}</span>
+                    <span className="admin-panel-badge">{TYPE_LABEL[asType(item.notification_type)]}</span>
+                    {item.show_on_landing ? <span className="admin-panel-badge">Landing page</span> : null}
+                    {item.time ? new Date(item.time).toLocaleString() : ""}
+                  </small>
+                  <div className="admin-panel-actions admin-panel-actions--compact">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(item)}
+                      className="admin-panel-button admin-panel-button--secondary"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item.id)}
+                      className="admin-panel-button admin-panel-button--danger"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

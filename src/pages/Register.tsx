@@ -28,6 +28,8 @@ function Register() {
     if (!code || !/^JOS[A-Z0-9]{6}$/.test(code)) return;
     try {
       sessionStorage.setItem('signupReferral', code);
+      setFormData((prev) => ({ ...prev, referral_code: prev.referral_code || code }));
+      setBusinessFormData((prev) => ({ ...prev, referral_code: prev.referral_code || code }));
       let visitor = localStorage.getItem('referralVisitor');
       if (!visitor) { visitor = crypto.randomUUID(); localStorage.setItem('referralVisitor', visitor); }
       void fetch(apiUrl('/account/referrals/visit'), { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ ref: code, visitor_id: visitor }) }).catch(() => {});
@@ -62,6 +64,7 @@ function Register() {
     nin_number: "",
     address: "",
     user_password: "",
+    referral_code: "",
   });
   const [businessFormData, setBusinessFormData] = useState<BusinessFormData>({
     business_name: "",
@@ -74,6 +77,7 @@ function Register() {
     business_password_confirm: "",
     business_description: "",
     terms_accepted: false,
+    referral_code: "",
   });
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
     []
@@ -96,7 +100,12 @@ function Register() {
   ) => {
     const { name, value } = e.target;
     // Normalize email to lowercase in real-time
-    const normalizedValue = name === "user_email" ? value.toLowerCase().trim() : value;
+    const normalizedValue =
+      name === "user_email"
+        ? value.toLowerCase().trim()
+        : name === "referral_code"
+          ? value.replace(/\s/g, "").toUpperCase().slice(0, 9)
+          : value;
     setFormData((prev) => ({
       ...prev,
       [name]: normalizedValue,
@@ -125,6 +134,9 @@ function Register() {
     }
     if (name === "business_description" && typeof next === "string") {
       next = next.slice(0, 240);
+    }
+    if (name === "referral_code" && typeof next === "string") {
+      next = next.replace(/\s/g, "").toUpperCase().slice(0, 9);
     }
 
     setBusinessFormData((prev) => ({
@@ -166,7 +178,7 @@ function Register() {
       setIsLoading(true);
 
       // Call API service with normalized email
-      let referralCode = new URLSearchParams(location.search).get('ref') || '';
+      let referralCode = normalizedFormData.referral_code || new URLSearchParams(location.search).get('ref') || '';
       try { referralCode ||= sessionStorage.getItem('signupReferral') || ''; } catch { /* Optional storage. */ }
       const result = await registerPersonal({ ...normalizedFormData, referral_code: referralCode });
 
@@ -212,7 +224,7 @@ function Register() {
       setIsLoading(true);
 
       // Call API service with normalized email
-      let referralCode = new URLSearchParams(location.search).get('ref') || '';
+      let referralCode = normalizedBusinessFormData.referral_code || new URLSearchParams(location.search).get('ref') || '';
       try { referralCode ||= sessionStorage.getItem('signupReferral') || ''; } catch { /* Optional storage. */ }
       const result = await registerBusiness({ ...normalizedBusinessFormData, referral_code: referralCode });
 

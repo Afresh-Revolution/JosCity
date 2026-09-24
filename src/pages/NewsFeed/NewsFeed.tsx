@@ -904,9 +904,9 @@ const NewsFeed: React.FC<{ agentMode?: boolean }> = ({ agentMode = false }) => {
               title: data.title ?? null,
               expiresAt: data.expires_at ?? null,
               userId: 0,
-              userName: "Admin",
+              userName: "Joscity",
               userAvatar: "",
-              message: data.message || data.title || "Admin update",
+              message: data.message || data.title || "Joscity update",
               timestamp: data.time || new Date().toISOString(),
               isRead: false,
             };
@@ -944,9 +944,9 @@ const NewsFeed: React.FC<{ agentMode?: boolean }> = ({ agentMode = false }) => {
         title: data.title ?? null,
         expiresAt: data.expires_at ?? null,
         userId: 0,
-        userName: "Admin",
+        userName: "Joscity",
         userAvatar: "",
-        message: data.message || data.title || "Admin update",
+        message: data.message || data.title || "Joscity update",
         timestamp: data.time || new Date().toISOString(),
         isRead: false,
       };

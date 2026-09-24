@@ -20,6 +20,7 @@ import {
   VenusAndMars,
   Copy,
   BadgeCheck,
+  AlignLeft,
 } from "lucide-react";
 import "../main.css";
 import "../scss/_user-profile.scss";
@@ -33,7 +34,7 @@ import {
 } from "../utils/userUtils";
 import { userApi } from "../services/userApi";
 import { cacEditApi, type CacEditState } from "../services/cacEditApi";
-import { getUserProfile, uploadProfilePicture, fetchBusinessCategories } from "../api/auth";
+import { getUserProfile, uploadCoverPicture, uploadProfilePicture, fetchBusinessCategories } from "../api/auth";
 import {
   BUSINESS_CATEGORIES,
   businessCategoryLabel,
@@ -56,6 +57,14 @@ function readNumericUserId(data: Record<string, unknown> | null): number {
     return n > 0 ? n : 0;
   }
   return 0;
+}
+
+function aboutText(data: Record<string, unknown> | null, business: boolean): string {
+  if (!data) return "";
+  const description = String(data.business_description || "").trim();
+  const agent = String(data.agent_bio || "").trim();
+  const bio = String(data.user_bio || "").trim();
+  return (business ? description || bio : agent || bio).slice(0, 280);
 }
 
 const UserProfile: React.FC = () => {
@@ -81,8 +90,10 @@ const UserProfile: React.FC = () => {
     business_phone: "",
     business_location: "",
     CAC_number: "",
+    about: "",
   });
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
+  const [coverPhoto, setCoverPhoto] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [userIdCopied, setUserIdCopied] = useState(false);
@@ -149,11 +160,16 @@ const UserProfile: React.FC = () => {
             business_phone: profileData.business_phone || "",
             business_location: profileData.business_location || "",
             CAC_number: profileData.CAC_number || "",
+            about: aboutText(
+              profileData as unknown as Record<string, unknown>,
+              String(profileData.account_type || accountType).toLowerCase() === "business"
+            ),
           });
           
           if (profileData.user_picture) {
             setProfilePicture(profileData.user_picture);
           }
+          setCoverPhoto(profileData.user_cover || null);
           
           // Update localStorage with fresh data from database
           const currentUser = getUserData();
@@ -186,11 +202,13 @@ const UserProfile: React.FC = () => {
               business_phone: (user.business_phone as string) || "",
               business_location: (user.business_location as string) || "",
               CAC_number: (user.CAC_number as string) || "",
+              about: aboutText(user, isBusinessAccount),
             });
             const storedPicture = localStorage.getItem("userProfilePicture");
             if (storedPicture) {
               setProfilePicture(storedPicture);
             }
+            setCoverPhoto(String(user.user_cover || "") || null);
           }
         }
       } catch (error) {
@@ -214,11 +232,13 @@ const UserProfile: React.FC = () => {
             business_phone: (user.business_phone as string) || "",
             business_location: (user.business_location as string) || "",
             CAC_number: (user.CAC_number as string) || "",
+            about: aboutText(user, isBusinessAccount),
           });
           const storedPicture = localStorage.getItem("userProfilePicture");
           if (storedPicture) {
             setProfilePicture(storedPicture);
           }
+          setCoverPhoto(String(user.user_cover || "") || null);
         }
       } finally {
         setIsLoading(false);
@@ -271,79 +291,73 @@ const UserProfile: React.FC = () => {
         business_phone: (userData.business_phone as string) || "",
         business_location: (userData.business_location as string) || "",
         CAC_number: (userData.CAC_number as string) || "",
+        about: aboutText(userData, isBusinessAccount),
       });
     }
   };
 
   const handleSave = async () => {
+    const about = editedData.about.trim().slice(0, 280);
+    const updatePayload = isBusinessAccount
+      ? {
+          business_name: editedData.business_name,
+          business_type: editedData.business_type,
+          business_email: editedData.business_email,
+          business_phone: editedData.business_phone,
+          business_location: editedData.business_location,
+          business_description: about,
+          ...(canEditCac ? { CAC_number: editedData.CAC_number } : {}),
+          user_phone: editedData.user_phone,
+          address: editedData.address,
+        }
+      : {
+          user_firstname: editedData.user_firstname,
+          user_lastname: editedData.user_lastname,
+          user_gender: editedData.user_gender,
+          user_email: editedData.user_email,
+          user_phone: editedData.user_phone,
+          nin_number: editedData.nin_number,
+          address: editedData.address,
+          user_bio: about,
+        };
+
     try {
-      // Update local state
-      const updatedData = {
-        ...userData,
-        user_firstname: editedData.user_firstname,
-        user_lastname: editedData.user_lastname,
-        user_gender: editedData.user_gender,
-        user_email: editedData.user_email,
-        user_phone: editedData.user_phone,
-        nin_number: editedData.nin_number,
-        address: editedData.address,
-        // Business fields
-        business_name: editedData.business_name,
-        business_type: editedData.business_type,
-        business_email: editedData.business_email,
-        business_phone: editedData.business_phone,
-        business_location: editedData.business_location,
-        CAC_number: editedData.CAC_number,
-        display_name: isBusinessAccount
-          ? editedData.business_name ||
-            (userData?.business_name as string) ||
-            "Business"
-          : `${editedData.user_firstname} ${editedData.user_lastname}`.trim(),
-      };
-      setUserData(updatedData);
-
-      // Update localStorage
-      const currentUser = getUserData();
-      if (currentUser) {
-        const mergedUser = { ...currentUser, ...updatedData };
-        localStorage.setItem("user", JSON.stringify(mergedUser));
-      }
-
-      // Update profile on backend
-      try {
-        const updatePayload = isBusinessAccount
-          ? {
-              business_name: editedData.business_name,
-              business_type: editedData.business_type,
-              business_email: editedData.business_email,
-              business_phone: editedData.business_phone,
-              business_location: editedData.business_location,
-              ...(canEditCac ? { CAC_number: editedData.CAC_number } : {}),
-              user_phone: editedData.user_phone,
-              address: editedData.address,
-            }
-          : {
-              user_firstname: editedData.user_firstname,
-              user_lastname: editedData.user_lastname,
-              user_gender: editedData.user_gender,
-              user_email: editedData.user_email,
-              user_phone: editedData.user_phone,
-              nin_number: editedData.nin_number,
-              address: editedData.address,
-            };
-
-        await userApi.updateUserProfile(updatePayload);
-      } catch (apiError) {
-        console.error("API update error:", apiError);
-        // Still update local state even if API fails
-      }
-
-      setIsEditing(false);
-      alert("Profile updated successfully!");
+      await userApi.updateUserProfile(updatePayload);
     } catch (error) {
       console.error("Error saving profile:", error);
-      alert("Failed to update profile. Please try again.");
+      alert(error instanceof Error ? error.message : "Failed to update profile. Please try again.");
+      return;
     }
+
+    const updatedData = {
+      ...userData,
+      user_firstname: editedData.user_firstname,
+      user_lastname: editedData.user_lastname,
+      user_gender: editedData.user_gender,
+      user_email: editedData.user_email,
+      user_phone: editedData.user_phone,
+      nin_number: editedData.nin_number,
+      address: editedData.address,
+      business_name: editedData.business_name,
+      business_type: editedData.business_type,
+      business_email: editedData.business_email,
+      business_phone: editedData.business_phone,
+      business_location: editedData.business_location,
+      CAC_number: editedData.CAC_number,
+      business_description: isBusinessAccount ? about : userData?.business_description,
+      user_bio: about,
+      agent_bio: userData?.agent_type ? about : userData?.agent_bio,
+      display_name: isBusinessAccount
+        ? editedData.business_name ||
+          (userData?.business_name as string) ||
+          "Business"
+        : `${editedData.user_firstname} ${editedData.user_lastname}`.trim(),
+    };
+    setUserData(updatedData);
+    const currentUser = getUserData();
+    localStorage.setItem("user", JSON.stringify({ ...(currentUser || {}), ...updatedData }));
+    setIsEditing(false);
+    alert("Profile updated successfully!");
   };
 
   const handleInputChange = (
@@ -403,6 +417,47 @@ const UserProfile: React.FC = () => {
       showUploadBadge(result.message || "Upload failed", "error");
     }
     e.target.value = "";
+  };
+
+  const handleCoverChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      e.target.value = "";
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      showUploadBadge("Invalid image file", "error");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      showUploadBadge("Cover photo must be under 8MB", "error");
+      e.target.value = "";
+      return;
+    }
+    const result = await uploadCoverPicture(file);
+    if (result.success && result.user_cover) {
+      setCoverPhoto(result.user_cover);
+      try {
+        const userStr = localStorage.getItem("user");
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          user.user_cover = result.user_cover;
+          localStorage.setItem("user", JSON.stringify(user));
+        }
+      } catch {
+        // ignore
+      }
+      showUploadBadge("Cover photo saved", "success");
+    } else {
+      showUploadBadge(result.message || "Could not upload cover photo", "error");
+    }
+    e.target.value = "";
+  };
+
+  const triggerCoverInput = () => {
+    const fileInput = document.getElementById("profile-cover-input") as HTMLInputElement;
+    fileInput?.click();
   };
 
   const triggerImageInput = () => {
@@ -540,6 +595,29 @@ const UserProfile: React.FC = () => {
         <main className="user-profile-main">
           <div className="user-profile">
             <div className="user-profile__header">
+              <div className="user-profile__cover">
+                {coverPhoto ? (
+                  <LazyImage src={coverPhoto} alt="Cover photo" className="user-profile__cover-img" />
+                ) : (
+                  <div className="user-profile__cover-empty">Add cover photo</div>
+                )}
+                <button
+                  type="button"
+                  className="user-profile__cover-btn"
+                  onClick={triggerCoverInput}
+                >
+                  <Camera size={16} />
+                  {coverPhoto ? "Change cover" : "Add cover"}
+                </button>
+                <input
+                  id="profile-cover-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCoverChange}
+                  style={{ display: "none" }}
+                />
+              </div>
+              <div className="user-profile__header-body">
               <div className="user-profile__avatar-container">
                 <div className="user-profile__avatar-wrapper">
                   <div className="user-profile__avatar">
@@ -653,6 +731,7 @@ const UserProfile: React.FC = () => {
                   </>
                 )}
               </button>
+              </div>
               </div>
             </div>
 
@@ -1005,6 +1084,35 @@ const UserProfile: React.FC = () => {
                         </div>
                       </>
                     )}
+
+                    <div className="user-profile__info-item user-profile__info-item--full">
+                      <div className="user-profile__info-label">
+                        <AlignLeft size={18} />
+                        <span>{isBusinessAccount ? "About" : "Bio"}</span>
+                      </div>
+                      {isEditing ? (
+                        <textarea
+                          name="about"
+                          value={editedData.about}
+                          onChange={handleInputChange}
+                          className="user-profile__input user-profile__input--textarea"
+                          placeholder={
+                            isBusinessAccount
+                              ? "Tell Jos about your business"
+                              : "Tell people a little about you"
+                          }
+                          maxLength={280}
+                          rows={4}
+                        />
+                      ) : (
+                        <div className="user-profile__info-value">
+                          {aboutText(userData, isBusinessAccount) || "Not set"}
+                        </div>
+                      )}
+                      <div className="user-profile__about-count">
+                        {(isEditing ? editedData.about : aboutText(userData, isBusinessAccount)).trim().length}/280
+                      </div>
+                    </div>
 
                     <div className="user-profile__info-item">
                       <div className="user-profile__info-label">

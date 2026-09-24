@@ -148,7 +148,7 @@ const AdminReports: React.FC = () => {
                     <span
                       className={`admin-report-card__status admin-report-card__status--${report.status}`}
                     >
-                      {report.status.replaceAll("_", " ")}
+                      {report.status.split("_").join(" ")}
                     </span>
                   </div>
                 </div>
@@ -156,7 +156,7 @@ const AdminReports: React.FC = () => {
                 <div className="admin-report-card__body">
                   <p className="admin-report-card__reason">
                     <span>Reason</span>
-                    {report.reason.replaceAll("_", " ")}
+                    {report.reason.split("_").join(" ")}
                   </p>
                   <dl className="admin-report-card__meta">
                     <div>

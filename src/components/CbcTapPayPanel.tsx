@@ -17,6 +17,7 @@ type Props = {
 type Phase = "idle" | "scanning" | "verifying" | "pin" | "paying";
 
 const PIN_LENGTH = 4;
+const SCAN_GRACE_MS = 2500;
 
 // Server error codes after which the same tap session can still be used — the
 // PIN can simply be re-submitted. Anything else ends the session (tap again).
@@ -34,6 +35,11 @@ function fetchTapEnabled(): Promise<boolean> {
   return configRequest;
 }
 
+/** "2345" -> "**** **** **** 2345" */
+function maskedCard(last4: string | null): string {
+  return last4 ? `**** **** **** ${last4}` : "**** **** **** ****";
+}
+
 function formatCountdown(seconds: number): string {
   const safe = Math.max(0, seconds);
   return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, "0")}`;
@@ -44,6 +50,7 @@ export default function CbcTapPayPanel({ orderId, amountNaira, disabled, onPaid,
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [cardLast4, setCardLast4] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [pin, setPin] = useState<string[]>(() => Array(PIN_LENGTH).fill(""));
@@ -78,12 +85,17 @@ export default function CbcTapPayPanel({ orderId, amountNaira, disabled, onPaid,
 
   const reset = useCallback(
     (message: string | null = null) => {
-      abortRef.current?.abort();
+      // Stop the NFC scan after a short grace period rather than instantly: the
+      // card is usually still against the phone, and the moment the scan stops
+      // Android would open its own "New tag scanned" screen over the page.
+      const controller = abortRef.current;
       abortRef.current = null;
+      if (controller) window.setTimeout(() => controller.abort(), SCAN_GRACE_MS);
       clearPin();
       setCardLast4(null);
       setSecondsLeft(0);
       setUnresolved(false);
+      setNotice(null);
       setError(message);
       setPhase("idle");
     },
@@ -112,13 +124,18 @@ export default function CbcTapPayPanel({ orderId, amountNaira, disabled, onPaid,
   const startTap = async () => {
     if (busy || disabled) return;
     setError(null);
+    setNotice(null);
     const controller = new AbortController();
     abortRef.current = controller;
     setPhase("scanning");
 
     let tag;
     try {
-      tag = await readCardTap(controller.signal);
+      // The NFC scan stays active until this controller is aborted (reset,
+      // success or unmount) so Android never opens its own tag screen over us.
+      tag = await readCardTap(controller.signal, (message) => {
+        if (mounted.current) setNotice(message);
+      });
     } catch (caught) {
       if (!mounted.current) return;
       if (caught instanceof NfcReadError && caught.code === "aborted") return;
@@ -155,6 +172,8 @@ export default function CbcTapPayPanel({ orderId, amountNaira, disabled, onPaid,
       if (res.success) {
         clearPin();
         setUnresolved(false);
+        abortRef.current?.abort();
+        abortRef.current = null;
         setPhase("idle");
         onPaid();
         return;
@@ -257,6 +276,7 @@ export default function CbcTapPayPanel({ orderId, amountNaira, disabled, onPaid,
             <Nfc size={32} />
           </span>
           <p>Hold your CBC card against the back of your phone.</p>
+          {notice ? <div className="cbc-tap-pay__error">{notice}</div> : null}
           <button type="button" className="cbc-tap-pay__ghost" onClick={() => reset()}>
             Cancel
           </button>
@@ -271,8 +291,12 @@ export default function CbcTapPayPanel({ orderId, amountNaira, disabled, onPaid,
 
       {phase === "pin" || phase === "paying" ? (
         <div className="cbc-tap-pay__pin">
+          <div className="cbc-tap-pay__card" aria-label="Card detected">
+            <span className="cbc-tap-pay__card-label">Card</span>
+            <span className="cbc-tap-pay__card-number">{maskedCard(cardLast4)}</span>
+          </div>
           <p>
-            Card {cardLast4 ? `•••• ${cardLast4}` : "verified"} · {formatMarketplaceMoney(amountNaira)}
+            Pay {formatMarketplaceMoney(amountNaira)}
             {phase === "pin" && !unresolved ? ` · expires in ${formatCountdown(secondsLeft)}` : ""}
           </p>
           <p>Enter your 4-digit Card PIN.</p>

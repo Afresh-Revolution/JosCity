@@ -1989,6 +1989,32 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
     animation: cbc-tap-pulse 1.6s ease-in-out infinite;
   }
 
+  &__card {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    color: #fff;
+    background: linear-gradient(160deg, #0d4a1f 0%, #1c7a37 100%);
+  }
+
+  &__card-label {
+    font-size: 11px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    opacity: 0.8;
+  }
+
+  &__card-number {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    white-space: nowrap;
+  }
+
   &__boxes {
     display: flex;
     justify-content: center;

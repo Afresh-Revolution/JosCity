@@ -29745,6 +29745,14 @@ html.reels-page-active::-webkit-scrollbar {
   background: #d1fae5;
   color: #065f46;
 }
+.badge--credited {
+  background: #d1fae5;
+  color: #065f46;
+}
+.badge--not-credited {
+  background: #ffedd5;
+  color: #9a3412;
+}
 .badge--active {
   background: #d1fae5;
   color: #065f46;

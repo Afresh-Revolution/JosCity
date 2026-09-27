@@ -1189,6 +1189,13 @@ export interface WalletPaymentRequest {
   payout_destination?: string | null;
   payout_bank_name?: string | null;
   payout_account_name?: string | null;
+  user_email?: string | null;
+  user_firstname?: string | null;
+  user_lastname?: string | null;
+  provider_reference?: string | null;
+  paystack_paid?: boolean;
+  wallet_credited?: boolean;
+  paystack_channel?: string | null;
 }
 
 export type { CbcQuote };

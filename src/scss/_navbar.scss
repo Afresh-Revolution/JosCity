@@ -21,8 +21,6 @@
     pointer-events: all;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
   }
 }
 
@@ -41,8 +39,6 @@
   height: 80px;
   border-radius: 50px;
   box-sizing: border-box;
-  overflow: hidden;
-  isolation: isolate;
 }
 
 .navbar-shell__glass {
@@ -51,6 +47,7 @@
   border-radius: inherit;
   z-index: 0;
   pointer-events: none;
+  overflow: hidden;
   background: rgba(255, 255, 255, 0.15);
   -webkit-backdrop-filter: blur(10px) saturate(150%);
   backdrop-filter: blur(10px) saturate(150%);
@@ -1066,21 +1063,6 @@
     backdrop-filter: blur(10px) saturate(150%);
     box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1),
       0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-  }
-}
-
-// iOS Safari paints backdrop-filter outside the bar and blurs the top of every page.
-@supports (-webkit-touch-callout: none) {
-  .navbar-shell__glass {
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-    background: rgba(255, 255, 255, 0.94);
-  }
-
-  [data-theme="dark"] .navbar-shell__glass {
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-    background: rgba(22, 22, 22, 0.94);
   }
 }
 

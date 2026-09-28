@@ -33,8 +33,10 @@ import {
 } from "../utils/cbcQuote";
 
 function isFundingRequest(payment: WalletPaymentRequest) {
+  if (isWithdrawalRequest(payment)) return false;
   const type = String(payment.request_type || "funding").toLowerCase();
-  return type === "funding";
+  if (type === "funding") return true;
+  return Boolean(payment.paystack_paid);
 }
 
 function isWithdrawalRequest(payment: WalletPaymentRequest) {
@@ -159,11 +161,13 @@ export default function AdminWalletFunding() {
       await approveWalletPayment(id);
       setPayments((prev) =>
         prev.map((payment) =>
-          payment.request_id === id ? { ...payment, status: "approved" } : payment
+          payment.request_id === id
+            ? { ...payment, status: "approved", wallet_credited: true }
+            : payment
         )
       );
       setStatusFilter("approved");
-      setSuccess("Request approved");
+      setSuccess("Wallet credited");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to approve payment");
     } finally {
@@ -559,8 +563,18 @@ export default function AdminWalletFunding() {
               <div className="admin-wallet-card__details">
                 <div className="admin-wallet-card__detail-item">
                   <User size={16} />
-                  <span>User ID: {payment.user_id}</span>
+                  <span>
+                    {[payment.user_firstname, payment.user_lastname].filter(Boolean).join(" ") ||
+                      `User ID: ${payment.user_id}`}
+                    {payment.user_email ? ` · ${payment.user_email}` : ""}
+                  </span>
                 </div>
+                {payment.provider_reference ? (
+                  <div className="admin-wallet-card__detail-item">
+                    <Banknote size={16} />
+                    <span>{payment.provider_reference}</span>
+                  </div>
+                ) : null}
                 <div className="admin-wallet-card__detail-item">
                   <Calendar size={16} />
                   <span>{formatDate(payment.requested_at)}</span>
@@ -577,6 +591,13 @@ export default function AdminWalletFunding() {
                 ) : null}
                 <div className="admin-wallet-card__status">
                   <span className={`badge badge--${payment.status}`}>{payment.status}</span>
+                  {payment.paystack_paid ? (
+                    <span
+                      className={`badge ${payment.wallet_credited ? "badge--credited" : "badge--not-credited"}`}
+                    >
+                      {payment.wallet_credited ? "Credited" : "Not credited"}
+                    </span>
+                  ) : null}
                 </div>
               </div>
 
@@ -593,7 +614,7 @@ export default function AdminWalletFunding() {
                     ) : (
                       <CheckCircle size={16} />
                     )}
-                    Approve
+                    {payment.paystack_paid && !payment.wallet_credited ? "Credit wallet" : "Approve"}
                   </button>
                   <button
                     type="button"

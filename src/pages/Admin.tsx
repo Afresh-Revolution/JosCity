@@ -33,6 +33,7 @@ import {
   UserCircle,
   LogOut,
   BadgeCheck,
+  FileText,
 } from "lucide-react";
 import primaryLogo from "../image/primary-logo.png";
 import userAvatar from "../image/sky.png";
@@ -49,6 +50,7 @@ import AdminGroups from "./AdminGroups";
 import AdminForums from "./AdminForums";
 import AdminEvents from "./AdminEvents";
 import AdminReports from "./AdminReports";
+import AdminSignupReports from "./AdminSignupReports";
 import AdminFeedback from "./AdminFeedback";
 import AdminFaqs from "./AdminFaqs";
 import AdminVerification from "./AdminVerification";
@@ -96,6 +98,7 @@ const Admin: React.FC = () => {
     | "forums"
     | "events"
     | "reports"
+    | "signupReports"
     | "feedback"
     | "faqs"
     | "verification"
@@ -809,6 +812,18 @@ const Admin: React.FC = () => {
                       <button
                         onClick={(e) => {
                           e.preventDefault();
+                          setActiveView("signupReports");
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`admin-sidebar-section-container__item ${
+                          activeView === "signupReports" ? "admin-sidebar-section-container__item--active" : ""
+                        }`}>
+                        <FileText size={18} />
+                        <span>Signup Reports</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
                           setActiveView("feedback");
                           setIsMobileMenuOpen(false);
                         }}
@@ -988,6 +1003,8 @@ const Admin: React.FC = () => {
               <AdminEvents />
             ) : activeView === "reports" ? (
               <AdminReports />
+            ) : activeView === "signupReports" ? (
+              <AdminSignupReports />
             ) : activeView === "feedback" ? (
               <AdminFeedback />
             ) : activeView === "faqs" ? (

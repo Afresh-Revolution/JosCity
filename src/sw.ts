@@ -5,7 +5,9 @@ declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: unknown };
 
 // The build still injects this list. Do not precache it: a cache-first app shell
 // kept serving the previous deployment until several refreshes.
-void self.__WB_MANIFEST;
+// (Referenced via console.debug, not a bare `void` expression, so minification
+// doesn't strip it out — workbox-build scans the built file for this literal.)
+console.debug("[sw] precache manifest (unused):", self.__WB_MANIFEST);
 
 cleanupOutdatedCaches();
 

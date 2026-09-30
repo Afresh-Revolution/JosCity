@@ -386,6 +386,8 @@ const MarketPlace: React.FC = () => {
       sellerContactPhone: payload.sellerContactPhone,
       sellerContactEmail: payload.sellerContactEmail,
       sellerContactWhatsapp: payload.sellerContactWhatsapp,
+      discountPercent: payload.discountPercent ?? null,
+      offerText: payload.offerText ?? null,
     };
     if (editTarget) {
       const res = await listingMarketplaceApi.updateListing(Number(editTarget.id), listingBody);

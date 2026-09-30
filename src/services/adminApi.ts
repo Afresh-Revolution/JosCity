@@ -2163,6 +2163,63 @@ export const getWeeklySignupReport = async (params?: {
   return response.json();
 };
 
+export interface AuditLogEntry {
+  id: string;
+  occurred_at: string;
+  category: "signup" | "wallet" | "points" | "order" | "report";
+  action: string;
+  actor: string;
+  email: string;
+  amount: string;
+  currency: string;
+  status: string;
+  reference: string;
+  details: string;
+}
+
+export interface AuditLogFilters {
+  category?: string;
+  year?: string;
+  from?: string;
+  to?: string;
+  timeFrom?: string;
+  timeTo?: string;
+  q?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface AuditLogResponse {
+  success: boolean;
+  data: AuditLogEntry[];
+  total: number;
+  page: number;
+  limit: number;
+  counts: {
+    signup: number;
+    wallet: number;
+    points: number;
+    order: number;
+    report: number;
+  };
+}
+
+export const getAuditLog = async (filters: AuditLogFilters = {}): Promise<AuditLogResponse> => {
+  const query = new URLSearchParams();
+  if (filters.category && filters.category !== "all") query.set("category", filters.category);
+  if (filters.year) query.set("year", filters.year);
+  if (filters.from) query.set("from", filters.from);
+  if (filters.to) query.set("to", filters.to);
+  if (filters.timeFrom) query.set("timeFrom", filters.timeFrom.slice(0, 5));
+  if (filters.timeTo) query.set("timeTo", filters.timeTo.slice(0, 5));
+  if (filters.q) query.set("q", filters.q);
+  if (filters.page) query.set("page", String(filters.page));
+  if (filters.limit) query.set("limit", String(filters.limit));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  const response = await adminApiRequest(`/audit${suffix}`, { timeoutMs: 60000 });
+  return response.json();
+};
+
 /** Downloads the CSV export for a given week directly to the browser. */
 export const downloadWeeklySignupReportCsv = async (weekStart: string): Promise<void> => {
   const query = new URLSearchParams({ week_start: weekStart });

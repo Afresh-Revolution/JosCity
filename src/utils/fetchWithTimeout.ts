@@ -77,11 +77,12 @@ export async function fetchPendingRegistrations(): Promise<
     // const adminToken = localStorage.getItem("adminToken");
 
     // Make the actual API call - DON'T call fetchPendingRegistrations() again!
+    const adminToken = localStorage.getItem("adminToken");
     const response = await fetch(`${API_BASE_URL}/auth/personal/pending`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        // 'Authorization': `Bearer ${adminToken}`,
+        ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
       },
     });
 
@@ -252,10 +253,12 @@ const handleUserAction = async (
     // Convert user_id to number if it's numeric (backend might expect number)
     const userIdValue = /^\d+$/.test(user_id) ? parseInt(user_id, 10) : user_id;
     
+    const adminToken = localStorage.getItem("adminToken");
     const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
       },
       body: JSON.stringify({ user_id: userIdValue }),
     });
@@ -305,14 +308,14 @@ export const rejectUser = async (
   console.log("With user_id:", user_id);
 
   try {
+    const adminToken = localStorage.getItem("adminToken");
     const response = await fetch(`${API_BASE_URL}/auth/admin/reject`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        // Add Authorization header if needed
-        // 'Authorization': `Bearer ${adminToken}`,
+        ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
       },
-      body: JSON.stringify({ user_id }), // Send user_id in body
+      body: JSON.stringify({ user_id }),
     });
 
     console.log("Response status:", response.status);

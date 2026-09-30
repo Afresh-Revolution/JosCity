@@ -26,16 +26,35 @@ const getAdminToken = (): string | null => {
   return localStorage.getItem("adminToken");
 };
 
+type AdminRequestOptions = RequestInit & { timeoutMs?: number };
+
+function isTransportError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const message = err.message.toLowerCase();
+  return (
+    err.name === "TimeoutError" ||
+    err.name === "AbortError" ||
+    message.includes("failed to fetch") ||
+    message.includes("networkerror") ||
+    message.includes("network request failed") ||
+    message.includes("timed out") ||
+    message.includes("timeout") ||
+    message.includes("aborted")
+  );
+}
+
 // Generic API request helper for admin endpoints
 const adminApiRequest = async (
   endpoint: string,
-  options: RequestInit = {}
+  options: AdminRequestOptions = {}
 ): Promise<Response> => {
   const adminToken = getAdminToken();
+  const timeoutMs = options.timeoutMs ?? 30000;
+  const { timeoutMs: _timeoutMs, ...fetchOptions } = options;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...((options.headers as Record<string, string>) || {}),
+    ...((fetchOptions.headers as Record<string, string>) || {}),
   };
 
   if (adminToken) {
@@ -43,9 +62,9 @@ const adminApiRequest = async (
   }
 
   const response = await fetch(`${API_BASE_URL}/admin${endpoint}`, {
-    ...options,
+    ...fetchOptions,
     headers,
-    signal: AbortSignal.timeout(30000), // 30 second timeout
+    signal: AbortSignal.timeout(timeoutMs),
   });
 
   if (!response.ok) {
@@ -347,11 +366,41 @@ export const updateUserGroup = async (id: string, user_group: string): Promise<{
   return response.json();
 };
 
-export const deleteUser = async (id: string): Promise<{ success: boolean; message: string; account_type?: string }> => {
-  const response = await adminApiRequest(`/user/${id}`, {
-    method: "DELETE",
-  });
-  return response.json();
+const DELETED_ACCOUNT_MESSAGE =
+  "Account deleted. Profile and login data were removed; a security record was kept.";
+
+async function accountIsDeleted(id: string): Promise<boolean> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      const row = await getUser(id);
+      if (String(row?.data?.account_status || "").toLowerCase() === "deleted") return true;
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      if (status === 404) return true;
+      if (!isTransportError(err)) return false;
+    }
+  }
+  return false;
+}
+
+export const deleteUser = async (id: string): Promise<{ success: boolean; message: string; account_type?: string; account_status?: string }> => {
+  try {
+    const response = await adminApiRequest(`/user/${id}`, {
+      method: "DELETE",
+      timeoutMs: 120000,
+    });
+    return response.json();
+  } catch (err) {
+    if (await accountIsDeleted(id)) {
+      return {
+        success: true,
+        message: DELETED_ACCOUNT_MESSAGE,
+        account_status: "deleted",
+      };
+    }
+    throw err;
+  }
 };
 
 // ==================== POSTS ====================

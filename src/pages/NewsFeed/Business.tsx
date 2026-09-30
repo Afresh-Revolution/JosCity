@@ -51,7 +51,7 @@ import "../../scss/_messagepopup.scss";
 
 function isBusinessAuthorPost(post: CardPostShape): boolean {
   const t = (post.accountType || "").toLowerCase().trim();
-  return t === "business";
+  return t === "business" || t === "agent";
 }
 
 // Chat interfaces

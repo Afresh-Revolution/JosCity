@@ -5099,6 +5099,50 @@
   box-shadow: 0 2px 8px var(--shadow-light);
 }
 
+.admin-points-rates {
+  margin-bottom: 20px;
+
+  h2 {
+    margin: 0 0 6px;
+    font-size: 18px;
+  }
+
+  > p {
+    margin: 0 0 14px;
+    color: var(--text-secondary, #647269);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+
+  &__notice {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #eaf4ee;
+    color: #286143;
+    font-size: 13px;
+  }
+
+  .admin-panel-button {
+    margin-top: 14px;
+  }
+}
+
 .admin-panel-card--form {
   margin-bottom: 1rem;
 

@@ -5138,6 +5138,11 @@
     font-size: 13px;
   }
 
+  &__notice--error {
+    background: #fff0ed;
+    color: #a63525;
+  }
+
   .admin-panel-button {
     margin-top: 14px;
   }

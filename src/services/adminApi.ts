@@ -2100,3 +2100,68 @@ export const getReferralReport = async (page: number, search = ''): Promise<Refe
   return (await (await adminApiRequest(`/referrals?${params}`)).json()).data;
 };
 export const saveReferralBonus = async (bonus_naira: number): Promise<{bonus_naira:number}> => (await (await adminApiRequest('/referrals/settings', {method:'PUT',body:JSON.stringify({bonus_naira})})).json()).data;
+
+// ==================== SIGNUP REPORTS ====================
+export interface SignupReportWeek {
+  week_start: string;
+  week_end: string;
+  is_current: boolean;
+  total_signups: number;
+}
+
+export interface SignupReportRow {
+  user_id: number;
+  name: string | null;
+  username: string | null;
+  email: string | null;
+  signed_up_at: string;
+  referred_by_user_id: number | null;
+  referred_by_name: string | null;
+}
+
+export interface WeeklySignupReport {
+  week_start: string;
+  week_end: string;
+  is_current: boolean;
+  total_signups: number;
+  page: number;
+  limit: number;
+  has_more: boolean;
+  signups: SignupReportRow[];
+}
+
+export const getSignupReportWeeks = async (
+  limit = 12
+): Promise<{ success: boolean; data: SignupReportWeek[] }> => {
+  const response = await adminApiRequest(`/signup-reports/weeks?limit=${limit}`);
+  return response.json();
+};
+
+export const getWeeklySignupReport = async (params?: {
+  weekStart?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ success: boolean; data: WeeklySignupReport }> => {
+  const query = new URLSearchParams();
+  if (params?.weekStart) query.set("week_start", params.weekStart);
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  const response = await adminApiRequest(`/signup-reports/weekly${suffix}`);
+  return response.json();
+};
+
+/** Downloads the CSV export for a given week directly to the browser. */
+export const downloadWeeklySignupReportCsv = async (weekStart: string): Promise<void> => {
+  const query = new URLSearchParams({ week_start: weekStart });
+  const response = await adminApiRequest(`/signup-reports/weekly/export?${query}`);
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `signup-report-${weekStart}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};

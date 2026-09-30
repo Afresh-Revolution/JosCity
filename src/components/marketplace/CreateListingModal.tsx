@@ -60,6 +60,8 @@ export interface CreateListingPayload {
   sellerContactPhone: string;
   sellerContactEmail: string;
   sellerContactWhatsapp: string;
+  discountPercent?: number | null;
+  offerText?: string | null;
 }
 
 export interface CreateListingModalProps {
@@ -82,6 +84,8 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
   const [category, setCategory] = useState("Home & Garden");
   const [listingKind, setListingKind] = useState<ListingKind>("goods");
   const [priceNaira, setPriceNaira] = useState("");
+  const [discountPercent, setDiscountPercent] = useState("");
+  const [offerText, setOfferText] = useState("");
   const [quantityTracked, setQuantityTracked] = useState(true);
   const [stockQuantity, setStockQuantity] = useState("");
   const [quantityNote, setQuantityNote] = useState("");
@@ -114,6 +118,10 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
       setCategory(initialListing.category || "Other");
       setListingKind(kind);
       setPriceNaira(String(initialListing.price ?? ""));
+      setDiscountPercent(
+        initialListing.discount_percent ? String(initialListing.discount_percent) : ""
+      );
+      setOfferText(initialListing.offer_text || "");
       setQuantityTracked(kind === "goods" && !!initialListing.quantity_tracked);
       setStockQuantity(
         kind === "goods" && initialListing.quantity_tracked ? String(initialListing.stock ?? "") : ""
@@ -143,6 +151,8 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
       setCategory(categories.find((c) => c !== "All") || "Home & Garden");
       setListingKind("goods");
       setPriceNaira("");
+      setDiscountPercent("");
+      setOfferText("");
       setQuantityTracked(true);
       setStockQuantity("");
       setQuantityNote("");
@@ -218,6 +228,14 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
       setError("Enter a valid price in Naira.");
       return;
     }
+    let discount: number | null = null;
+    if (discountPercent.trim()) {
+      discount = Number(discountPercent);
+      if (!Number.isFinite(discount) || discount <= 0 || discount > 100) {
+        setError("Enter a discount from 1 to 100, or leave it blank.");
+        return;
+      }
+    }
     if (!bankName.trim() || !bankAccountNumber.trim() || !bankAccountName.trim()) {
       setError("Bank name, account number, and account name are required.");
       return;
@@ -266,6 +284,8 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
       sellerContactPhone: sellerContactPhone.trim(),
       sellerContactEmail: sellerContactEmail.trim(),
       sellerContactWhatsapp: sellerContactWhatsapp.trim(),
+      discountPercent: discount,
+      offerText: offerText.trim() || null,
     });
     setSaving(false);
     if (!res.success) {
@@ -375,6 +395,32 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
                 value={priceNaira}
                 onChange={(e) => setPriceNaira(e.target.value)}
                 required
+              />
+            </label>
+          </div>
+
+          <div className="marketplace-modal__grid2 marketplace-modal__grid2--tight">
+            <label className="marketplace-modal__label">
+              Discount (%)
+              <input
+                className="marketplace-modal__input"
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                value={discountPercent}
+                onChange={(e) => setDiscountPercent(e.target.value)}
+                placeholder="Optional, e.g. 10"
+              />
+            </label>
+            <label className="marketplace-modal__label">
+              Offer
+              <input
+                className="marketplace-modal__input"
+                value={offerText}
+                onChange={(e) => setOfferText(e.target.value)}
+                maxLength={160}
+                placeholder="Optional, e.g. buy 3 get 1 free"
               />
             </label>
           </div>

@@ -4775,6 +4775,62 @@
   font-style: italic;
 }
 
+.admin-audit__filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+  min-width: 0;
+}
+
+.admin-audit__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+
+  span {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary, #6b7280);
+  }
+
+  input,
+  select {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    border: 1px solid var(--border-color, #d1d5db);
+    background: var(--card-bg, #fff);
+    color: var(--text-primary, #111);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+}
+
+.admin-audit__field--search {
+  grid-column: span 2;
+}
+
+.admin-audit__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+  min-width: 0;
+
+  button {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-audit__field--search {
+    grid-column: span 1;
+  }
+}
+
 .admin-signup-reports__pager {
   display: flex;
   align-items: center;

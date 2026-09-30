@@ -574,6 +574,9 @@ export interface ApiMarketplaceListing {
   title: string;
   description?: string;
   price: number;
+  sale_price?: number | null;
+  discount_percent?: number | null;
+  offer_text?: string | null;
   image_url: string;
   category: string;
   stock?: number | null;
@@ -705,6 +708,8 @@ export const listingMarketplaceApi = {
     sellerContactPhone?: string;
     sellerContactEmail?: string;
     sellerContactWhatsapp?: string;
+    discountPercent?: number | null;
+    offerText?: string | null;
   }) {
     return listingRequest<ApiMarketplaceListing>(`/listings`, {
       method: "POST",
@@ -737,6 +742,8 @@ export const listingMarketplaceApi = {
       sellerContactPhone: string;
       sellerContactEmail: string;
       sellerContactWhatsapp: string;
+      discountPercent: number | null;
+      offerText: string | null;
     }>
   ) {
     return listingRequest<ApiMarketplaceListing>(`/listings/${id}`, {

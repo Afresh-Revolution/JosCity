@@ -34,6 +34,7 @@ import {
   LogOut,
   BadgeCheck,
   FileText,
+  ClipboardList,
 } from "lucide-react";
 import primaryLogo from "../image/primary-logo.png";
 import userAvatar from "../image/sky.png";
@@ -51,6 +52,7 @@ import AdminForums from "./AdminForums";
 import AdminEvents from "./AdminEvents";
 import AdminReports from "./AdminReports";
 import AdminSignupReports from "./AdminSignupReports";
+import AdminAudit from "./AdminAudit";
 import AdminFeedback from "./AdminFeedback";
 import AdminFaqs from "./AdminFaqs";
 import AdminVerification from "./AdminVerification";
@@ -99,6 +101,7 @@ const Admin: React.FC = () => {
     | "events"
     | "reports"
     | "signupReports"
+    | "audit"
     | "feedback"
     | "faqs"
     | "verification"
@@ -824,6 +827,18 @@ const Admin: React.FC = () => {
                       <button
                         onClick={(e) => {
                           e.preventDefault();
+                          setActiveView("audit");
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`admin-sidebar-section-container__item ${
+                          activeView === "audit" ? "admin-sidebar-section-container__item--active" : ""
+                        }`}>
+                        <ClipboardList size={18} />
+                        <span>Audit log</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
                           setActiveView("feedback");
                           setIsMobileMenuOpen(false);
                         }}
@@ -1005,6 +1020,8 @@ const Admin: React.FC = () => {
               <AdminReports />
             ) : activeView === "signupReports" ? (
               <AdminSignupReports />
+            ) : activeView === "audit" ? (
+              <AdminAudit />
             ) : activeView === "feedback" ? (
               <AdminFeedback />
             ) : activeView === "faqs" ? (

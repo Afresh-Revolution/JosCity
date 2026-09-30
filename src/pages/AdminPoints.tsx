@@ -20,11 +20,42 @@ import {
   Eye,
 } from "lucide-react";
 import {
+  getPointsStats,
   getUserPointsBalances,
+  updatePointsRates,
+  type PointsStats,
   type UserPointsBalance,
 } from "../services/adminApi";
 import "../main.css";
 import "../scss/_admin.scss";
+
+const DEFAULT_RATES: PointsStats["earning_rates"] = {
+  posts: 15,
+  likes: 2,
+  comments: 5,
+  shares: 1,
+  stories: 5,
+  events: 10,
+  service_requests: 10,
+  referrals: 20,
+  profile_completion: 10,
+  check_ins: 1,
+  reviews: 5,
+};
+
+const RATE_FIELDS: Array<[keyof PointsStats["earning_rates"], string]> = [
+  ["posts", "Points per post"],
+  ["likes", "Points per like"],
+  ["comments", "Points per comment"],
+  ["shares", "Points per share"],
+  ["stories", "Points per story"],
+  ["events", "Points per event"],
+  ["service_requests", "Points per service request"],
+  ["referrals", "Points per referral"],
+  ["profile_completion", "Points for completing a profile"],
+  ["check_ins", "Points per check-in"],
+  ["reviews", "Points per review"],
+];
 
 const AdminPoints: React.FC = () => {
   const [users, setUsers] = useState<UserPointsBalance[]>([]);
@@ -34,6 +65,25 @@ const AdminPoints: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<UserPointsBalance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [rates, setRates] = useState(DEFAULT_RATES);
+  const [pointsPerCbc, setPointsPerCbc] = useState("100");
+  const [cbcUsd, setCbcUsd] = useState("8.231");
+  const [savingRates, setSavingRates] = useState(false);
+  const [ratesMessage, setRatesMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    void getPointsStats()
+      .then((response) => {
+        const stats = response.data;
+        if (!stats) return;
+        if (stats.earning_rates) setRates({ ...DEFAULT_RATES, ...stats.earning_rates });
+        if (stats.conversion_rate) setPointsPerCbc(String(stats.conversion_rate));
+        if (stats.cbc_to_usd_rate) setCbcUsd(String(stats.cbc_to_usd_rate));
+      })
+      .catch(() => {
+        setRatesMessage("Showing the current point rules. They could not be loaded from the server.");
+      });
+  }, []);
 
   useEffect(() => {
     // Debounce search to avoid too many API calls
@@ -106,6 +156,79 @@ const AdminPoints: React.FC = () => {
           Regular users earn points through activities (posts, likes, comments). Admins are excluded from the points system.
         </p>
       </div>
+
+      <form
+        className="admin-panel-card admin-points-rates"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const conversion = Number(pointsPerCbc);
+          const usd = Number(cbcUsd);
+          if (!Number.isFinite(conversion) || conversion <= 0 || !Number.isFinite(usd) || usd <= 0) {
+            setRatesMessage("Enter a points-per-CBC value and a CBC price greater than zero.");
+            return;
+          }
+          setSavingRates(true);
+          setRatesMessage(null);
+          void updatePointsRates({
+            conversion_rate: conversion,
+            cbc_to_usd_rate: usd,
+            earning_rates: rates,
+          })
+            .then((result) => {
+              setRatesMessage(result.message || "Point calculation saved.");
+            })
+            .catch((err) => {
+              setRatesMessage(err instanceof Error ? err.message : "Could not save the point calculation.");
+            })
+            .finally(() => setSavingRates(false));
+        }}
+      >
+        <h2>Point calculation</h2>
+        <p>Set how many points each action earns, and how those points convert to CBC.</p>
+        {ratesMessage ? <p className="admin-points-rates__notice">{ratesMessage}</p> : null}
+        <div className="admin-points-rates__grid">
+          {RATE_FIELDS.map(([key, label]) => (
+            <label key={key}>
+              {label}
+              <input
+                className="admin-panel-input"
+                type="number"
+                min="0"
+                step="1"
+                value={rates[key]}
+                onChange={(event) =>
+                  setRates((current) => ({ ...current, [key]: Number(event.target.value) }))
+                }
+              />
+            </label>
+          ))}
+          <label>
+            Points per 1 CBC
+            <input
+              className="admin-panel-input"
+              type="number"
+              min="1"
+              step="1"
+              value={pointsPerCbc}
+              onChange={(event) => setPointsPerCbc(event.target.value)}
+            />
+          </label>
+          <label>
+            USD value of 1 CBC
+            <input
+              className="admin-panel-input"
+              type="number"
+              min="0"
+              step="0.001"
+              value={cbcUsd}
+              onChange={(event) => setCbcUsd(event.target.value)}
+            />
+          </label>
+        </div>
+        <button type="submit" className="admin-panel-button admin-panel-button--primary" disabled={savingRates}>
+          {savingRates ? "Saving…" : "Save calculation"}
+        </button>
+      </form>
 
       {/* Statistics Cards */}
       <div className="admin-wallet-stats">

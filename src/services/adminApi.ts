@@ -1690,6 +1690,18 @@ export const getPointsStats = async (): Promise<{ success: boolean; data: Points
   return response.json();
 };
 
+export const updatePointsRates = async (payload: {
+  conversion_rate: number;
+  cbc_to_usd_rate: number;
+  earning_rates: PointsStats["earning_rates"];
+}): Promise<{ success: boolean; message?: string; data?: PointsStats }> => {
+  const response = await adminApiRequest("/points/rates", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  return response.json();
+};
+
 export const approvePointsPayment = async (id: string): Promise<{ success: boolean; message: string }> => {
   const response = await adminApiRequest(`/points/payments/${id}/approve`, {
     method: "POST",

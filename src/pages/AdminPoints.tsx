@@ -33,14 +33,14 @@ const DEFAULT_RATES: PointsStats["earning_rates"] = {
   posts: 15,
   likes: 2,
   comments: 5,
-  shares: 1,
+  shares: 10,
   stories: 5,
-  events: 10,
+  events: 25,
   service_requests: 10,
-  referrals: 20,
-  profile_completion: 10,
-  check_ins: 1,
-  reviews: 5,
+  referrals: 50,
+  profile_completion: 20,
+  check_ins: 5,
+  reviews: 15,
 };
 
 const RATE_FIELDS: Array<[keyof PointsStats["earning_rates"], string]> = [
@@ -70,6 +70,7 @@ const AdminPoints: React.FC = () => {
   const [cbcUsd, setCbcUsd] = useState("8.231");
   const [savingRates, setSavingRates] = useState(false);
   const [ratesMessage, setRatesMessage] = useState<string | null>(null);
+  const [ratesFailed, setRatesFailed] = useState(false);
 
   useEffect(() => {
     void getPointsStats()
@@ -79,9 +80,11 @@ const AdminPoints: React.FC = () => {
         if (stats.earning_rates) setRates({ ...DEFAULT_RATES, ...stats.earning_rates });
         if (stats.conversion_rate) setPointsPerCbc(String(stats.conversion_rate));
         if (stats.cbc_to_usd_rate) setCbcUsd(String(stats.cbc_to_usd_rate));
+        setRatesFailed(false);
       })
       .catch(() => {
-        setRatesMessage("Showing the current point rules. They could not be loaded from the server.");
+        setRatesFailed(true);
+        setRatesMessage("Could not load the point rules from the server.");
       });
   }, []);
 
@@ -164,20 +167,28 @@ const AdminPoints: React.FC = () => {
           const conversion = Number(pointsPerCbc);
           const usd = Number(cbcUsd);
           if (!Number.isFinite(conversion) || conversion <= 0 || !Number.isFinite(usd) || usd <= 0) {
+            setRatesFailed(true);
             setRatesMessage("Enter a points-per-CBC value and a CBC price greater than zero.");
             return;
           }
           setSavingRates(true);
           setRatesMessage(null);
+          setRatesFailed(false);
           void updatePointsRates({
             conversion_rate: conversion,
             cbc_to_usd_rate: usd,
             earning_rates: rates,
           })
             .then((result) => {
+              const saved = result.data;
+              if (saved?.earning_rates) setRates({ ...DEFAULT_RATES, ...saved.earning_rates });
+              if (saved?.conversion_rate) setPointsPerCbc(String(saved.conversion_rate));
+              if (saved?.cbc_to_usd_rate) setCbcUsd(String(saved.cbc_to_usd_rate));
+              setRatesFailed(false);
               setRatesMessage(result.message || "Point calculation saved.");
             })
             .catch((err) => {
+              setRatesFailed(true);
               setRatesMessage(err instanceof Error ? err.message : "Could not save the point calculation.");
             })
             .finally(() => setSavingRates(false));
@@ -185,7 +196,11 @@ const AdminPoints: React.FC = () => {
       >
         <h2>Point calculation</h2>
         <p>Set how many points each action earns, and how those points convert to CBC.</p>
-        {ratesMessage ? <p className="admin-points-rates__notice">{ratesMessage}</p> : null}
+        {ratesMessage ? (
+          <p className={`admin-points-rates__notice${ratesFailed ? " admin-points-rates__notice--error" : ""}`}>
+            {ratesMessage}
+          </p>
+        ) : null}
         <div className="admin-points-rates__grid">
           {RATE_FIELDS.map(([key, label]) => (
             <label key={key}>

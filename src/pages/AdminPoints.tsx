@@ -10,7 +10,6 @@ import {
   Filter,
   TrendingUp,
   User,
-  Mail,
   Award,
   Clock,
   ThumbsUp,
@@ -351,168 +350,97 @@ const AdminPoints: React.FC = () => {
           <p>No users found{statusFilter !== "all" ? ` with status "${statusFilter}"` : ""}</p>
         </div>
       ) : (
-        <div className="admin-wallet-grid">
-          {filteredUsers.map((user) => (
-            <div key={user.user_id} className="admin-wallet-card">
-              <div className="admin-wallet-card__header">
-                <div className="admin-wallet-card__user-info">
-                  {user.user_picture ? (
-                    <img
-                      src={user.user_picture}
-                      alt={user.user_firstname}
-                      className="admin-wallet-card__avatar"
-                    />
-                  ) : (
-                    <div className="admin-wallet-card__avatar admin-wallet-card__avatar--default">
-                      <User size={20} />
-                    </div>
-                  )}
-                  <div className="admin-wallet-card__user-details">
-                    <div className="admin-wallet-card__user-name">
-                      {user.user_firstname} {user.user_lastname}
-                    </div>
-                    <div className="admin-wallet-card__user-id">ID: {user.user_id}</div>
-                  </div>
-                </div>
-                <div className="admin-wallet-card__amounts">
-                  <div className="admin-wallet-card__amount-primary">
-                    {formatCBC(user.total_cbc)} <span className="admin-wallet-card__currency">CBC</span>
-                  </div>
-                  <div className="admin-wallet-card__amount-secondary">
-                    {formatPoints(user.total_points)} points
-                  </div>
-                  <div className="admin-wallet-card__amount-tertiary">
-                    ≈ {formatCurrency(user.total_usd)}
-                  </div>
-                </div>
-              </div>
-
-              <div className="admin-wallet-card__details">
-                <div className="admin-wallet-card__detail-item">
-                  <TrendingUp size={16} />
-                  <span>
-                    From Activities: {formatPoints(user.earned_from_activities)} pts ({formatCBC(user.earned_from_activities / 100)} CBC)
+        <div className="admin-points-list">
+          {[...filteredUsers]
+            .sort((a, b) => b.total_points - a.total_points)
+            .map((user) => (
+            <article
+              key={user.user_id}
+              className="admin-points-card"
+              onClick={() => setSelectedUser(user)}
+            >
+              <div className="admin-points-card__identity">
+                {user.user_picture ? (
+                  <img src={user.user_picture} alt="" className="admin-points-card__avatar" />
+                ) : (
+                  <span className="admin-points-card__avatar" aria-hidden="true">
+                    <User size={18} />
                   </span>
-                </div>
-                {user.earned_from_redemptions > 0 && (
-                  <div className="admin-wallet-card__detail-item">
-                    <Gift size={16} />
-                    <span>
-                      From Redemptions: {formatPoints(user.earned_from_redemptions)} pts ({formatCBC(user.earned_from_redemptions / 100)} CBC)
-                    </span>
-                  </div>
                 )}
-                {user.user_email && (
-                  <div className="admin-wallet-card__detail-item">
-                    <Mail size={16} />
-                    <span>{user.user_email}</span>
-                  </div>
-                )}
-                <div className="admin-wallet-card__status">
-                  <span className={`badge badge--${user.user_approved ? "approved" : "pending"}`}>
-                    {user.user_approved ? (
-                      <>
-                        <CheckCircle size={12} />
-                        Approved
-                      </>
-                    ) : (
-                      <>
-                        <Clock size={12} />
-                        Pending
-                      </>
-                    )}
-                  </span>
-                  {user.user_verified && (
-                    <span className="badge badge--verified">
-                      <CheckCircle size={12} />
-                      Verified
-                    </span>
-                  )}
-                </div>
+                <strong>
+                  {user.user_firstname} {user.user_lastname}
+                </strong>
               </div>
-
-              {/* Earnings Breakdown */}
-              <div className="admin-wallet-card__earnings">
-                <div className="admin-wallet-card__earnings-title">
-                  <Award size={16} />
-                  Earnings Breakdown
-                </div>
-                <div className="admin-wallet-card__earnings-grid">
-                  <div className="admin-wallet-card__earnings-item">
-                    <FileText size={14} />
-                    <span className="earnings-label">Posts</span>
-                    <span className="earnings-value">
-                      {user.earnings_breakdown.posts.count} × {user.earnings_breakdown.posts.points}pts
-                    </span>
-                    <span className="earnings-cbc">{formatCBC(user.earnings_breakdown.posts.cbc)} CBC</span>
-                  </div>
-                  <div className="admin-wallet-card__earnings-item">
-                    <ThumbsUp size={14} />
-                    <span className="earnings-label">Likes</span>
-                    <span className="earnings-value">
-                      {user.earnings_breakdown.likes.count} × {user.earnings_breakdown.likes.points}pts
-                    </span>
-                    <span className="earnings-cbc">{formatCBC(user.earnings_breakdown.likes.cbc)} CBC</span>
-                  </div>
-                  <div className="admin-wallet-card__earnings-item">
-                    <MessageCircle size={14} />
-                    <span className="earnings-label">Comments</span>
-                    <span className="earnings-value">
-                      {user.earnings_breakdown.comments.count} × {user.earnings_breakdown.comments.points}pts
-                    </span>
-                    <span className="earnings-cbc">{formatCBC(user.earnings_breakdown.comments.cbc)} CBC</span>
-                  </div>
-                  {user.earnings_breakdown.recent_activity_bonus.points > 0 && (
-                    <div className="admin-wallet-card__earnings-item">
-                      <Sparkles size={14} />
-                      <span className="earnings-label">Activity Bonus</span>
-                      <span className="earnings-value">
-                        {user.earnings_breakdown.recent_activity_bonus.count} × {user.earnings_breakdown.recent_activity_bonus.points}pts
-                      </span>
-                      <span className="earnings-cbc">{formatCBC(user.earnings_breakdown.recent_activity_bonus.cbc)} CBC</span>
-                    </div>
-                  )}
-                </div>
+              <div className="admin-points-card__balance">
+                <strong>
+                  {formatCBC(user.total_cbc)} <span>CBC</span>
+                </strong>
+                <span>
+                  {formatPoints(user.total_points)} points · {formatCurrency(user.total_usd)}
+                </span>
               </div>
-
-              <div className="admin-wallet-card__actions">
-                <button
-                  onClick={() => setSelectedUser(user)}
-                  className="admin-action-btn admin-action-btn--view"
-                >
-                  <Eye size={16} />
-                  View Details
-                </button>
-              </div>
-            </div>
+              <button
+                type="button"
+                className="admin-points-card__open"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setSelectedUser(user);
+                }}
+              >
+                <Eye size={16} />
+                View details
+              </button>
+            </article>
           ))}
         </div>
       )}
 
       {/* User Details Modal */}
       {selectedUser && (
-        <div className="admin-modal-overlay" onClick={() => setSelectedUser(null)}>
-          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="admin-modal__header">
-              <h2>Points Details - {selectedUser.user_firstname} {selectedUser.user_lastname}</h2>
-              <button onClick={() => setSelectedUser(null)}>
+        <div className="admin-points-detail" onClick={() => setSelectedUser(null)} role="presentation">
+          <div
+            className="admin-points-detail__sheet"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-labelledby="points-detail-title"
+          >
+            <div className="admin-points-detail__header">
+              <div>
+                <h2 id="points-detail-title">
+                  {selectedUser.user_firstname} {selectedUser.user_lastname}
+                </h2>
+                <p>ID {selectedUser.user_id}{selectedUser.user_email ? ` · ${selectedUser.user_email}` : ""}</p>
+              </div>
+              <button type="button" onClick={() => setSelectedUser(null)} aria-label="Close details">
                 <XCircle size={20} />
               </button>
             </div>
-            <div className="admin-modal__content">
-              <div className="admin-modal__section">
-                <h3>Balance Summary</h3>
-                <div className="admin-modal__balance-grid">
+            <div className="admin-points-detail__body">
+              <div className="admin-points-detail__status">
+                <span className={`badge badge--${selectedUser.user_approved ? "approved" : "pending"}`}>
+                  {selectedUser.user_approved ? <CheckCircle size={12} /> : <Clock size={12} />}
+                  {selectedUser.user_approved ? "Approved" : "Pending"}
+                </span>
+                {selectedUser.user_verified ? (
+                  <span className="badge badge--verified">
+                    <CheckCircle size={12} />
+                    Verified
+                  </span>
+                ) : null}
+              </div>
+              <section>
+                <h3>Balance</h3>
+                <div className="admin-points-detail__balances">
                   <div>
                     <label>Earned from Activities</label>
                     <div className="balance-value">{formatPoints(selectedUser.earned_from_activities)} points</div>
-                    <div className="balance-subvalue">{formatCBC(selectedUser.earned_from_activities / 100)} CBC</div>
+                    <div className="balance-subvalue">{formatCBC(selectedUser.earned_from_activities / (Number(pointsPerCbc) || 100))} CBC</div>
                   </div>
                   {selectedUser.earned_from_redemptions > 0 && (
                     <div>
                       <label>Earned from Redemptions</label>
                       <div className="balance-value">{formatPoints(selectedUser.earned_from_redemptions)} points</div>
-                      <div className="balance-subvalue">{formatCBC(selectedUser.earned_from_redemptions / 100)} CBC</div>
+                      <div className="balance-subvalue">{formatCBC(selectedUser.earned_from_redemptions / (Number(pointsPerCbc) || 100))} CBC</div>
                     </div>
                   )}
                   <div>
@@ -521,10 +449,10 @@ const AdminPoints: React.FC = () => {
                     <div className="balance-subvalue">{formatPoints(selectedUser.total_points)} points</div>
                   </div>
                 </div>
-              </div>
-              <div className="admin-modal__section">
-                <h3>Earnings Breakdown</h3>
-                <div className="admin-modal__earnings-list">
+              </section>
+              <section>
+                <h3>Earnings breakdown</h3>
+                <div className="admin-points-detail__earnings">
                   <div className="earnings-list-item">
                     <FileText size={18} />
                     <div>
@@ -560,7 +488,7 @@ const AdminPoints: React.FC = () => {
                     </div>
                   )}
                 </div>
-              </div>
+              </section>
             </div>
           </div>
         </div>

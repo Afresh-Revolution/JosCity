@@ -208,7 +208,7 @@ const AdminAudit = () => {
   const totalPages = log ? Math.max(1, Math.ceil(log.total / PAGE_SIZE)) : 1;
 
   return (
-    <div className="admin-dashboard">
+    <div className="admin-dashboard admin-audit">
       <div className="admin-dashboard__header">
         <h1>
           <ClipboardList size={20} />
@@ -227,90 +227,92 @@ const AdminAudit = () => {
       ) : null}
 
       <form
-        className="admin-audit__filters"
+        className="admin-audit__panel"
         onSubmit={(event) => {
           event.preventDefault();
           applyFilters();
         }}
       >
-        <label className="admin-audit__field">
-          <span>Activity</span>
-          <select
-            value={draft.category}
-            onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))}
-          >
-            {CATEGORIES.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="admin-audit__field">
-          <span>Year</span>
-          <select
-            value={draft.year}
-            onChange={(event) => setDraft((current) => ({ ...current, year: event.target.value }))}
-          >
-            <option value="">All years</option>
-            {years.map((year) => (
-              <option key={year} value={year}>
-                {year}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="admin-audit__field">
-          <span>From date</span>
-          <input
-            type="date"
-            value={draft.from}
-            onChange={(event) => setDraft((current) => ({ ...current, from: event.target.value }))}
-          />
-        </label>
-        <label className="admin-audit__field">
-          <span>To date</span>
-          <input
-            type="date"
-            value={draft.to}
-            onChange={(event) => setDraft((current) => ({ ...current, to: event.target.value }))}
-          />
-        </label>
-        <label className="admin-audit__field">
-          <span>From time</span>
-          <input
-            type="time"
-            value={draft.timeFrom}
-            onChange={(event) => setDraft((current) => ({ ...current, timeFrom: event.target.value }))}
-          />
-        </label>
-        <label className="admin-audit__field">
-          <span>To time</span>
-          <input
-            type="time"
-            value={draft.timeTo}
-            onChange={(event) => setDraft((current) => ({ ...current, timeTo: event.target.value }))}
-          />
-        </label>
-        <label className="admin-audit__field admin-audit__field--search">
-          <span>Search</span>
-          <input
-            type="search"
-            placeholder="Name, email, reference"
-            value={draft.q}
-            onChange={(event) => setDraft((current) => ({ ...current, q: event.target.value }))}
-          />
-        </label>
+        <div className="admin-audit__grid">
+          <label className="admin-audit__field">
+            <span>Activity</span>
+            <select
+              value={draft.category}
+              onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))}
+            >
+              {CATEGORIES.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="admin-audit__field">
+            <span>Year</span>
+            <select
+              value={draft.year}
+              onChange={(event) => setDraft((current) => ({ ...current, year: event.target.value }))}
+            >
+              <option value="">All years</option>
+              {years.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="admin-audit__field">
+            <span>From date</span>
+            <input
+              type="date"
+              value={draft.from}
+              onChange={(event) => setDraft((current) => ({ ...current, from: event.target.value }))}
+            />
+          </label>
+          <label className="admin-audit__field">
+            <span>To date</span>
+            <input
+              type="date"
+              value={draft.to}
+              onChange={(event) => setDraft((current) => ({ ...current, to: event.target.value }))}
+            />
+          </label>
+          <label className="admin-audit__field">
+            <span>From time</span>
+            <input
+              type="time"
+              value={draft.timeFrom}
+              onChange={(event) => setDraft((current) => ({ ...current, timeFrom: event.target.value }))}
+            />
+          </label>
+          <label className="admin-audit__field">
+            <span>To time</span>
+            <input
+              type="time"
+              value={draft.timeTo}
+              onChange={(event) => setDraft((current) => ({ ...current, timeTo: event.target.value }))}
+            />
+          </label>
+          <label className="admin-audit__field admin-audit__field--wide">
+            <span>Search</span>
+            <input
+              type="search"
+              placeholder="Name, email, or reference"
+              value={draft.q}
+              onChange={(event) => setDraft((current) => ({ ...current, q: event.target.value }))}
+            />
+          </label>
+        </div>
         <div className="admin-audit__actions">
-          <button type="submit" className="admin-panel-button admin-panel-button--primary">
+          <button type="submit" className="admin-audit__apply">
             Apply filters
           </button>
-          <button type="button" className="admin-signup-reports__export" onClick={clearFilters}>
+          <button type="button" className="admin-audit__ghost" onClick={clearFilters}>
             Clear
           </button>
           <button
             type="button"
-            className="admin-signup-reports__export"
+            className="admin-audit__ghost"
             onClick={() => void handleExport()}
             disabled={exporting || loading}
           >
@@ -318,16 +320,14 @@ const AdminAudit = () => {
             Export Excel
           </button>
         </div>
+        <p className="admin-audit__hint">Excel export uses the filters applied to this list.</p>
       </form>
-      <p className="admin-signup-reports__count">
-        Excel export uses the filters applied to this list.
-      </p>
 
       {log ? (
-        <div className="admin-signup-reports__summary">
+        <div className="admin-audit__stats">
           <div>
             <strong>{log.total}</strong>
-            <span>Matching records</span>
+            <span>Matching</span>
           </div>
           <div>
             <strong>{log.counts.signup}</strong>
@@ -361,7 +361,37 @@ const AdminAudit = () => {
         <p className="admin-signup-reports__empty">No activity matches these filters.</p>
       ) : (
         <>
-          <div className="admin-signup-reports__table-wrap">
+          <ul className="admin-audit__cards">
+            {log.data.map((row) => (
+              <li key={row.id} className="admin-audit__card">
+                <div className="admin-audit__card-top">
+                  <span className={`admin-audit__pill admin-audit__pill--${row.category}`}>
+                    {categoryLabel(row.category)}
+                  </span>
+                  <time>{formatWhen(row.occurred_at)}</time>
+                </div>
+                <strong>{row.action}</strong>
+                <p>{row.actor}</p>
+                {row.email ? <p className="admin-audit__muted">{row.email}</p> : null}
+                <dl>
+                  <div>
+                    <dt>Amount</dt>
+                    <dd>{row.amount ? `${row.amount} ${row.currency}` : "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Status</dt>
+                    <dd>{row.status || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Reference</dt>
+                    <dd>{row.reference}</dd>
+                  </div>
+                </dl>
+                {row.details ? <p className="admin-audit__muted">{row.details}</p> : null}
+              </li>
+            ))}
+          </ul>
+          <div className="admin-audit__table-wrap">
             <table className="admin-signup-reports__table">
               <thead>
                 <tr>

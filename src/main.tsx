@@ -34,6 +34,7 @@ import ChildSafety from "./pages/ChildSafety";
 import Accessibility from "./pages/Accessibility";
 import About from "./pages/About";
 import ContactPage from "./pages/ContactPage";
+import OpenInApp from "./pages/OpenInApp";
 import UserProfile from "./pages/UserProfile";
 import Membership from "./pages/Membership";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -150,6 +151,7 @@ if (rootElement) {
                 <ThemeToggleGate />
                 <Routes>
                   <Route path="/" element={<LandingPage />} />
+                  <Route path="/s/:handle/:kind/:code" element={<OpenInApp />} />
                   <Route path="/agent-form" element={<AgentPreview />} />
                   <Route path="/agents/feed" element={<AgentFeed />} />
                   <Route path="/map" element={<UserRoute><PlateauMap /></UserRoute>} />

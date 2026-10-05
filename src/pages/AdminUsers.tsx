@@ -77,10 +77,10 @@ const AdminUsers: React.FC<{
     loadUsers();
   }, [page, statusFilter, debouncedSearch]);
 
-  const loadUsers = async () => {
+  const loadUsers = async (reportError = true) => {
     try {
       setLoading(true);
-      setError(null);
+      if (reportError) setError(null);
       const response: UsersResponse = await getUsers({
         page,
         limit: 20,
@@ -93,9 +93,11 @@ const AdminUsers: React.FC<{
       setTotalPages(response.pagination?.totalPages || 1);
     } catch (err) {
       console.error("Failed to load users:", err);
-      setError(err instanceof Error ? err.message : "Failed to load users");
-      setUsers([]);
-      setFilteredUsers([]);
+      if (reportError) {
+        setError(err instanceof Error ? err.message : "Failed to load users");
+        setUsers([]);
+        setFilteredUsers([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -230,23 +232,24 @@ const AdminUsers: React.FC<{
       setSuccess(null);
       const result = await actionFn(userId, ...args);
       
-      // Check if the result indicates success
       if (result && (result.success === false || result.error)) {
         throw new Error(result.message || result.error || `Failed to ${action} user`);
       }
-      
-      // Refresh count from API after delete action
+
+      setSuccess(result?.message || `User ${action}d successfully`);
+      if (action === "delete") {
+        setUsers((current) => current.filter((row) => String(row.user_id) !== String(userId)));
+        setFilteredUsers((current) => current.filter((row) => String(row.user_id) !== String(userId)));
+      }
+
       if (action === "delete" && result?.success) {
-        // Only refresh if user was approved (only approved users are counted)
         if (result.was_approved || result.account_status === "approved" || result.user_approved === "1" || result.user_approved === 1) {
           await fetchRegisteredCitizensCount();
-          // Dispatch event to update count in other components
           window.dispatchEvent(new Event("citizenCountUpdated"));
         }
       }
-      
-      setSuccess(result?.message || `User ${action}d successfully`);
-      await loadUsers();
+
+      await loadUsers(false);
     } catch (err) {
       const errorMessage = err instanceof Error 
         ? err.message 

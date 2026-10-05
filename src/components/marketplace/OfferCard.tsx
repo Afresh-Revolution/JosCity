@@ -202,7 +202,7 @@ const OfferCard: React.FC<OfferCardProps> = ({
                   className="marketplace-offer-card__add-btn"
                   onClick={() => onAddToCart?.(listing, selectedQty)}
                 >
-                  {isService ? "Book" : "Add to cart"}
+                  Add to cart
                 </button>
               )}
             </div>
@@ -324,7 +324,7 @@ const OfferCard: React.FC<OfferCardProps> = ({
                   className="marketplace-offer-card__add-btn marketplace-offer-card__add-btn--wide"
                   onClick={() => onAddToCart?.(listing, selectedQty)}
                 >
-                  {isService ? "Book" : "Add to cart"}
+                  Add to cart
                 </button>
               )}
             </div>

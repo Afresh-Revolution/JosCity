@@ -34,11 +34,8 @@ import {
   LogOut,
   BadgeCheck,
   FileText,
-<<<<<<< HEAD
   Cloud,
-=======
   ClipboardList,
->>>>>>> 548c0374fbd8219ab5e4fea0b845dc13dfa2b62e
 } from "lucide-react";
 import primaryLogo from "../image/primary-logo.png";
 import userAvatar from "../image/sky.png";

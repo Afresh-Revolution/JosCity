@@ -2234,3 +2234,31 @@ export const downloadWeeklySignupReportCsv = async (weekStart: string): Promise<
   a.remove();
   URL.revokeObjectURL(url);
 };
+
+export type CloudinaryAccount = {
+  id: string;
+  label: string;
+  cloud_name: string;
+  active: boolean;
+};
+
+export type CloudinaryAccountsResponse = {
+  success: boolean;
+  message?: string;
+  data: { accounts: CloudinaryAccount[]; active: string | null };
+};
+
+export const getCloudinaryAccounts = async (): Promise<CloudinaryAccountsResponse> => {
+  const response = await adminApiRequest("/cloudinary");
+  return response.json();
+};
+
+export const setActiveCloudinaryAccount = async (
+  accountId: string
+): Promise<CloudinaryAccountsResponse> => {
+  const response = await adminApiRequest("/cloudinary/active", {
+    method: "PUT",
+    body: JSON.stringify({ account_id: accountId }),
+  });
+  return response.json();
+};

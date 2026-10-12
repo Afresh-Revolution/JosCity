@@ -34,6 +34,7 @@ import {
   LogOut,
   BadgeCheck,
   FileText,
+  Cloud,
   ClipboardList,
 } from "lucide-react";
 import primaryLogo from "../image/primary-logo.png";
@@ -55,6 +56,7 @@ import AdminSignupReports from "./AdminSignupReports";
 import AdminAudit from "./AdminAudit";
 import AdminFeedback from "./AdminFeedback";
 import AdminFaqs from "./AdminFaqs";
+import AdminCloudinary from "./AdminCloudinary";
 import AdminVerification from "./AdminVerification";
 import AdminWallet from "./AdminWallet";
 import AdminAds from "./AdminAds";
@@ -104,6 +106,7 @@ const Admin: React.FC = () => {
     | "audit"
     | "feedback"
     | "faqs"
+    | "clry"
     | "verification"
     | "wallet"
     | "ads"
@@ -863,6 +866,18 @@ const Admin: React.FC = () => {
                       <button
                         onClick={(e) => {
                           e.preventDefault();
+                          setActiveView("clry");
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`admin-sidebar-section-container__item ${
+                          activeView === "clry" ? "admin-sidebar-section-container__item--active" : ""
+                        }`}>
+                        <Cloud size={18} />
+                        <span>Clry</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
                           setActiveView("verification");
                           setIsMobileMenuOpen(false);
                         }}
@@ -1026,6 +1041,8 @@ const Admin: React.FC = () => {
               <AdminFeedback />
             ) : activeView === "faqs" ? (
               <AdminFaqs />
+            ) : activeView === "clry" ? (
+              <AdminCloudinary />
             ) : activeView === "verification" ? (
               <AdminVerification />
             ) : activeView === "wallet" ? (

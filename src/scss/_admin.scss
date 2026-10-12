@@ -7413,16 +7413,56 @@
 
   &__detail-item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
     font-size: 14px;
     color: var(--text-tertiary, #666);
     margin-bottom: 8px;
+    min-width: 0;
     transition: color 0.3s ease;
 
     svg {
+      flex-shrink: 0;
+      margin-top: 2px;
       color: var(--text-tertiary, #666);
       transition: color 0.3s ease;
+    }
+
+    span {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  &__bank {
+    display: grid;
+    gap: 8px;
+    margin: 10px 0 12px;
+    padding: 12px;
+    border-radius: 10px;
+    background: var(--bg-secondary, #f7fafc);
+    min-width: 0;
+
+    > div {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    span {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: var(--text-tertiary, #718096);
+    }
+
+    strong {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.35;
+      color: var(--text-primary, #1a202c);
+      overflow-wrap: anywhere;
     }
   }
 

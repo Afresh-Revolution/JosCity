@@ -1238,6 +1238,7 @@ export interface WalletPaymentRequest {
   payout_destination?: string | null;
   payout_bank_name?: string | null;
   payout_account_name?: string | null;
+  payout_account_number?: string | null;
   user_email?: string | null;
   user_firstname?: string | null;
   user_lastname?: string | null;

@@ -583,10 +583,24 @@ export default function AdminWalletFunding() {
                   <Coins size={16} />
                   <span>{payment.method || (typeFilter === "withdrawal" ? "Payout" : "Bank transfer")}</span>
                 </div>
-                {typeFilter === "withdrawal" && payment.payout_destination ? (
-                  <div className="admin-wallet-card__detail-item">
-                    <Banknote size={16} />
-                    <span>{payment.payout_destination}</span>
+                {typeFilter === "withdrawal" &&
+                (payment.payout_bank_name ||
+                  payment.payout_account_name ||
+                  payment.payout_account_number ||
+                  payment.payout_destination) ? (
+                  <div className="admin-wallet-card__bank">
+                    <div>
+                      <span>Bank</span>
+                      <strong>{payment.payout_bank_name || "—"}</strong>
+                    </div>
+                    <div>
+                      <span>Account name</span>
+                      <strong>{payment.payout_account_name || "—"}</strong>
+                    </div>
+                    <div>
+                      <span>Account number</span>
+                      <strong>{payment.payout_account_number || payment.payout_destination || "—"}</strong>
+                    </div>
                   </div>
                 ) : null}
                 <div className="admin-wallet-card__status">

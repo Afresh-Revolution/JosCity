@@ -2163,6 +2163,7 @@ export type AdminRefundRequest = {
   refunded_naira?: number | null;
   partial_percent?: number | null;
   created_at?: string;
+  deadline_at?: string | null;
 };
 
 export const getAdminRefunds = async (status = "open") => {

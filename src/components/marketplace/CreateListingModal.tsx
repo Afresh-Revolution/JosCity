@@ -2,6 +2,7 @@
 import { X, Upload, Trash2, Loader2 } from "lucide-react";
 import type { ApiMarketplaceListing, ApiMediaItem } from "../../services/marketplaceApi";
 import { listingMarketplaceApi } from "../../services/marketplaceApi";
+import MarketplacePolicyNotice from "../legal/MarketplacePolicyNotice";
 
 const CATEGORIES = [
   "Apparel & accessories",
@@ -650,6 +651,7 @@ const CreateListingModal: React.FC<CreateListingModalProps> = ({
             </label>
           </div>
 
+          <MarketplacePolicyNotice context="listing" />
           <div className="marketplace-modal__actions">
             <button type="button" className="marketplace-modal__btn-secondary" onClick={onClose}>
               Cancel

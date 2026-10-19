@@ -12,6 +12,7 @@ import { formatMarketplaceMoney } from "../../utils/marketplaceDisplay";
 import { getUserEmail } from "../../utils/userUtils";
 import "../../main.css";
 import "../../scss/_marketplace.scss";
+import MarketplacePolicyNotice from "../../components/legal/MarketplacePolicyNotice";
 
 const MarketplaceCheckoutPage: React.FC = () => {
   const navigate = useNavigate();
@@ -145,6 +146,7 @@ const MarketplaceCheckoutPage: React.FC = () => {
               />
             </label>
 
+            <MarketplacePolicyNotice context="checkout" />
             <button type="submit" className="marketplace-checkout-main-btn" disabled={submitting}>
               {submitting ? "Placing order…" : "Place order & get bank details"}
             </button>

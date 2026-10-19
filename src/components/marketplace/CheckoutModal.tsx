@@ -9,6 +9,7 @@ import {
 } from "../../services/marketplaceApi";
 import { walletApi } from "../../services/walletApi";
 import { formatMarketplaceMoney } from "../../utils/marketplaceDisplay";
+import MarketplacePolicyNotice from "../legal/MarketplacePolicyNotice";
 
 function isPlatformPayee(value?: string | null) {
   const name = String(value || "").trim().toLowerCase();
@@ -320,6 +321,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               placeholder="For services, add the date, time, and where you need them."
             />
           </label>
+          <MarketplacePolicyNotice context="checkout" />
           <div className="marketplace-modal__actions">
             <button type="button" className="marketplace-modal__btn-secondary" onClick={onClose}>
               Cancel

@@ -2569,3 +2569,16 @@ $marketplace-header-clearance-sm: calc(37px + 15px + 50px * 0.93 - 10px + 0px);
   padding-left: 1.25rem;
 }
 
+.marketplace-policy-notice {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary, #4b5c50);
+  overflow-wrap: anywhere;
+
+  a {
+    color: var(--color-primary, #0d4a1f);
+    font-weight: 600;
+  }
+}
+

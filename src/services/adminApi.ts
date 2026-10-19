@@ -2165,6 +2165,10 @@ export type AdminRefundRequest = {
   created_at?: string;
   transaction_at?: string | null;
   deadline_at?: string | null;
+  order_status?: string | null;
+  fulfilled_at?: string | null;
+  updated_at?: string | null;
+  resolved_at?: string | null;
 };
 
 export const getAdminRefunds = async (status = "open") => {

@@ -47,6 +47,69 @@ function formatLeft(ms: number) {
   return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }
 
+function statusWord(status?: string | null) {
+  const value = String(status || "").toLowerCase();
+  if (value === "pending") return "Waiting";
+  if (value === "urged") return "Asked to refund";
+  if (value === "disputed") return "Disputed";
+  if (value === "refunded") return "Refunded";
+  if (value === "partial") return "Partial refund";
+  if (value === "closed") return "Not valid";
+  return value ? value.replace(/_/g, " ") : "Open";
+}
+
+function completionLabel(row: AdminRefundRequest) {
+  const status = String(row.order_status || "").toLowerCase();
+  if (status === "completed") return "Marked completed";
+  if (status === "delivered") return "Marked delivered";
+  if (row.fulfilled_at) return "Marked complete";
+  if (status === "cancelled") return "Order cancelled";
+  if (status === "out_for_delivery") return "Out for delivery";
+  if (status === "processing") return "Still processing";
+  if (status === "paid" || status === "confirmed") return "Paid, not completed";
+  return "Not marked complete";
+}
+
+function RefundTimeline({ row }: { row: AdminRefundRequest }) {
+  const steps: { label: string; at?: string | null; done: boolean }[] = [
+    { label: "Customer paid", at: row.transaction_at, done: Boolean(row.transaction_at) },
+    { label: completionLabel(row), at: row.fulfilled_at, done: Boolean(row.fulfilled_at) },
+    { label: "Refund requested", at: row.created_at, done: Boolean(row.created_at) },
+  ];
+  if (row.dispute_reason) {
+    steps.push({
+      label: "Business disputed",
+      at: row.status === "disputed" ? row.updated_at : null,
+      done: true,
+    });
+  }
+  if (row.status === "urged") {
+    steps.push({ label: "JosCity asked the business to refund", at: row.updated_at, done: true });
+  }
+  if (row.resolved_at) {
+    const label =
+      row.status === "refunded"
+        ? "Refund sent"
+        : row.status === "partial"
+          ? "Partial refund sent"
+          : "Refund closed";
+    steps.push({ label, at: row.resolved_at, done: true });
+  }
+  return (
+    <ol className="admin-refunds__timeline">
+      {steps.map((step) => (
+        <li key={step.label} className={step.at ? "is-done" : step.done ? "is-noted" : "is-waiting"}>
+          <span className="admin-refunds__dot" aria-hidden="true" />
+          <div>
+            <strong>{step.label}</strong>
+            <span>{step.at ? when(step.at) : step.done ? "Recorded" : "Not yet"}</span>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function RefundClock({ row }: { row: AdminRefundRequest }) {
   const deadline = deadlineMs(row);
   const [now, setNow] = useState(Date.now());
@@ -165,15 +228,14 @@ export default function AdminRefunds() {
                 <header className="admin-refunds__top">
                   <div>
                     <strong>{row.code}</strong>
-                    <span>Transaction {when(row.transaction_at || row.created_at)}</span>
-                    {row.transaction_at ? <span>Requested {when(row.created_at)}</span> : null}
+                    <span>{row.title}</span>
                   </div>
                   <span className={`admin-refunds__status admin-refunds__status--${row.status}`}>
-                    {row.status}
+                    {statusWord(row.status)}
                   </span>
                 </header>
                 <RefundClock row={row} />
-                <h2>{row.title}</h2>
+                <RefundTimeline row={row} />
                 <dl className="admin-refunds__people">
                   <div>
                     <dt>Customer</dt>
@@ -210,9 +272,22 @@ export default function AdminRefunds() {
                     </div>
                   ) : null}
                 </dl>
-                <p className="admin-refunds__reason">{row.reason}</p>
-                {row.dispute_reason ? <p className="admin-refunds__note">Dispute: {row.dispute_reason}</p> : null}
-                {row.admin_note ? <p className="admin-refunds__note">Note: {row.admin_note}</p> : null}
+                <div className="admin-refunds__reason">
+                  <span>Customer reason</span>
+                  <p>{row.reason}</p>
+                </div>
+                {row.dispute_reason ? (
+                  <div className="admin-refunds__note">
+                    <span>Business dispute</span>
+                    <p>{row.dispute_reason}</p>
+                  </div>
+                ) : null}
+                {row.admin_note ? (
+                  <div className="admin-refunds__note">
+                    <span>JosCity note</span>
+                    <p>{row.admin_note}</p>
+                  </div>
+                ) : null}
                 {open ? (
                   <div className="admin-refunds__actions">
                     {deciding ? (
@@ -296,7 +371,9 @@ export default function AdminRefunds() {
                   </div>
                 ) : (
                   <p className="admin-refunds__closed">
-                    {row.partial_percent ? `${row.partial_percent}% returned` : row.status}
+                    {row.partial_percent
+                      ? `${row.partial_percent}% returned to the customer`
+                      : statusWord(row.status)}
                   </p>
                 )}
               </article>

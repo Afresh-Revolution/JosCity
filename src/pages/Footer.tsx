@@ -102,7 +102,8 @@ const Footer: React.FC = () => {
       section: "quick_links",
       links: [
         { text: "Home", url: "/" },
-        { text: "About", url: "/#about" },
+        { text: "About", url: "/about" },
+        { text: "Our Services", url: "/our-services" },
         { text: "Services", url: "/#services" },
         { text: "Events", url: "/#events" },
         { text: "Contact Us", url: "/#contact" },

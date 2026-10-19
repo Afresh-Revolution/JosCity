@@ -2143,6 +2143,45 @@ export interface WeeklySignupReport {
   signups: SignupReportRow[];
 }
 
+export type AdminRefundRequest = {
+  id: number;
+  order_id: number;
+  code: string;
+  status: string;
+  buyer_name: string;
+  seller_name: string;
+  buyer_email?: string | null;
+  seller_email?: string | null;
+  title: string;
+  reason: string;
+  dispute_reason?: string | null;
+  admin_note?: string | null;
+  gross_naira: number;
+  service_fee_naira: number;
+  service_fee_percent: number;
+  refundable_naira: number;
+  refunded_naira?: number | null;
+  partial_percent?: number | null;
+  created_at?: string;
+};
+
+export const getAdminRefunds = async (status = "open") => {
+  const response = await adminApiRequest(`/refunds?status=${encodeURIComponent(status)}`);
+  return response.json() as Promise<{ success: boolean; message?: string; data: AdminRefundRequest[] }>;
+};
+
+export const decideAdminRefund = async (
+  id: number,
+  action: "approve" | "reject" | "urge" | "partial",
+  body: { note?: string; percent?: number } = {}
+) => {
+  const response = await adminApiRequest(`/refunds/${id}/${action}`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return response.json() as Promise<{ success: boolean; message?: string }>;
+};
+
 export const getSignupReportWeeks = async (
   limit = 12
 ): Promise<{ success: boolean; data: SignupReportWeek[] }> => {

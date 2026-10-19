@@ -423,6 +423,20 @@ export default function WalletSheet({
             <button type="button" className="wallet-sheet__ghost" onClick={openWithdraw} disabled={busy}>
               Withdraw
             </button>
+            <button
+              type="button"
+              className="wallet-sheet__ghost"
+              disabled={busy}
+              onClick={() => {
+                setAmountText("");
+                setMemberIdText("");
+                setRecipient(null);
+                setRecipientError(null);
+                setSheet("share");
+              }}
+            >
+              Send
+            </button>
           </div>
         ) : null}
 
@@ -478,7 +492,7 @@ export default function WalletSheet({
                   setSheet("share");
                 }}
               >
-                Share
+                Send
               </button>
             </div>
           </>
@@ -605,9 +619,9 @@ export default function WalletSheet({
 
         {sheet === "share" ? (
           <>
-            <h3>Share</h3>
+            <h3>Send</h3>
             <p className="wallet-sheet__meta">
-              Enter the receiver&apos;s membership ID. Sharing moves funds immediately.
+              Enter their membership ID. The amount moves to their wallet immediately.
             </p>
             <label>
               Membership ID
@@ -645,7 +659,7 @@ export default function WalletSheet({
             </label>
             <button type="button" onClick={() => void submitShare()} disabled={busy || !recipient}>
               {busy ? <Loader2 size={16} className="spinner" /> : null}
-              Share now
+              Send now
             </button>
           </>
         ) : null}

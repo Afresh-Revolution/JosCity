@@ -71,7 +71,7 @@ import AdminNotifications from "./AdminNotifications";
 import AdminNews from "./AdminNews";
 import AdminDevelopers from "./AdminDevelopers";
 import AdminMembershipList from "./AdminMembershipList";
-import { getDashboard, getStats, refreshAdminToken, type DashboardData } from "../services/adminApi";
+import { getAdminRefunds, getDashboard, getStats, refreshAdminToken, type DashboardData } from "../services/adminApi";
 import { fetchPendingRegistrations } from "../utils/fetchWithTimeout";
 import AdminNavBadge from "../components/AdminNavBadge";
 
@@ -135,6 +135,7 @@ const Admin: React.FC = () => {
     pendingVerifications: 0,
   });
 
+  const [openRefunds, setOpenRefunds] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -252,6 +253,24 @@ const Admin: React.FC = () => {
     void loadAttention();
     const interval = setInterval(loadAttention, 30000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const loadOpenRefunds = async () => {
+      try {
+        const payload = await getAdminRefunds("open");
+        setOpenRefunds(Array.isArray(payload.data) ? payload.data.length : 0);
+      } catch {
+        // Keep the last count if the refund list cannot be reached.
+      }
+    };
+    void loadOpenRefunds();
+    const interval = setInterval(loadOpenRefunds, 30000);
+    window.addEventListener("joscity-refunds-changed", loadOpenRefunds);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("joscity-refunds-changed", loadOpenRefunds);
+    };
   }, []);
 
   // Handle logout
@@ -673,6 +692,7 @@ const Admin: React.FC = () => {
                         }`}>
                         <DollarSign size={18} />
                         <span>Refunds</span>
+                        <AdminNavBadge count={openRefunds} />
                       </button>
                       <button
                         onClick={(e) => {

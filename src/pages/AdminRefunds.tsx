@@ -75,6 +75,7 @@ export default function AdminRefunds() {
       if (!payload.success) throw new Error(payload.message || "Could not update this refund");
       setNote("");
       setActiveId(null);
+      window.dispatchEvent(new Event("joscity-refunds-changed"));
       await load(status);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update this refund");
@@ -118,124 +119,150 @@ export default function AdminRefunds() {
           <span className="admin-dashboard__loading-text">Loading refunds...</span>
         </div>
       ) : rows.length ? (
-        <div className="admin-signup-reports__table-wrap">
-          <table className="admin-signup-reports__table">
-            <thead>
-              <tr>
-                <th>Order</th>
-                <th>People</th>
-                <th>Amounts</th>
-                <th>Request</th>
-                <th>Decision</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => {
-                const open = OPEN.has(row.status);
-                return (
-                  <tr key={row.id}>
-                    <td>
-                      <strong>{row.code}</strong>
-                      <div>{row.title}</div>
-                      <div>{row.status}</div>
-                      <div>{when(row.created_at)}</div>
-                    </td>
-                    <td>
-                      <div>{row.buyer_name}</div>
-                      <div>{row.buyer_email}</div>
-                      <div>{row.seller_name}</div>
-                      <div>{row.seller_email}</div>
-                    </td>
-                    <td>
-                      <div>Paid {naira(row.gross_naira)}</div>
-                      <div>Fee {naira(row.service_fee_naira)} kept</div>
-                      <div>Refundable {naira(row.refundable_naira)}</div>
-                      {row.refunded_naira != null ? <div>Returned {naira(row.refunded_naira)}</div> : null}
-                    </td>
-                    <td>
-                      <div>{row.reason}</div>
-                      {row.dispute_reason ? <div>Dispute: {row.dispute_reason}</div> : null}
-                      {row.admin_note ? <div>Note: {row.admin_note}</div> : null}
-                    </td>
-                    <td>
-                      {open ? (
-                        <div style={{ display: "grid", gap: 8, minWidth: 180 }}>
-                          {activeId === row.id ? (
-                            <>
-                              <textarea
-                                value={note}
-                                onChange={(event) => setNote(event.target.value)}
-                                placeholder="Reason for the customer and the business"
-                                rows={3}
-                              />
-                              <input
-                                value={percent}
-                                onChange={(event) => setPercent(event.target.value)}
-                                inputMode="numeric"
-                                aria-label="Customer percentage"
-                              />
-                            </>
-                          ) : null}
-                          <button type="button" disabled={busyId === row.id} onClick={() => void decide(row, "approve")}>
-                            {busyId === row.id ? "Working..." : "Approve refund"}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busyId === row.id}
-                            onClick={() => {
-                              if (activeId !== row.id) {
-                                setActiveId(row.id);
-                                setError("Write why, then choose this decision again.");
-                                return;
-                              }
-                              void decide(row, "urge");
-                            }}
-                          >
-                            Ask business to refund
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busyId === row.id}
-                            onClick={() => {
-                              if (activeId !== row.id) {
-                                setActiveId(row.id);
-                                setError("Write why the split is fair, then choose it again.");
-                                return;
-                              }
-                              void decide(row, "partial");
-                            }}
-                          >
-                            Split {percent || "50"}%
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busyId === row.id}
-                            onClick={() => {
-                              if (activeId !== row.id) {
-                                setActiveId(row.id);
-                                setError("Write why the refund is not valid, then choose it again.");
-                                return;
-                              }
-                              void decide(row, "reject");
-                            }}
-                          >
-                            Refund not valid
-                          </button>
-                          {activeId !== row.id ? (
-                            <button type="button" onClick={() => setActiveId(row.id)}>
-                              Add a reason
-                            </button>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <span>{row.partial_percent ? `${row.partial_percent}% returned` : row.status}</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="admin-refunds">
+          {rows.map((row) => {
+            const open = OPEN.has(row.status);
+            const deciding = activeId === row.id;
+            return (
+              <article key={row.id} className="admin-refunds__card">
+                <header className="admin-refunds__top">
+                  <div>
+                    <strong>{row.code}</strong>
+                    <span>{when(row.created_at)}</span>
+                  </div>
+                  <span className={`admin-refunds__status admin-refunds__status--${row.status}`}>
+                    {row.status}
+                  </span>
+                </header>
+                <h2>{row.title}</h2>
+                <dl className="admin-refunds__people">
+                  <div>
+                    <dt>Customer</dt>
+                    <dd>
+                      {row.buyer_name}
+                      {row.buyer_email ? <span>{row.buyer_email}</span> : null}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Business</dt>
+                    <dd>
+                      {row.seller_name}
+                      {row.seller_email ? <span>{row.seller_email}</span> : null}
+                    </dd>
+                  </div>
+                </dl>
+                <dl className="admin-refunds__amounts">
+                  <div>
+                    <dt>Paid</dt>
+                    <dd>{naira(row.gross_naira)}</dd>
+                  </div>
+                  <div>
+                    <dt>Fee kept</dt>
+                    <dd>{naira(row.service_fee_naira)}</dd>
+                  </div>
+                  <div>
+                    <dt>Refundable</dt>
+                    <dd>{naira(row.refundable_naira)}</dd>
+                  </div>
+                  {row.refunded_naira != null ? (
+                    <div>
+                      <dt>Returned</dt>
+                      <dd>{naira(row.refunded_naira)}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+                <p className="admin-refunds__reason">{row.reason}</p>
+                {row.dispute_reason ? <p className="admin-refunds__note">Dispute: {row.dispute_reason}</p> : null}
+                {row.admin_note ? <p className="admin-refunds__note">Note: {row.admin_note}</p> : null}
+                {open ? (
+                  <div className="admin-refunds__actions">
+                    {deciding ? (
+                      <div className="admin-refunds__reason-form">
+                        <label>
+                          Reason for the customer and the business
+                          <textarea
+                            value={note}
+                            onChange={(event) => setNote(event.target.value)}
+                            rows={3}
+                          />
+                        </label>
+                        <label>
+                          Customer share (%)
+                          <input
+                            value={percent}
+                            onChange={(event) => setPercent(event.target.value)}
+                            inputMode="numeric"
+                          />
+                        </label>
+                      </div>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="admin-refunds__btn admin-refunds__btn--approve"
+                      disabled={busyId === row.id}
+                      onClick={() => void decide(row, "approve")}
+                    >
+                      {busyId === row.id ? "Working..." : "Approve refund"}
+                    </button>
+                    <button
+                      type="button"
+                      className="admin-refunds__btn"
+                      disabled={busyId === row.id}
+                      onClick={() => {
+                        if (!deciding) {
+                          setActiveId(row.id);
+                          setError("Write why, then choose this decision again.");
+                          return;
+                        }
+                        void decide(row, "urge");
+                      }}
+                    >
+                      Ask business to refund
+                    </button>
+                    <button
+                      type="button"
+                      className="admin-refunds__btn"
+                      disabled={busyId === row.id}
+                      onClick={() => {
+                        if (!deciding) {
+                          setActiveId(row.id);
+                          setError("Write why the split is fair, then choose it again.");
+                          return;
+                        }
+                        void decide(row, "partial");
+                      }}
+                    >
+                      Split {percent || "50"}%
+                    </button>
+                    <button
+                      type="button"
+                      className="admin-refunds__btn admin-refunds__btn--reject"
+                      disabled={busyId === row.id}
+                      onClick={() => {
+                        if (!deciding) {
+                          setActiveId(row.id);
+                          setError("Write why the refund is not valid, then choose it again.");
+                          return;
+                        }
+                        void decide(row, "reject");
+                      }}
+                    >
+                      Refund not valid
+                    </button>
+                    {!deciding ? (
+                      <button type="button" className="admin-refunds__btn admin-refunds__btn--quiet" onClick={() => setActiveId(row.id)}>
+                        Add a reason
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="admin-refunds__closed">
+                    {row.partial_percent ? `${row.partial_percent}% returned` : row.status}
+                  </p>
+                )}
+              </article>
+            );
+          })}
         </div>
       ) : (
         <p className="admin-signup-reports__empty">No refund requests in this list.</p>

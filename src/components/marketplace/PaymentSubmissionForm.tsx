@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { PaymentLogInput } from "../../services/marketplaceApi";
 import { formatMarketplaceMoney } from "../../utils/marketplaceDisplay";
+import MarketplacePolicyNotice from "../legal/MarketplacePolicyNotice";
 
 interface PaymentSubmissionFormProps {
   orderId: string;
@@ -77,6 +78,7 @@ const PaymentSubmissionForm: React.FC<PaymentSubmissionFormProps> = ({
         After your bank transfer, log the payment so an administrator can confirm it.
         Invoice: <strong>{invoiceNumber}</strong>
       </p>
+      <MarketplacePolicyNotice context="order" />
 
       {error && <div className="marketplace-banner-error">{error}</div>}
 

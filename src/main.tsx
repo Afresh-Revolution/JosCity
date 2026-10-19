@@ -31,6 +31,12 @@ import TermsOfService from "./pages/TermsOfService";
 import CookiePolicy from "./pages/CookiePolicy";
 import CommunityGuidelines from "./pages/CommunityGuidelines";
 import ChildSafety from "./pages/ChildSafety";
+import PolicyPage from "./components/legal/PolicyPage";
+import {
+  acceptableUsePolicy,
+  refundPolicy,
+  shippingPolicy,
+} from "./content/marketplacePolicies";
 import Accessibility from "./pages/Accessibility";
 import About from "./pages/About";
 import ContactPage from "./pages/ContactPage";
@@ -188,6 +194,9 @@ if (rootElement) {
                   <Route path="/cookie-policy" element={<CookiePolicy />} />
                   <Route path="/community-guidelines" element={<CommunityGuidelines />} />
                   <Route path="/child-safety" element={<ChildSafety />} />
+                  <Route path="/acceptable-use" element={<PolicyPage policy={acceptableUsePolicy} />} />
+                  <Route path="/shipping-policy" element={<PolicyPage policy={shippingPolicy} />} />
+                  <Route path="/refund-policy" element={<PolicyPage policy={refundPolicy} />} />
                   <Route path="/accessibility" element={<Accessibility />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/contact" element={<ContactPage />} />

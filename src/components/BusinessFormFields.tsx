@@ -4,6 +4,7 @@ import { Mail, MapPin, Lock, Eye, EyeOff, ChevronDown } from "lucide-react";
 import type { BusinessFormData } from "../utils/validationSchemas";
 import type { BusinessCategory } from "../constants/businessCategories";
 import { BUSINESS_CATEGORIES } from "../constants/businessCategories";
+import MarketplacePolicyNotice from "./legal/MarketplacePolicyNotice";
 
 interface BusinessFormFieldsProps {
   formData: BusinessFormData;
@@ -242,6 +243,7 @@ const BusinessFormFields: React.FC<BusinessFormFieldsProps> = ({
           , and confirm I&apos;m authorised to register this business.
         </span>
       </label>
+      <MarketplacePolicyNotice context="vendor" />
     </>
   );
 };

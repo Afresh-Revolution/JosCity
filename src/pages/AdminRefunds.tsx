@@ -26,6 +26,43 @@ function when(value?: string) {
 }
 
 const OPEN = new Set(["pending", "disputed", "urged"]);
+const WINDOW_MS = 48 * 60 * 60 * 1000;
+
+function deadlineMs(row: { deadline_at?: string | null; created_at?: string | null }) {
+  if (row.deadline_at) {
+    const deadline = new Date(row.deadline_at).getTime();
+    if (Number.isFinite(deadline)) return deadline;
+  }
+  const started = new Date(row.created_at || 0).getTime();
+  if (!Number.isFinite(started) || started <= 0) return null;
+  return started + WINDOW_MS;
+}
+
+function formatLeft(ms: number) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+}
+
+function RefundClock({ row }: { row: AdminRefundRequest }) {
+  const deadline = deadlineMs(row);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!deadline || !OPEN.has(row.status)) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [deadline, row.status]);
+  if (!deadline || !OPEN.has(row.status)) return null;
+  const left = deadline - now;
+  return (
+    <p className="admin-refunds__clock">
+      {left <= 0 ? "00:00:00 · Time is up" : `${formatLeft(left)} left of 48 hours`}
+    </p>
+  );
+}
 
 export default function AdminRefunds() {
   const [rows, setRows] = useState<AdminRefundRequest[]>([]);
@@ -134,6 +171,7 @@ export default function AdminRefunds() {
                     {row.status}
                   </span>
                 </header>
+                <RefundClock row={row} />
                 <h2>{row.title}</h2>
                 <dl className="admin-refunds__people">
                   <div>

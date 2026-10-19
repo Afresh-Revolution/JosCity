@@ -59,6 +59,7 @@ import AdminFaqs from "./AdminFaqs";
 import AdminCloudinary from "./AdminCloudinary";
 import AdminVerification from "./AdminVerification";
 import AdminWallet from "./AdminWallet";
+import AdminRefunds from "./AdminRefunds";
 import AdminAds from "./AdminAds";
 import AdminPro from "./AdminPro";
 import AdminAffiliates from "./AdminAffiliates";
@@ -109,6 +110,7 @@ const Admin: React.FC = () => {
     | "clry"
     | "verification"
     | "wallet"
+    | "refunds"
     | "ads"
     | "pro"
     | "affiliates"
@@ -663,6 +665,18 @@ const Admin: React.FC = () => {
                       <button
                         onClick={(e) => {
                           e.preventDefault();
+                          setActiveView("refunds");
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`admin-sidebar-section-container__item ${
+                          activeView === "refunds" ? "admin-sidebar-section-container__item--active" : ""
+                        }`}>
+                        <DollarSign size={18} />
+                        <span>Refunds</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
                           setActiveView("pro");
                           setIsMobileMenuOpen(false);
                         }}
@@ -1047,6 +1061,8 @@ const Admin: React.FC = () => {
               <AdminVerification />
             ) : activeView === "wallet" ? (
               <AdminWallet />
+            ) : activeView === "refunds" ? (
+              <AdminRefunds />
             ) : activeView === "ads" ? (
               <AdminAds />
             ) : activeView === "pro" ? (

@@ -199,6 +199,7 @@ if (rootElement) {
                   <Route path="/refund-policy" element={<PolicyPage policy={refundPolicy} />} />
                   <Route path="/accessibility" element={<Accessibility />} />
                   <Route path="/about" element={<About />} />
+                  <Route path="/our-services" element={<About />} />
                   <Route path="/contact" element={<ContactPage />} />
                   <Route
                     path="/people"

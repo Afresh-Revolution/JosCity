@@ -165,7 +165,8 @@ export default function AdminRefunds() {
                 <header className="admin-refunds__top">
                   <div>
                     <strong>{row.code}</strong>
-                    <span>{when(row.created_at)}</span>
+                    <span>Transaction {when(row.transaction_at || row.created_at)}</span>
+                    {row.transaction_at ? <span>Requested {when(row.created_at)}</span> : null}
                   </div>
                   <span className={`admin-refunds__status admin-refunds__status--${row.status}`}>
                     {row.status}

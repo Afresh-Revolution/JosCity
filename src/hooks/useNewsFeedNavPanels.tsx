@@ -619,10 +619,19 @@ export function useNewsFeedNavPanels(options: UseNewsFeedNavPanelsOptions = {}) 
                             />
                             <div className="newsfeed-notification-panel__text">
                               <p className="newsfeed-notification-panel__message">
-                                <span className="newsfeed-notification-panel__user-name">
-                                  {notification.userName}
-                                </span>{" "}
-                                {notification.message}
+                                {notification.message
+                                  .trim()
+                                  .toLowerCase()
+                                  .startsWith(notification.userName.trim().toLowerCase()) ? (
+                                  notification.message
+                                ) : (
+                                  <>
+                                    <span className="newsfeed-notification-panel__user-name">
+                                      {notification.userName}
+                                    </span>{" "}
+                                    {notification.message}
+                                  </>
+                                )}
                               </p>
                               <span className="newsfeed-notification-panel__timestamp">
                                 {notification.timestamp}

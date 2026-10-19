@@ -2163,6 +2163,7 @@ export type AdminRefundRequest = {
   refunded_naira?: number | null;
   partial_percent?: number | null;
   created_at?: string;
+  transaction_at?: string | null;
   deadline_at?: string | null;
 };
 

@@ -388,7 +388,7 @@ export const deleteUser = async (id: string): Promise<{ success: boolean; messag
   try {
     const response = await adminApiRequest(`/user/${id}`, {
       method: "DELETE",
-      timeoutMs: 120000,
+      timeoutMs: 180000,
     });
     return response.json();
   } catch (err) {
@@ -398,6 +398,11 @@ export const deleteUser = async (id: string): Promise<{ success: boolean; messag
         message: DELETED_ACCOUNT_MESSAGE,
         account_status: "deleted",
       };
+    }
+    if (isTransportError(err)) {
+      throw new Error(
+        "The delete is still running on the server and the page stopped waiting. Refresh the user list in a minute. If the account is still there, try again."
+      );
     }
     throw err;
   }

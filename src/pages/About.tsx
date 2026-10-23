@@ -7,12 +7,12 @@ const SERVICES = [
   {
     id: "marketplace",
     title: "Joscity Marketplace",
-    text: "Businesses list products and services. Customers browse those listings and place orders through the platform. The business is the seller of its own goods. Joscity provides the marketplace, the order record, and the payment steps shown at checkout.",
+    text: "Businesses list products and services. Customers browse those listings and place orders through the platform. The business is the seller of its own goods. Joscity provides the marketplace, the order record, and checkout. Marketplace payments are collected through an approved payment provider. The vendor’s share is settled to the vendor, and Joscity receives only its marketplace commission. Joscity does not collect those proceeds into its own account and then pay vendors later.",
   },
   {
     id: "memberships",
     title: "Business and Personal Memberships",
-    text: "Personal and business members can subscribe to the membership plans published on Joscity. An active plan gives the member the benefits shown for that plan. Plans and prices are the ones displayed on the Membership page at the time of subscription.",
+    text: "Personal and business members can subscribe to the membership plans published on Joscity. An active plan gives the member the benefits shown for that plan. Membership is a payment for services Joscity itself provides. It is processed separately from marketplace checkout, not as money held for a vendor.",
   },
   {
     id: "agents",
@@ -22,12 +22,12 @@ const SERVICES = [
   {
     id: "wallet",
     title: "Digital Wallet",
-    text: "Members can fund a Joscity wallet, keep a balance, and use that balance for eligible payments on the platform, including marketplace orders that offer wallet payment. Members can also request a withdrawal to the bank account they provide. Withdrawal requests are reviewed before they are paid.",
+    text: "A wallet is intended to let members hold a balance for platform use and withdraw an eligible amount when that product is offered through a licensed payment institution. Wallet funding, withdrawals, transfers, and stored value are not provided through Paystack. Joscity does not use Paystack to hold customer or vendor money in a wallet. Any wallet that is offered will sit on a separate, regulated arrangement, not on marketplace checkout through Paystack.",
   },
   {
     id: "community",
     title: "Community Platform",
-    text: "Members can connect with other people, share posts and experiences, and take part in community groups, forums, and local updates. The community areas are part of the same Joscity account used for the marketplace, memberships, and wallet.",
+    text: "Members can connect with other people, share posts and experiences, and take part in community groups, forums, and local updates. The community areas use the same Joscity account as the marketplace and memberships.",
   },
 ];
 
@@ -36,7 +36,7 @@ const About: React.FC = () => {
 
   useEffect(() => {
     const description =
-      "Joscity is a Nigerian marketplace and community platform. Businesses sell through the marketplace, members subscribe to plans, independent agents assist with purchases and deliveries, and members use a digital wallet.";
+      "Joscity is a Nigerian marketplace and community. Marketplace payments settle to vendors through an approved payment provider. Joscity receives its commission and does not hold customer or vendor funds for later payout.";
     document.title = pathname === "/our-services" ? "Our Services | Joscity" : "About Joscity | Joscity";
     let meta = document.querySelector('meta[name="description"]');
     if (!meta) {
@@ -60,7 +60,7 @@ const About: React.FC = () => {
           <p className="policy-doc__kicker">About Joscity</p>
           <h1>About Joscity</h1>
           <p className="policy-doc__intro">
-            Joscity is a digital community and marketplace operated by JosCity Smart Services in Jos, Plateau State, Nigeria. People, businesses, and independent agents use it to trade, subscribe, pay, and take part in the community.
+            Joscity is a digital community and marketplace operated by JosCity Smart Services in Jos, Plateau State, Nigeria. People, businesses, and independent agents use it to trade, subscribe, and take part in the community. Joscity runs the platform. It does not hold customer or vendor money for later distribution.
           </p>
         </header>
 
@@ -69,10 +69,10 @@ const About: React.FC = () => {
             <section id="role" aria-labelledby="role-title">
               <h2 id="role-title">Joscity’s role</h2>
               <p>
-                Joscity operates the platform. It provides accounts, listings, checkout, the wallet, membership subscriptions, and customer support. Joscity is not the seller of a business’s products, and it does not own that business’s stock or run a warehouse for marketplace sellers.
+                Joscity operates the website and apps. It provides accounts, listings, checkout, membership plans, and customer support. Joscity is not the seller of a business’s products, and it does not own that business’s stock or run a warehouse for marketplace sellers.
               </p>
               <p>
-                Independent businesses sell their own goods and services. Independent agents, where a customer uses an agent service, assist with purchasing and delivery. Joscity records the order and applies the payment arrangement below.
+                Independent businesses sell their own goods and services. Independent agents, where a customer uses an agent service, assist with purchasing and delivery. Joscity records the order. Money for a marketplace sale is handled by the payment provider shown at checkout, not kept in Joscity’s business account for later payout to the vendor.
               </p>
             </section>
 
@@ -88,22 +88,30 @@ const About: React.FC = () => {
             </section>
 
             <section id="payments" aria-labelledby="payments-title">
-              <h2 id="payments-title">Marketplace payment arrangement</h2>
+              <h2 id="payments-title">How payments work</h2>
               <p>
-                The customer sees the amount and the payment method before confirming an order. Joscity does not add a card charge that the checkout screen does not show.
+                The customer sees the amount and the payment method before confirming. Joscity does not add a charge that the checkout screen does not show.
               </p>
-              <ul>
-                <li>
-                  Bank transfer: the checkout shows an invoice total and the account details for that invoice. The customer transfers that amount and uses the invoice number as the narration. A Joscity administrator confirms the transfer. The order is treated as paid after that confirmation.
-                </li>
-                <li>
-                  Wallet or CBC: where checkout offers it, the customer pays from a Joscity wallet balance or CBC balance. When the payment succeeds, the seller’s wallet is credited.
-                </li>
-              </ul>
+              <h3>Marketplace orders</h3>
               <p>
-                Refunds that are due are settled within 2 working days, and no later than 3 days, after support review where a review is needed. Delivery, cancellation, and acceptable use are set out in the{" "}
-                <Link to="/shipping-policy">Shipping and Delivery Policy</Link>, the{" "}
-                <Link to="/refund-policy">Returns, Refunds and Cancellation Policy</Link>, and the{" "}
+                Marketplace checkout uses an approved payment provider. Where Paystack is used, the sale is split at settlement: the vendor receives the vendor share, and Joscity receives its marketplace commission. Joscity does not take the full payment into its own account and then send the vendor their earnings later.
+              </p>
+              <h3>Membership</h3>
+              <p>
+                Membership subscriptions are payments for Joscity’s own plans and benefits. They are charged separately from a marketplace order and are not vendor settlement.
+              </p>
+              <h3>Wallet</h3>
+              <p>
+                Wallet funding, withdrawals, transfers, and stored value are not processed through Paystack. Those features, if offered, will use a separate regulated payment arrangement. Until that arrangement is in place and approved, marketplace and membership payments through Paystack do not create or fund a stored-value wallet.
+              </p>
+              <h3>Refunds</h3>
+              <p>
+                A refund for a payment made through Paystack follows the Paystack refund process. Where that process supports it, the money goes back to the original payment method. Joscity reviews customer complaints and marketplace disputes under the{" "}
+                <Link to="/refund-policy">Returns, Refunds and Cancellation Policy</Link>. After a refund is agreed, Joscity’s review is completed within 2 working days, and no later than 3 days. The payment provider may then take its own time to show the money on the original method.
+              </p>
+              <p>
+                Delivery and acceptable use are set out in the{" "}
+                <Link to="/shipping-policy">Shipping and Delivery Policy</Link> and the{" "}
                 <Link to="/acceptable-use">Acceptable Use Policy</Link>.
               </p>
             </section>
@@ -113,7 +121,7 @@ const About: React.FC = () => {
               <ol>
                 <li>Open joscity.com, or the Joscity mobile app.</li>
                 <li>Create a personal, business, or agent account, or sign in to an existing account.</li>
-                <li>Open Marketplace to buy or list, Membership to subscribe to a plan, Agents where an agent service is offered, Wallet to fund a balance or request a withdrawal, and the community areas to post, join groups, and connect with other members.</li>
+                <li>Open Marketplace to buy or list, Membership to subscribe to a Joscity plan, Agents where an agent service is offered, and the community areas to post, join groups, and connect with other members.</li>
               </ol>
               <p>
                 A business account must provide its CAC. A business account without CAC is suspended 7 days after the signup day. Support is available at{" "}

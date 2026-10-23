@@ -221,11 +221,11 @@ export const acceptableUsePolicy: MarketplacePolicy = {
       blocks: [
         {
           type: "p",
-          text: "Pay only through the methods presented at checkout for that order. Those methods can include bank transfer, CBC, or the Joscity wallet where the screen offers them. Do not ask a buyer to pay off-platform in order to evade a dispute, a fee, or a record of the order.",
+          text: "Pay only through the methods presented at checkout for that order. Marketplace payments are processed by the payment provider shown there. Where Paystack is used, the vendor’s share is settled to the vendor and Joscity receives its commission. Do not ask a buyer to pay off-platform in order to evade a dispute, a fee, or a record of the order.",
         },
         {
           type: "p",
-          text: "You may not use a payment method you are not authorised to use, submit false transfer details, or reverse a payment after receiving the goods or service without a genuine dispute. Unauthorised transactions should be reported to support@joscity.com as soon as you notice them.",
+          text: "You may not use a payment method you are not authorised to use, submit false payment details, or reverse a payment after receiving the goods or service without a genuine dispute. Joscity does not hold customer or vendor funds from a marketplace sale for later distribution. Wallet funding, withdrawals, transfers, and stored value are not provided through Paystack. Unauthorised transactions should be reported to support@joscity.com as soon as you notice them.",
         },
       ],
     },
@@ -383,7 +383,7 @@ export const shippingPolicy: MarketplacePolicy = {
       blocks: [
         {
           type: "p",
-          text: "Placing an order is an offer to buy on the terms shown at checkout. A vendor may be unable to accept an order that is out of stock, outside their service area, or priced in error. If an order cannot be fulfilled, the vendor should say so, and any payment already taken for that unfulfilled order is handled under the [Returns, Refunds and Cancellation Policy](/refund-policy). Payment screens may ask for a bank transfer, CBC, or wallet payment depending on the checkout you are using.",
+          text: "Placing an order is an offer to buy on the terms shown at checkout. A vendor may be unable to accept an order that is out of stock, outside their service area, or priced in error. If an order cannot be fulfilled, the vendor should say so, and any payment already taken for that unfulfilled order is handled under the [Returns, Refunds and Cancellation Policy](/refund-policy). Checkout uses the payment provider shown on that order. Marketplace proceeds are not taken into Joscity’s account for later payout to the vendor.",
         },
       ],
     },
@@ -480,9 +480,9 @@ export const refundPolicy: MarketplacePolicy = {
   title: "Returns, Refunds and Cancellation Policy",
   seoTitle: "Returns, Refunds and Cancellation Policy | Joscity",
   description:
-    "How to cancel, return, or dispute a Joscity marketplace order. A refund that is due is settled within 2 working days, and no later than 3 days after support review where a review is needed.",
+    "How to cancel, return, or dispute a Joscity marketplace order. Paystack refunds return to the original payment method where that process supports it. Joscity reviews complaints and marketplace disputes.",
   intro:
-    "This policy explains cancellation, returns, and refunds for orders placed on the Joscity marketplace. A refund that is due must be settled within 2 working days, and no later than 3 days. Where support needs to review the request first, that period starts when the review is finished. Rights you have under Nigerian law still apply.",
+    "This policy explains cancellation, returns, and refunds for orders placed on the Joscity marketplace. Joscity reviews complaints and marketplace disputes. A payment made through Paystack is refunded through the Paystack refund process, to the original payment method where that process supports it. After a refund is agreed, Joscity finishes its review within 2 working days, and no later than 3 days. Rights you have under Nigerian law still apply.",
   sections: [
     {
       id: "introduction",
@@ -615,7 +615,7 @@ export const refundPolicy: MarketplacePolicy = {
       blocks: [
         {
           type: "p",
-          text: "An approved refund is sent, where practical, by the method used to pay. That may be a reversal to a wallet or CBC balance, or a bank transfer to the payer. If the original method cannot receive the refund, Joscity or the vendor will agree another method with you. We may ask you to confirm the account name before a bank transfer is sent.",
+          text: "A refund for a payment made through Paystack follows the Paystack refund process. Where that process supports it, the money is returned to the original payment method. Joscity does not keep marketplace proceeds in its business account and then pay a refund from that pot. If a payment was not made through Paystack, the refund uses the method shown for that order.",
         },
       ],
     },
@@ -625,7 +625,7 @@ export const refundPolicy: MarketplacePolicy = {
       blocks: [
         {
           type: "p",
-          text: "A refund that is due must be settled within 2 working days, and no later than 3 days. Where support needs to review the request first, the 2 working days, and the 3-day maximum, start after that review is completed. Settlement means Joscity or the vendor has sent the refund by the method in section 13. We will tell you when it has been sent. A buyer’s bank or payment provider may still take its own time to show the money after that.",
+          text: "Joscity reviews a refund request and, where a review is needed, completes that review within 2 working days, and no later than 3 days after the review starts. Once a Paystack refund is started, the money is returned to the original payment method where Paystack supports that. Paystack and the buyer’s bank control how long the credit then takes to appear. We will tell you when the refund has been started.",
         },
       ],
     },

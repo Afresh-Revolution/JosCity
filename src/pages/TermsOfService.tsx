@@ -101,13 +101,21 @@ const TermsOfService: React.FC = () => {
           <section className="legal-page__section">
             <h2>5. Payments and Transactions</h2>
             <p>
-              All payments are processed securely through third-party payment
-              providers. You agree to provide valid payment information and
-              authorize us to charge your payment method for services rendered.
+              Marketplace payments are processed by the payment provider shown
+              at checkout. Where Paystack is used, the vendor receives the
+              vendor share and Joscity receives its marketplace commission.
+              Joscity does not hold customer or vendor funds from a marketplace
+              sale for later distribution. Membership payments are for services
+              Joscity itself provides and are processed separately. Wallet
+              funding, withdrawals, transfers, and stored value are not
+              provided through Paystack.
             </p>
             <p>
-              Refunds are subject to our refund policy and applicable
-              government regulations.
+              Refunds for Paystack payments follow the Paystack refund process
+              and return to the original payment method where that process
+              supports it. Marketplace disputes are handled under our{" "}
+              <a href="/refund-policy">Returns, Refunds and Cancellation Policy</a>{" "}
+              and applicable law.
             </p>
           </section>
 

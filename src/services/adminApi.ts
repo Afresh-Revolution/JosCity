@@ -1250,6 +1250,7 @@ export interface WalletPaymentRequest {
   provider_reference?: string | null;
   paystack_paid?: boolean;
   wallet_credited?: boolean;
+  settlement_mode?: string | null;
   paystack_channel?: string | null;
 }
 
@@ -2149,6 +2150,11 @@ export interface WeeklySignupReport {
 }
 
 export type AdminRefundRequest = {
+  refund_provider?: string;
+  provider_refund_status?: string | null;
+  provider_refund_id?: string | null;
+  requested_refund_naira?: number | null;
+  settlement_reconciliation_required?: boolean;
   id: number;
   order_id: number;
   code: string;
@@ -2183,7 +2189,7 @@ export const getAdminRefunds = async (status = "open") => {
 
 export const decideAdminRefund = async (
   id: number,
-  action: "approve" | "reject" | "urge" | "partial",
+  action: "approve" | "reject" | "urge" | "partial" | "reconcile",
   body: { note?: string; percent?: number } = {}
 ) => {
   const response = await adminApiRequest(`/refunds/${id}/${action}`, {

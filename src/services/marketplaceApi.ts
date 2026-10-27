@@ -849,6 +849,14 @@ export const listingMarketplaceApi = {
     });
   },
 
+  startListingPaystack(orderId: number) {
+    return listingRequest<{ reference: string; authorization_url: string }>(`/orders/${orderId}/pay/paystack`, { method: "POST" });
+  },
+  verifyListingPaystack(orderId: number, reference: string) {
+    return listingRequest<{ order_id: number }>(`/orders/${orderId}/pay/paystack/verify`, {
+      method: "POST", body: JSON.stringify({ reference }),
+    });
+  },
   payListingWallet(orderId: number) {
     return listingRequest<{
       amount: number;

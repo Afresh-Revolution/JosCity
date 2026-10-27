@@ -609,7 +609,7 @@ export default function AdminWalletFunding() {
                     <span
                       className={`badge ${payment.wallet_credited ? "badge--credited" : "badge--not-credited"}`}
                     >
-                      {payment.wallet_credited ? "Credited" : "Not credited"}
+                      {payment.settlement_mode === "paystack_direct" ? "Direct bank settlement" : payment.wallet_credited ? "Credited" : "Not credited"}
                     </span>
                   ) : null}
                 </div>
@@ -628,7 +628,7 @@ export default function AdminWalletFunding() {
                     ) : (
                       <CheckCircle size={16} />
                     )}
-                    {payment.paystack_paid && !payment.wallet_credited ? "Credit wallet" : "Approve"}
+                    {payment.settlement_mode === "paystack_direct" ? "Confirm order payment" : payment.paystack_paid && !payment.wallet_credited ? "Credit wallet" : "Approve"}
                   </button>
                   <button
                     type="button"

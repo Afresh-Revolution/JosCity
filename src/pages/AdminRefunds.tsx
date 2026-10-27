@@ -49,6 +49,10 @@ function formatLeft(ms: number) {
 
 function statusWord(status?: string | null) {
   const value = String(status || "").toLowerCase();
+  if (value === "refund_pending") return "Queued with Paystack";
+  if (value === "refund_processing") return "Paystack processing";
+  if (value === "refund_failed") return "Paystack refund failed";
+  if (value === "refund_needs_attention") return "Paystack review needed";
   if (value === "pending") return "Waiting";
   if (value === "urged") return "Asked to refund";
   if (value === "disputed") return "Disputed";
@@ -157,10 +161,10 @@ export default function AdminRefunds() {
 
   const decide = async (
     row: AdminRefundRequest,
-    action: "approve" | "reject" | "urge" | "partial"
+    action: "approve" | "reject" | "urge" | "partial" | "reconcile"
   ) => {
     const reason = note.trim();
-    if (action !== "approve" && reason.length < 12) {
+    if (action !== "approve" && action !== "reconcile" && reason.length < 12) {
       setError("Add a short reason before you decide.");
       setActiveId(row.id);
       return;
@@ -201,6 +205,10 @@ export default function AdminRefunds() {
             <option value="pending">Waiting</option>
             <option value="disputed">Disputed</option>
             <option value="urged">Asked to refund</option>
+            <option value="refund_pending">Queued with Paystack</option>
+            <option value="refund_processing">Paystack processing</option>
+            <option value="refund_needs_attention">Paystack review needed</option>
+            <option value="refund_failed">Paystack failed</option>
             <option value="refunded">Refunded</option>
             <option value="partial">Partial</option>
             <option value="closed">Closed</option>
@@ -234,6 +242,18 @@ export default function AdminRefunds() {
                     {statusWord(row.status)}
                   </span>
                 </header>
+                {row.refund_provider === "paystack" ? (
+                  <p>Refund destination: customer payment method through Paystack.
+                    {row.provider_refund_id ? ` Provider refund: ${row.provider_refund_id}.` : ""}
+                    {row.status === "refund_needs_attention" || row.status === "refund_failed"
+                      ? " Check the Paystack refund and reconcile its status before taking further action." : ""}
+                    {row.settlement_reconciliation_required
+                      ? " Reconcile this refund against the vendor settlement in Paystack; no vendor wallet debit was made." : ""}
+                  </p>
+                ) : null}
+                {row.refund_provider === "paystack" && row.status.startsWith("refund_") ? (
+                  <button type="button" disabled={busyId === row.id} onClick={() => void decide(row, "reconcile")}>Refresh Paystack status</button>
+                ) : null}
                 <RefundClock row={row} />
                 <RefundTimeline row={row} />
                 <dl className="admin-refunds__people">
@@ -371,7 +391,7 @@ export default function AdminRefunds() {
                   </div>
                 ) : (
                   <p className="admin-refunds__closed">
-                    {row.partial_percent
+                    {row.partial_percent && row.status === "partial"
                       ? `${row.partial_percent}% returned to the customer`
                       : statusWord(row.status)}
                   </p>

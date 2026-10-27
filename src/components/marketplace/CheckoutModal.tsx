@@ -1,4 +1,5 @@
 ﻿import React, { useState } from "react";
+import PaystackOrderPayButton from "./PaystackOrderPayButton";
 import { X } from "lucide-react";
 import CbcCardPayForm from "../CbcCardPayForm";
 import CbcTapPayPanel from "../CbcTapPayPanel";
@@ -135,15 +136,15 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </div>
           <div className="marketplace-checkout-success">
             <p className="marketplace-checkout-success__lead">
-              Pay {payeeName} with CBC or your JOSCITY wallet. The seller&apos;s wallet is credited
-              when payment succeeds.
+              Pay {payeeName} with Paystack, CBC or your JOSCITY wallet. Paystack sales settle
+              to the seller&apos;s bank with JosCity&apos;s commission allocated at checkout.
             </p>
             {result.orders.map((ord) => (
               <div key={ord.id} className="marketplace-checkout-order">
                 <h3>{orderPayLabel(ord)} — {formatMarketplaceMoney(ord.totalNaira)}</h3>
                     {paidOrders[ord.id] ? (
                       <p className="marketplace-checkout-success__lead">
-                        Payment received. The business wallet was credited.
+                        Payment received. Your order is paid.
                       </p>
                     ) : (
                       <>
@@ -174,6 +175,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         >
                           {payBusyId === ord.id ? "Paying…" : "Pay with wallet"}
                         </button>
+                        {result.funding?.paystack?.enabled ? <PaystackOrderPayButton
+                          orderId={ord.id} disabled={payBusyId !== null || tapBusyId !== null}
+                          onBusyChange={(busy) => setPayBusyId(busy ? ord.id : null)}
+                          onPaid={() => setPaidOrders((current) => ({ ...current, [ord.id]: true }))}
+                        /> : null}
                         <CbcCardPayForm
                           amountNaira={ord.totalNaira}
                           quote={result.funding?.cbc_quote}
@@ -243,7 +249,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
           {error && <div className="marketplace-modal__error">{error}</div>}
           <p className="marketplace-checkout-intro">
             Enter your contact and delivery or service location. After confirming, you can pay with
-            CBC or your JOSCITY wallet.
+            Paystack, CBC or your JOSCITY wallet.
           </p>
           <label className="marketplace-modal__label">
             Full name <span className="marketplace-modal__req">*</span>

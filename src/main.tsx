@@ -1,4 +1,6 @@
 import React from "react";
+import { useAppStoreLinks } from "./hooks/useAppStoreLinks";
+import { getMobilePlatform } from "./utils/mobilePlatform";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import NavBar from "./pages/NavBar";
@@ -86,6 +88,7 @@ if (preventInspectEnabled()) {
 
 // Landing page component (without WelcomePage or Register)
 export function LandingPage() {
+  const storeLinks = useAppStoreLinks();
   return (
     <>
       <NavBar />
@@ -101,6 +104,11 @@ export function LandingPage() {
         className="landing-mobile-app-button"
         aria-controls="mobile-app-download"
         onClick={() => {
+          const platform = getMobilePlatform();
+          if (platform) {
+            window.location.assign(platform === "ios" ? storeLinks.ios_url : storeLinks.android_url);
+            return;
+          }
           document.getElementById("mobile-app-download")?.scrollIntoView({
             behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
               ? "instant"

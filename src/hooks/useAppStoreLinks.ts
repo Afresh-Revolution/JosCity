@@ -6,7 +6,7 @@ export type AppStoreLinks = {
   ios_url: string;
 };
 
-const DEFAULT_LINKS: AppStoreLinks = {
+export const DEFAULT_LINKS: AppStoreLinks = {
   android_url:
     "https://play.google.com/store/apps/details?id=com.joscity.app&pcampaignid=web_share",
   ios_url: "https://apps.apple.com/ng/app/joscity/id6805214004",

@@ -24,7 +24,7 @@ export function useAppStoreLinks() {
         if (cancelled) return;
         setLinks({
           android_url: DEFAULT_LINKS.android_url,
-          ios_url: String(json.data?.ios_url || "").trim(),
+          ios_url: String(json.data?.ios_url || "").trim() || DEFAULT_LINKS.ios_url,
         });
       } catch {
         if (!cancelled) setLinks(DEFAULT_LINKS);

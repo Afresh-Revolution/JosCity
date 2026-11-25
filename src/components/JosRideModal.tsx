@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
-import { Car, Smartphone, X, ArrowUpRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Car, Smartphone, X, ArrowUpRight, User } from "lucide-react";
+import { getMobilePlatform } from "../utils/mobilePlatform";
 import "./JosRideModal.css";
 
 interface JosRideModalProps {
@@ -7,41 +8,26 @@ interface JosRideModalProps {
   onClose: () => void;
 }
 
-// Fixed HTTPS store destinations; no user-provided URLs or HTML.
-const passengerApps = [
-  { label: "Android", store: "Play Store", url: "https://play.google.com/store/apps/details?id=ng.josride.app&pcampaignid=web_share" },
-  { label: "IOS", store: "App Store", url: "https://apps.apple.com/ng/app/josride/id6805468513" },
-];
-
-// Paste each driver app's HTTPS download/store link into its empty url below.
-// Leave it empty to keep that download button disabled.
-const driverApps = [
-  { label: "Android", store: "Direct download", url: "https://expo.dev/artifacts/eas/qjchAKqtxd8Fvv8VQzaHYV9rKirHVeSWOQPEebUANtY.apk" },
-  { label: "IOS", store: "App Store", url: "https://apps.apple.com/ng/app/josride-driver/id6805659224" },
-].map((app) => {
-  try {
-    const url = new URL(app.url.trim());
-    const allowedHosts =
-      app.store === "App Store"
-        ? ["apps.apple.com"]
-        : ["play.google.com", "expo.dev"];
-    const isAllowed =
-      url.protocol === "https:" &&
-      allowedHosts.includes(url.hostname) &&
-      !url.username &&
-      !url.password;
-    return { ...app, url: isAllowed ? url.href : "" };
-  } catch {
-    return { ...app, url: "" };
-  }
-});
+const apps = {
+  passenger: {
+    android: "https://play.google.com/store/apps/details?id=ng.josride.app&pcampaignid=web_share",
+    ios: "https://apps.apple.com/ng/app/josride/id6805468513",
+  },
+  driver: {
+    android: "https://play.google.com/store/apps/details?id=com.josride.drive&pcampaignid=web_share",
+    ios: "https://apps.apple.com/ng/app/josride-driver/id6805659224",
+  },
+};
+type Role = keyof typeof apps;
 
 export default function JosRideModal({ isOpen, onClose }: JosRideModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!isOpen || !dialog) return;
+    setSelectedRole(null);
     const previouslyFocused = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     dialog.showModal();
@@ -53,6 +39,12 @@ export default function JosRideModal({ isOpen, onClose }: JosRideModalProps) {
     };
   }, [isOpen]);
 
+  const chooseRole = (role: Role) => {
+    const platform = getMobilePlatform();
+    if (platform) window.location.assign(apps[role][platform]);
+    else setSelectedRole(role);
+  };
+
   return (
     <dialog ref={dialogRef} className="josride-card" aria-labelledby="josride-title"
       aria-describedby="josride-description"
@@ -63,32 +55,25 @@ export default function JosRideModal({ isOpen, onClose }: JosRideModalProps) {
         <div className="josride-card__icon"><Car size={30} aria-hidden="true" /></div>
         <p className="josride-card__eyebrow">YOUR CITY. YOUR RIDE.</p>
         <h2 id="josride-title">Ride with JosRide</h2>
-        <p id="josride-description">Choose your device to download the app and get moving around Jos.</p>
-        <section aria-labelledby="josride-passenger-title">
-          <h3 id="josride-passenger-title">Passenger app</h3>
-          <div className="josride-card__options">
-            {passengerApps.map((app) => (
-              <a key={app.label} className="josride-card__download" href={app.url} target="_blank" rel="noopener noreferrer" aria-label={`Download JosRide for ${app.label} on ${app.store} (opens in a new tab)`}>
-                <Smartphone size={24} aria-hidden="true" /><span><strong>{app.label}</strong><small>{app.store}</small></span><ArrowUpRight size={18} aria-hidden="true" />
-              </a>
-            ))}
-          </div>
-        </section>
-        <section className="josride-card__drivers" aria-labelledby="josride-driver-title">
-          <h3 id="josride-driver-title">Drive with JosRide</h3>
-          <p>{driverApps.some((app) => app.url) ? "Choose your device to download the driver app." : "Driver app downloads will be available soon."}</p>
-          <div className="josride-card__options">
-            {driverApps.map((app) => app.url ? (
-              <a key={app.label} className="josride-card__download" href={app.url} target="_blank" rel="noopener noreferrer" aria-label={`Download JosRide driver app for ${app.label} on ${app.store} (opens in a new tab)`}>
-                <Smartphone size={24} aria-hidden="true" /><span><strong>{app.label}</strong><small>{app.store}</small></span><ArrowUpRight size={18} aria-hidden="true" />
-              </a>
-            ) : (
-              <button key={app.label} type="button" className="josride-card__download" disabled aria-label={`JosRide driver app for ${app.label}: coming soon`}>
-                <Smartphone size={24} aria-hidden="true" /><span><strong>{app.label}</strong><small>Coming soon</small></span>
-              </button>
-            ))}
-          </div>
-        </section>
+        <p id="josride-description" aria-live="polite">{selectedRole
+          ? `Choose your phone's store to install the ${selectedRole} app.`
+          : "Join as a passenger or driver to download your app."}</p>
+        <div className="josride-card__options">
+          {selectedRole ? (["android", "ios"] as const).map((platform) => (
+            <a key={platform} className="josride-card__download" href={apps[selectedRole][platform]}>
+              <Smartphone size={24} aria-hidden="true" />
+              <span><strong>{platform === "android" ? "Google Play" : "App Store"}</strong><small>{platform === "android" ? "Android" : "iPhone and iPad"}</small></span>
+              <ArrowUpRight size={18} aria-hidden="true" />
+            </a>
+          )) : (["passenger", "driver"] as const).map((role) => (
+            <button key={role} type="button" className="josride-card__download" onClick={() => chooseRole(role)}>
+              {role === "passenger" ? <User size={24} aria-hidden="true" /> : <Car size={24} aria-hidden="true" />}
+              <span><strong>{role === "passenger" ? "Passenger" : "Driver"}</strong><small>{role === "passenger" ? "Book a ride" : "Drive with JosRide"}</small></span>
+              <ArrowUpRight size={18} aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+        {selectedRole && <button type="button" className="josride-card__back" onClick={() => setSelectedRole(null)}>Back to passenger or driver</button>}
       </div>
     </dialog>
   );
